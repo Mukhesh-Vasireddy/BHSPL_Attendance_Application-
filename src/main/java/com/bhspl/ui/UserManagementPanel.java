@@ -1,0 +1,42 @@
+package com.bhspl.ui;
+
+import com.bhspl.db.DatabaseManager;
+import com.bhspl.util.UIHelper;
+import net.miginfocom.swing.MigLayout;
+
+import javax.swing.*;
+import java.awt.*;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Map;
+
+public class UserManagementPanel extends JPanel {
+    private UIHelper.StyledTablePanel tablePanel;
+    private static final String[] COLUMNS = {"ID", "Username", "Role", "Status", "Last Login"};
+
+    public UserManagementPanel() {
+        setLayout(new MigLayout("ins 24, fill, wrap", "[grow]", "[] 20 [grow]"));
+        setBackground(UIHelper.BG_MAIN);
+        buildUI();
+        loadData();
+    }
+
+    private void buildUI() {
+        JLabel title = new JLabel("System User Management");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        add(title, "gapbottom 10");
+
+        tablePanel = new UIHelper.StyledTablePanel(COLUMNS);
+        add(tablePanel, "grow, push");
+    }
+
+    private void loadData() {
+        tablePanel.clearRows();
+        try {
+            List<Map<String, Object>> rows = DatabaseManager.getInstance().query("SELECT * FROM users");
+            for (Map<String, Object> r : rows) {
+                tablePanel.addRow(new Object[]{r.get("id"), r.get("username"), r.get("role"), r.get("status"), r.get("last_login")});
+            }
+        } catch (SQLException ignored) {}
+    }
+}
