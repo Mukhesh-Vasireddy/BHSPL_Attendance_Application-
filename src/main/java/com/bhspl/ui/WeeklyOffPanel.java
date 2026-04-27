@@ -33,14 +33,14 @@ public class WeeklyOffPanel extends JPanel {
         JPanel actions = new JPanel(new MigLayout("ins 0, gap 10", "[] [] [] [] []"));
         actions.setOpaque(false);
         
-        JButton assignBtn = UIHelper.makeButton("+ Assign Off", UIHelper.SUCCESS);
+        JButton assignBtn = UIHelper.makeButton("Assign Off", UIHelper.SUCCESS, "plus.svg");
         assignBtn.addActionListener(e -> showAssignOffDialog());
         actions.add(assignBtn);
-        actions.add(UIHelper.makeButton("Edit", UIHelper.PRIMARY));
-        actions.add(UIHelper.makeButton("Delete", UIHelper.DANGER));
-        actions.add(UIHelper.makeButton("Bulk Assign", UIHelper.WARNING));
+        actions.add(UIHelper.makeButton("Edit", UIHelper.PRIMARY, "edit.svg"));
+        actions.add(UIHelper.makeButton("Delete", UIHelper.DANGER, "trash.svg"));
+        actions.add(UIHelper.makeButton("Bulk Assign", UIHelper.WARNING, "employees.svg"));
         
-        JButton refreshBtn = UIHelper.makeButton("Refresh", new Color(0x334155));
+        JButton refreshBtn = UIHelper.makeButton("Refresh", new Color(0x334155), "sync.svg");
         refreshBtn.addActionListener(e -> loadData());
         actions.add(refreshBtn);
         
@@ -68,9 +68,9 @@ public class WeeklyOffPanel extends JPanel {
 
     private void loadDepartments() {
         try {
-            List<Map<String, Object>> depts = DatabaseManager.getInstance().query("SELECT name FROM departments");
+            List<Map<String, Object>> depts = DatabaseManager.getInstance().query("SELECT dept_name FROM departments");
             for (Map<String, Object> d : depts) {
-                deptCombo.addItem((String) d.get("name"));
+                deptCombo.addItem((String) d.get("dept_name"));
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -80,14 +80,13 @@ public class WeeklyOffPanel extends JPanel {
     private void loadData() {
         tablePanel.clearRows();
         try {
-            String sql = "SELECT w.*, e.emp_name, d.name as dept_name " +
+            String sql = "SELECT w.*, e.emp_name, e.department as dept_name " +
                          "FROM weekly_offs w " +
-                         "JOIN employees e ON w.emp_id = e.emp_id " +
-                         "LEFT JOIN departments d ON e.dept_id = d.id";
+                         "JOIN employees e ON w.emp_id = e.emp_id";
             
             String selectedDept = (String) deptCombo.getSelectedItem();
             if (selectedDept != null && !"All".equals(selectedDept)) {
-                sql += " WHERE d.name = '" + selectedDept + "'";
+                sql += " WHERE e.department = '" + selectedDept + "'";
             }
             
             List<Map<String, Object>> rows = DatabaseManager.getInstance().query(sql);

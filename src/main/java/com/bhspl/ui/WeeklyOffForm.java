@@ -2,6 +2,7 @@ package com.bhspl.ui;
 
 import com.bhspl.db.DatabaseManager;
 import com.bhspl.util.UIHelper;
+import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
 import java.awt.*;
@@ -9,6 +10,9 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
+/**
+ * Modern Weekly Off Configuration Form.
+ */
 public class WeeklyOffForm extends JDialog {
     private final Integer id;
     private final Runnable callback;
@@ -17,52 +21,79 @@ public class WeeklyOffForm extends JDialog {
     private JComboBox<String> off1Combo, off2Combo;
 
     public WeeklyOffForm(JFrame parent, Integer id, Runnable callback) {
-        super(parent, id == null ? "Set Weekly Off" : "Edit Weekly Off #" + id, true);
+        super(parent, id == null ? "Assign Weekly Off" : "Edit Weekly Off #" + id, true);
         this.id = id; this.callback = callback;
-        setSize(420, 400); UIHelper.centerWindow(this, 420, 400);
+        
+        setSize(480, 550);
+        UIHelper.centerWindow(this, 480, 550);
         buildUI();
         if (id != null) loadData();
         setVisible(true);
     }
 
     private void buildUI() {
-        JPanel root = new JPanel(new BorderLayout()); root.setBackground(UIHelper.BG_CARD);
-        JPanel hdr = new JPanel(); hdr.setBackground(UIHelper.PRIMARY); hdr.setPreferredSize(new Dimension(0, 50));
-        JLabel title = new JLabel("📅  Weekly Off Configuration");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 14)); title.setForeground(Color.WHITE); hdr.add(title);
-        root.add(hdr, BorderLayout.NORTH);
+        JPanel root = new JPanel(new MigLayout("fill, ins 0, gap 0, wrap", "[grow]", "[] [grow] []"));
+        root.setBackground(Color.WHITE);
 
-        JPanel form = new JPanel(new GridBagLayout()); form.setBackground(UIHelper.BG_CARD);
-        form.setBorder(BorderFactory.createEmptyBorder(20, 35, 20, 35));
-        GridBagConstraints gbc = new GridBagConstraints(); gbc.insets = new Insets(6, 6, 6, 6); gbc.anchor = GridBagConstraints.EAST;
-
-        String[] labels = {"Emp ID *", "Off Day 1", "Off Day 2", "Effective From", "Effective To", "Remarks"};
-        String[] days = {"", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+        // Header
+        UIHelper.GradientPanel hdr = new UIHelper.GradientPanel(UIHelper.PRIMARY, UIHelper.SECONDARY);
+        hdr.setLayout(new MigLayout("ins 20", "[] 15 [grow]"));
+        hdr.add(new JLabel(new com.formdev.flatlaf.extras.FlatSVGIcon("icons/holidays.svg", 32, 32)));
         
-        for (int i = 0; i < labels.length; i++) {
-            gbc.gridx = 0; gbc.gridy = i;
-            form.add(new JLabel(labels[i] + ":"), gbc);
-            gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
-            if (i == 1) { off1Combo = new JComboBox<>(days); form.add(off1Combo, gbc); }
-            else if (i == 2) { off2Combo = new JComboBox<>(days); form.add(off2Combo, gbc); }
-            else {
-                JTextField txt = new JTextField(15);
-                if (i == 0) empIdField = txt;
-                else if (i == 3) { fromField = txt; txt.setText(LocalDate.now().format(DateTimeFormatter.ofPattern("dd-MM-yyyy"))); }
-                else if (i == 4) toField = txt;
-                else if (i == 5) remarksField = txt;
-                form.add(txt, gbc);
-            }
-        }
-        root.add(form, BorderLayout.CENTER);
+        JLabel title = new JLabel(id == null ? "Set Weekly Off Days" : "Update Off-Day Config");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        title.setForeground(Color.WHITE);
+        hdr.add(title);
+        root.add(hdr, "growx, h 80!");
 
-        JPanel footer = new JPanel(); footer.setBackground(UIHelper.BG_CARD);
-        JButton saveBtn = UIHelper.makeButton("Save", UIHelper.BTN_SUCCESS);
-        saveBtn.addActionListener(e -> save()); footer.add(saveBtn);
-        JButton cancelBtn = UIHelper.makeButton("Cancel", UIHelper.BTN_DANGER);
-        cancelBtn.addActionListener(e -> dispose()); footer.add(cancelBtn);
-        root.add(footer, BorderLayout.SOUTH);
+        // Content
+        JPanel form = new JPanel(new MigLayout("ins 30, wrap 2, gapy 12, fillx", "[shrink] 20 [grow, fill]"));
+        form.setBackground(Color.WHITE);
+
+        addField(form, "Employee ID *", empIdField = tf("e.g. 101"));
+        
+        String[] days = {"None", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+        addField(form, "Weekly Off 1", off1Combo = new JComboBox<>(days));
+        addField(form, "Weekly Off 2", off2Combo = new JComboBox<>(days));
+        
+        addField(form, "Effective From", fromField = tf("dd-mm-yyyy"));
+        fromField.setText(LocalDate.now().format(DateTimeFormatter.ofPattern("dd-MM-yyyy")));
+        
+        addField(form, "Effective To", toField = tf("dd-mm-yyyy"));
+        addField(form, "Remarks", remarksField = tf("Optional notes"));
+
+        root.add(new JScrollPane(form), "grow, push");
+
+        // Footer
+        JPanel footer = new JPanel(new MigLayout("ins 20, gap 12", "push [] []"));
+        footer.setBackground(new Color(0xF8FAFC));
+        
+        JButton cancelBtn = UIHelper.makeButton("Cancel", new Color(0x64748B), "x.svg");
+        cancelBtn.addActionListener(e -> dispose());
+        
+        JButton saveBtn = UIHelper.makeButton("Save Configuration", UIHelper.SUCCESS, "check.svg");
+        saveBtn.addActionListener(e -> save());
+        
+        footer.add(cancelBtn);
+        footer.add(saveBtn);
+        root.add(footer, "growx");
+
         setContentPane(root);
+    }
+
+    private void addField(JPanel p, String label, JComponent field) {
+        JLabel l = new JLabel(label);
+        l.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        l.setForeground(new Color(0x475569));
+        p.add(l);
+        p.add(field);
+    }
+
+    private JTextField tf(String placeholder) {
+        JTextField f = new JTextField();
+        f.putClientProperty("JTextField.placeholderText", placeholder);
+        f.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        return f;
     }
 
     private void loadData() {
@@ -88,16 +119,18 @@ public class WeeklyOffForm extends JDialog {
 
     private void save() {
         String eid = empIdField.getText().trim();
-        if (eid.isEmpty()) return;
+        if (eid.isEmpty()) { UIHelper.showError(this, "Employee ID is required."); return; }
         try {
             String isoFrom = parseDate(fromField.getText().trim());
             String isoTo = parseDate(toField.getText().trim());
             Object[] data = {eid, off1Combo.getSelectedItem(), off2Combo.getSelectedItem(), isoFrom, isoTo, remarksField.getText().trim()};
             if (id == null) db.execute("INSERT INTO weekly_offs (emp_id, off_day1, off_day2, effective_from, effective_to, remarks) VALUES (?,?,?,?,?,?)", data);
             else db.execute("UPDATE weekly_offs SET emp_id=?, off_day1=?, off_day2=?, effective_from=?, effective_to=?, remarks=? WHERE id=?", eid, off1Combo.getSelectedItem(), off2Combo.getSelectedItem(), isoFrom, isoTo, remarksField.getText().trim(), id);
+            
+            UIHelper.showSuccess(this, "Weekly off configuration saved.");
             callback.run(); dispose();
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
+            UIHelper.showError(this, "Error: " + e.getMessage());
         }
     }
 

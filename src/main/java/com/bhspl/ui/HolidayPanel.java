@@ -55,11 +55,11 @@ public class HolidayPanel extends JPanel {
         JPanel topRow = new JPanel(new MigLayout("ins 0, gap 12", "push [] 8 [] 8 [] 8 [] 8 []"));
         topRow.setOpaque(false);
 
-        JButton addBtn = UIHelper.makeButton("+ Add Holiday", UIHelper.SUCCESS);
-        JButton editBtn = UIHelper.makeButton("— Edit", UIHelper.PRIMARY);
-        JButton deleteBtn = UIHelper.makeButton("Delete", UIHelper.DANGER);
-        JButton loadDefBtn = UIHelper.makeButton("Load Defaults", CLR_AMBER_BG);
-        JButton refreshBtn = UIHelper.makeButton("Refresh", CLR_REFRESH);
+        JButton addBtn = UIHelper.makeButton("Add Holiday", UIHelper.SUCCESS, "plus.svg");
+        JButton editBtn = UIHelper.makeButton("Edit", UIHelper.PRIMARY, "edit.svg");
+        JButton deleteBtn = UIHelper.makeButton("Delete", UIHelper.DANGER, "trash.svg");
+        JButton loadDefBtn = UIHelper.makeButton("Load Defaults", CLR_AMBER_BG, "backup.svg");
+        JButton refreshBtn = UIHelper.makeButton("Refresh", CLR_REFRESH, "sync.svg");
 
         addBtn.addActionListener(e -> openForm(-1));
         editBtn.addActionListener(e -> {

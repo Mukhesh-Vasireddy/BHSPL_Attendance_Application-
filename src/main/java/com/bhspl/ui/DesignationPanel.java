@@ -48,10 +48,10 @@ public class DesignationPanel extends JPanel {
         tablePanel.clearRows();
         try {
             String sql = "SELECT * FROM designations";
-            if (!filter.isEmpty()) sql += " WHERE name LIKE '%" + filter + "%'";
+            if (!filter.isEmpty()) sql += " WHERE desig_name LIKE '%" + filter + "%'";
             List<Map<String, Object>> rows = DatabaseManager.getInstance().query(sql);
             for (Map<String, Object> r : rows) {
-                tablePanel.addRow(new Object[]{r.get("id"), r.get("name"), r.get("description")});
+                tablePanel.addRow(new Object[]{r.get("id"), r.get("desig_name"), r.get("description")});
             }
         } catch (SQLException ignored) {}
     }

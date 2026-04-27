@@ -38,11 +38,11 @@ public class DevicePanel extends JPanel {
         title.setFont(UIHelper.FNT_TITLE);
         title.setForeground(UIHelper.PRIMARY);
         
-        JButton addBtn     = UIHelper.makeButton("Add Device", UIHelper.SUCCESS);
-        JButton editBtn    = UIHelper.makeButton("Edit", UIHelper.PRIMARY);
-        JButton syncBtn    = UIHelper.makeButton("Sync Now", new Color(0x6366f1));
-        JButton deleteBtn  = UIHelper.makeButton("Remove", UIHelper.DANGER);
-        JButton refreshBtn = UIHelper.makeButton("Refresh", new Color(0x334155));
+        JButton addBtn     = UIHelper.makeButton("Add Device", UIHelper.SUCCESS, "plus.svg");
+        JButton editBtn    = UIHelper.makeButton("Edit", UIHelper.PRIMARY, "edit.svg");
+        JButton syncBtn    = UIHelper.makeButton("Sync Now", new Color(0x6366f1), "sync.svg");
+        JButton deleteBtn  = UIHelper.makeButton("Delete", UIHelper.DANGER, "trash.svg");
+        JButton refreshBtn = UIHelper.makeButton("Refresh", new Color(0x334155), "sync.svg");
 
         addBtn.addActionListener(e -> openDeviceDialog(null));
         editBtn.addActionListener(e -> {

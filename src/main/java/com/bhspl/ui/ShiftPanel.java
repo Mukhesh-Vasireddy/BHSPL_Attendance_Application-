@@ -34,10 +34,10 @@ public class ShiftPanel extends JPanel {
         title.setFont(UIHelper.FNT_TITLE);
         title.setForeground(UIHelper.PRIMARY);
 
-        JButton addBtn     = UIHelper.makeButton("Add Shift", UIHelper.SUCCESS);
-        JButton editBtn    = UIHelper.makeButton("Edit", UIHelper.PRIMARY);
-        JButton deleteBtn  = UIHelper.makeButton("Delete", UIHelper.DANGER);
-        JButton refreshBtn = UIHelper.makeButton("Refresh", new Color(0x334155));
+        JButton addBtn     = UIHelper.makeButton("Add Shift", UIHelper.SUCCESS, "plus.svg");
+        JButton editBtn    = UIHelper.makeButton("Edit", UIHelper.PRIMARY, "edit.svg");
+        JButton deleteBtn  = UIHelper.makeButton("Delete", UIHelper.DANGER, "trash.svg");
+        JButton refreshBtn = UIHelper.makeButton("Refresh", new Color(0x334155), "sync.svg");
 
         addBtn.addActionListener(e -> openForm(-1));
         editBtn.addActionListener(e -> {

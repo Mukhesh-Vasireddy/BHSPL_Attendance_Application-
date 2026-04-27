@@ -59,16 +59,31 @@ public class MainApp extends JFrame {
         logoPanel.setPreferredSize(new Dimension(280, 100));
 
         try {
-            ImageIcon icon = new ImageIcon(getClass().getResource("/logo.png"));
-            Image img = icon.getImage();
-            
-            // Reduced size for sharpness
-            int targetWidth = 180;
-            int targetHeight = (targetWidth * img.getHeight(null)) / img.getWidth(null);
-            
-            Image scaled = img.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
-            JLabel logoLabel = new JLabel(new ImageIcon(scaled));
-            logoPanel.add(logoLabel, "center");
+            JLabel logoLabel = new JLabel() {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    try {
+                        java.net.URL logoUrl = getClass().getResource("/logo.png");
+                        if (logoUrl != null) {
+                            Image img = javax.imageio.ImageIO.read(logoUrl);
+                            Graphics2D g2 = (Graphics2D) g.create();
+                            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                            g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                            
+                            int w = getWidth();
+                            int h = (w * img.getHeight(null)) / img.getWidth(null);
+                            if (h > getHeight()) {
+                                h = getHeight();
+                                w = (h * img.getWidth(null)) / img.getHeight(null);
+                            }
+                            g2.drawImage(img, (getWidth() - w) / 2, (getHeight() - h) / 2, w, h, null);
+                            g2.dispose();
+                        }
+                    } catch (Exception e) {}
+                }
+            };
+            logoPanel.add(logoLabel, "w 180!, h 60!, center");
         } catch (Exception e) {
             JLabel logoText = new JLabel("BAVYA");
             logoText.setFont(new Font("Segoe UI", Font.BOLD, 22));
@@ -220,7 +235,7 @@ public class MainApp extends JFrame {
             syncNowBtn.setText("Syncing...");
             SyncService.forceUpdateToday(() -> {
                 syncNowBtn.setEnabled(true);
-                syncNowBtn.setText("↺ Sync Devices");
+                syncNowBtn.setText("Sync Devices");
                 dashboard.publicLoadTable();
                 JOptionPane.showMessageDialog(this, "Manual synchronization completed successfully.");
             });

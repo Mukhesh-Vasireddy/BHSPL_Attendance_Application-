@@ -55,7 +55,7 @@ public class LeavePolicyPanel extends JPanel {
         editBtn.addActionListener(e -> edit());
         toolbar.add(editBtn);
 
-        JButton delBtn = UIHelper.makeButton("\uD83D\uDDD1 Delete", UIHelper.DANGER);
+        JButton delBtn = UIHelper.makeButton("Delete", UIHelper.DANGER, "trash.svg");
         delBtn.addActionListener(e -> delete());
         toolbar.add(delBtn);
 

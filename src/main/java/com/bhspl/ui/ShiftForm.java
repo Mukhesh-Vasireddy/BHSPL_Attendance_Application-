@@ -2,11 +2,15 @@ package com.bhspl.ui;
 
 import com.bhspl.db.DatabaseManager;
 import com.bhspl.util.UIHelper;
+import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
 import java.awt.*;
 import java.util.Map;
 
+/**
+ * Modern Shift Master Form.
+ */
 public class ShiftForm extends JDialog {
     private final Integer id;
     private final Runnable callback;
@@ -15,55 +19,81 @@ public class ShiftForm extends JDialog {
     private JComboBox<String> off1Combo, off2Combo, statusCombo;
 
     public ShiftForm(JFrame parent, Integer id, Runnable callback) {
-        super(parent, id == null ? "Add Shift" : "Edit Shift #" + id, true);
+        super(parent, id == null ? "New Shift" : "Edit Shift #" + id, true);
         this.id = id; this.callback = callback;
-        setSize(420, 480); UIHelper.centerWindow(this, 420, 480);
+        
+        setSize(480, 620);
+        UIHelper.centerWindow(this, 480, 620);
         buildUI();
         if (id != null) loadData();
         setVisible(true);
     }
 
     private void buildUI() {
-        JPanel root = new JPanel(new BorderLayout()); root.setBackground(UIHelper.BG_CARD);
-        JPanel hdr = new JPanel(); hdr.setBackground(UIHelper.PRIMARY); hdr.setPreferredSize(new Dimension(0, 50));
-        JLabel title = new JLabel("🕒  Shift Master");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 14)); title.setForeground(Color.WHITE); hdr.add(title);
-        root.add(hdr, BorderLayout.NORTH);
+        JPanel root = new JPanel(new MigLayout("fill, ins 0, gap 0, wrap", "[grow]", "[] [grow] []"));
+        root.setBackground(Color.WHITE);
 
-        JPanel form = new JPanel(new GridBagLayout()); form.setBackground(UIHelper.BG_CARD);
-        form.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
-        GridBagConstraints gbc = new GridBagConstraints(); gbc.insets = new Insets(6, 6, 6, 6); gbc.anchor = GridBagConstraints.EAST;
-
-        String[] labels = {"Shift Name *", "Start Time (HH:mm)", "End Time (HH:mm)", "Break (mins)", "Grace (mins)", "Off Day 1", "Off Day 2", "Std Work Hrs", "OT After (hrs)", "Status"};
-        String[] days = {"", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+        // Header
+        UIHelper.GradientPanel hdr = new UIHelper.GradientPanel(UIHelper.PRIMARY, UIHelper.SECONDARY);
+        hdr.setLayout(new MigLayout("ins 20", "[] 15 [grow]"));
+        hdr.add(new JLabel(new com.formdev.flatlaf.extras.FlatSVGIcon("icons/shifts.svg", 32, 32)));
         
-        for (int i = 0; i < labels.length; i++) {
-            gbc.gridx = 0; gbc.gridy = i;
-            form.add(new JLabel(labels[i] + ":"), gbc);
-            gbc.gridx = 1; gbc.fill = GridBagConstraints.HORIZONTAL; gbc.weightx = 1.0;
-            if (i == 5) { off1Combo = new JComboBox<>(days); form.add(off1Combo, gbc); }
-            else if (i == 6) { off2Combo = new JComboBox<>(days); form.add(off2Combo, gbc); }
-            else if (i == 9) {
-                statusCombo = new JComboBox<>(new String[]{"Active", "Inactive"});
-                form.add(statusCombo, gbc);
-            } else {
-                JTextField txt = new JTextField(15);
-                if (i == 0) nameField = txt; else if (i == 1) startField = txt;
-                else if (i == 2) endField = txt; else if (i == 3) breakField = txt;
-                else if (i == 4) graceField = txt; else if (i == 7) workHrsField = txt;
-                else if (i == 8) otField = txt;
-                form.add(txt, gbc);
-            }
-        }
-        root.add(form, BorderLayout.CENTER);
+        JLabel title = new JLabel(id == null ? "Create New Shift" : "Modify Shift Settings");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        title.setForeground(Color.WHITE);
+        hdr.add(title);
+        root.add(hdr, "growx, h 80!");
 
-        JPanel footer = new JPanel(); footer.setBackground(UIHelper.BG_CARD);
-        JButton saveBtn = UIHelper.makeButton("Save", UIHelper.BTN_SUCCESS);
-        saveBtn.addActionListener(e -> save()); footer.add(saveBtn);
-        JButton cancelBtn = UIHelper.makeButton("Cancel", UIHelper.BTN_DANGER);
-        cancelBtn.addActionListener(e -> dispose()); footer.add(cancelBtn);
-        root.add(footer, BorderLayout.SOUTH);
+        // Content
+        JPanel form = new JPanel(new MigLayout("ins 30, wrap 2, gapy 12, fillx", "[shrink] 20 [grow, fill]"));
+        form.setBackground(Color.WHITE);
+
+        addField(form, "Shift Name *", nameField = tf("e.g. Day Shift"));
+        addField(form, "Start Time", startField = tf("HH:mm:ss"));
+        addField(form, "End Time", endField = tf("HH:mm:ss"));
+        addField(form, "Break (Mins)", breakField = tf("30"));
+        addField(form, "Grace (Mins)", graceField = tf("15"));
+        
+        String[] days = {"None", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+        addField(form, "Weekly Off 1", off1Combo = new JComboBox<>(days));
+        addField(form, "Weekly Off 2", off2Combo = new JComboBox<>(days));
+        
+        addField(form, "Standard Hours", workHrsField = tf("8.5"));
+        addField(form, "OT Starts After", otField = tf("9.0"));
+        addField(form, "Status", statusCombo = new JComboBox<>(new String[]{"Active", "Inactive"}));
+
+        root.add(new JScrollPane(form), "grow, push");
+
+        // Footer
+        JPanel footer = new JPanel(new MigLayout("ins 20, gap 12", "push [] []"));
+        footer.setBackground(new Color(0xF8FAFC));
+        
+        JButton cancelBtn = UIHelper.makeButton("Cancel", new Color(0x64748B), "x.svg");
+        cancelBtn.addActionListener(e -> dispose());
+        
+        JButton saveBtn = UIHelper.makeButton("Save Shift", UIHelper.SUCCESS, "check.svg");
+        saveBtn.addActionListener(e -> save());
+        
+        footer.add(cancelBtn);
+        footer.add(saveBtn);
+        root.add(footer, "growx");
+
         setContentPane(root);
+    }
+
+    private void addField(JPanel p, String label, JComponent field) {
+        JLabel l = new JLabel(label);
+        l.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        l.setForeground(new Color(0x475569));
+        p.add(l);
+        p.add(field);
+    }
+
+    private JTextField tf(String placeholder) {
+        JTextField f = new JTextField();
+        f.putClientProperty("JTextField.placeholderText", placeholder);
+        f.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        return f;
     }
 
     private void loadData() {
@@ -86,7 +116,7 @@ public class ShiftForm extends JDialog {
 
     private void save() {
         String name = nameField.getText().trim();
-        if (name.isEmpty()) return;
+        if (name.isEmpty()) { UIHelper.showError(this, "Shift Name is required."); return; }
         try {
             double wh = Double.parseDouble(workHrsField.getText().trim().isEmpty() ? "8.5" : workHrsField.getText().trim());
             double ot = Double.parseDouble(otField.getText().trim().isEmpty() ? "9.0" : otField.getText().trim());
@@ -104,9 +134,10 @@ public class ShiftForm extends JDialog {
                 updateData[data.length] = id;
                 db.execute("UPDATE shifts SET shift_name=?, start_time=?, end_time=?, break_mins=?, grace_mins=?, weekly_off1=?, weekly_off2=?, work_hours=?, overtime_after=?, status=? WHERE id=?", updateData);
             }
+            UIHelper.showSuccess(this, "Shift saved successfully.");
             callback.run(); dispose();
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
+            UIHelper.showError(this, "Error: " + e.getMessage());
         }
     }
 }

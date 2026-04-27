@@ -1,22 +1,24 @@
 package com.bhspl.ui;
 
 import com.bhspl.db.DatabaseManager;
+import com.bhspl.util.UIHelper;
+import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.border.TitledBorder;
 import java.awt.*;
 import java.sql.SQLException;
 import java.util.Map;
 
+/**
+ * Modern, High-Fidelity Employee Management Form.
+ * Redesigned with a premium aesthetic and organized tabbed layout.
+ */
 public class EmployeeFormDialog extends JDialog {
 
     private final String empId; // null = new employee
     private boolean saved = false;
-
-    private final Color PRIMARY = Color.decode("#1a237e");
-    private final Color SUCCESS = Color.decode("#2e7d32");
-    private final Color DANGER  = Color.decode("#c62828");
+    private final DatabaseManager db = DatabaseManager.getInstance();
 
     // Personal
     private JTextField fEmpId, fName, fPhone, fEmail, fDob, fDoj;
@@ -28,143 +30,155 @@ public class EmployeeFormDialog extends JDialog {
     private JTextField fAddress, fEmContact, fBank, fPan, fAadhaar;
 
     public EmployeeFormDialog(JFrame parent, String empId) {
-        super(parent, empId == null ? "Add New Employee" : "Edit Employee – " + empId, true);
+        super(parent, empId == null ? "Add New Employee" : "Edit Employee [" + empId + "]", true);
         this.empId = empId;
-        setSize(620, 640);
-        setLocationRelativeTo(parent);
-        setResizable(false);
+        
+        setSize(700, 750);
+        UIHelper.centerWindow(this, 700, 750);
         buildUI();
         if (empId != null) loadEmployee(empId);
+        setVisible(true);
     }
 
     private void buildUI() {
-        JPanel main = new JPanel(new BorderLayout(0, 8));
-        main.setBorder(new EmptyBorder(14, 16, 14, 16));
-        setContentPane(main);
+        JPanel root = new JPanel(new MigLayout("fill, ins 0, gap 0, wrap", "[grow]", "[] [grow] []"));
+        root.setBackground(Color.WHITE);
 
+        // Header
+        UIHelper.GradientPanel hdr = new UIHelper.GradientPanel(UIHelper.PRIMARY, UIHelper.SECONDARY);
+        hdr.setLayout(new MigLayout("ins 20", "[] 15 [grow]"));
+        JLabel iconLbl = new JLabel(new com.formdev.flatlaf.extras.FlatSVGIcon("icons/employees.svg", 32, 32));
+        hdr.add(iconLbl);
+        
+        JLabel title = new JLabel(empId == null ? "New Employee Registration" : "Update Employee Profile");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        title.setForeground(Color.WHITE);
+        hdr.add(title);
+        root.add(hdr, "growx, h 80!");
+
+        // Content Area (Tabs)
         JTabbedPane tabs = new JTabbedPane();
-        tabs.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        tabs.addTab("Personal",  buildPersonalTab());
-        tabs.addTab("Job",       buildJobTab());
-        tabs.addTab("Documents", buildDocTab());
-        main.add(tabs, BorderLayout.CENTER);
+        tabs.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        tabs.setBackground(Color.WHITE);
+        tabs.setOpaque(true);
+        
+        tabs.addTab("Personal Details", buildTab(buildPersonalFields()));
+        tabs.addTab("Professional Info", buildTab(buildJobFields()));
+        tabs.addTab("Legal & Banking", buildTab(buildDocFields()));
+        
+        root.add(tabs, "grow, push, ins 10 20 10 20");
 
-        // Buttons
-        JPanel btnRow = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        JButton saveBtn   = new JButton("Save");
-        saveBtn.setBackground(SUCCESS);
-        saveBtn.setForeground(Color.WHITE);
-        saveBtn.setFocusPainted(false);
-        saveBtn.addActionListener(e -> onSave());
-
-        JButton cancelBtn = new JButton("Cancel");
-        cancelBtn.setFocusPainted(false);
+        // Footer
+        JPanel footer = new JPanel(new MigLayout("ins 20, gap 12", "push [] []"));
+        footer.setBackground(new Color(0xF8FAFC));
+        
+        JButton cancelBtn = UIHelper.makeButton("Cancel", new Color(0x64748B), "x.svg");
         cancelBtn.addActionListener(e -> dispose());
+        
+        JButton saveBtn = UIHelper.makeButton("Save Employee", UIHelper.SUCCESS, "check.svg");
+        saveBtn.addActionListener(e -> onSave());
+        
+        footer.add(cancelBtn);
+        footer.add(saveBtn);
+        root.add(footer, "growx");
 
-        btnRow.add(cancelBtn);
-        btnRow.add(saveBtn);
-        main.add(btnRow, BorderLayout.SOUTH);
+        setContentPane(root);
     }
 
-    private JPanel buildPersonalTab() {
-        JPanel p = new JPanel(new GridBagLayout());
-        p.setBorder(new EmptyBorder(10, 10, 10, 10));
-        GridBagConstraints g = new GridBagConstraints();
-        g.insets = new Insets(5, 6, 5, 6);
-        g.fill = GridBagConstraints.HORIZONTAL;
+    private JPanel buildTab(JPanel content) {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setBackground(Color.WHITE);
+        p.add(new JScrollPane(content), BorderLayout.CENTER);
+        return p;
+    }
 
-        fEmpId = tf(); fName = tf(); fPhone = tf(); fEmail = tf();
-        fDob = tf("YYYY-MM-DD"); fDoj = tf("YYYY-MM-DD");
+    private JPanel buildPersonalFields() {
+        JPanel p = new JPanel(new MigLayout("ins 20, wrap 2, gapy 15, fillx", "[shrink] 20 [grow, fill]"));
+        p.setBackground(Color.WHITE);
+
+        fEmpId = tf("e.g. EMP001"); if (empId != null) fEmpId.setEditable(false);
+        fName = tf("Full Name");
+        fPhone = tf("Mobile Number");
+        fEmail = tf("email@example.com");
+        fDob = tf("YYYY-MM-DD");
+        fDoj = tf("YYYY-MM-DD");
         fGender = combo("Male", "Female", "Other");
-        fBloodGroup = combo("A+","A-","B+","B-","AB+","AB-","O+","O-");
+        fBloodGroup = combo("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-");
         fStatus = combo("Active", "Inactive");
 
-        Object[][] rows = {
-            {"Emp ID *",    fEmpId},
-            {"Full Name *", fName},
-            {"Phone",       fPhone},
-            {"Email",       fEmail},
-            {"Date of Birth", fDob},
-            {"Date of Join",  fDoj},
-            {"Gender",      fGender},
-            {"Blood Group", fBloodGroup},
-            {"Status",      fStatus},
-        };
-        addRows(p, g, rows);
-
-        if (empId != null) fEmpId.setEditable(false);
+        addField(p, "Employee ID *", fEmpId);
+        addField(p, "Full Name *", fName);
+        addField(p, "Phone Number", fPhone);
+        addField(p, "Email Address", fEmail);
+        addField(p, "Date of Birth", fDob);
+        addField(p, "Joining Date", fDoj);
+        addField(p, "Gender", fGender);
+        addField(p, "Blood Group", fBloodGroup);
+        addField(p, "Employment Status", fStatus);
+        
         return p;
     }
 
-    private JPanel buildJobTab() {
-        JPanel p = new JPanel(new GridBagLayout());
-        p.setBorder(new EmptyBorder(10, 10, 10, 10));
-        GridBagConstraints g = new GridBagConstraints();
-        g.insets = new Insets(5, 6, 5, 6);
-        g.fill = GridBagConstraints.HORIZONTAL;
+    private JPanel buildJobFields() {
+        JPanel p = new JPanel(new MigLayout("ins 20, wrap 2, gapy 15, fillx", "[shrink] 20 [grow, fill]"));
+        p.setBackground(Color.WHITE);
 
-        fDept = tf(); fDesig = tf(); fBasicSalary = tf("0.00");
+        fDept = tf("Department");
+        fDesig = tf("Designation");
         fShift = combo("General", "Morning", "Evening", "Night");
+        fBasicSalary = tf("0.00");
 
-        Object[][] rows = {
-            {"Department",    fDept},
-            {"Designation",   fDesig},
-            {"Shift",         fShift},
-            {"Basic Salary ₹",fBasicSalary},
-        };
-        addRows(p, g, rows);
+        addField(p, "Department", fDept);
+        addField(p, "Designation", fDesig);
+        addField(p, "Default Shift", fShift);
+        addField(p, "Monthly CTC / Salary", fBasicSalary);
+        
         return p;
     }
 
-    private JPanel buildDocTab() {
-        JPanel p = new JPanel(new GridBagLayout());
-        p.setBorder(new EmptyBorder(10, 10, 10, 10));
-        GridBagConstraints g = new GridBagConstraints();
-        g.insets = new Insets(5, 6, 5, 6);
-        g.fill = GridBagConstraints.HORIZONTAL;
+    private JPanel buildDocFields() {
+        JPanel p = new JPanel(new MigLayout("ins 20, wrap 2, gapy 15, fillx", "[shrink] 20 [grow, fill]"));
+        p.setBackground(Color.WHITE);
 
-        fAddress = tf(); fEmContact = tf(); fBank = tf(); fPan = tf(); fAadhaar = tf();
+        fAddress = tf("Residential Address");
+        fEmContact = tf("Emergency Name / Number");
+        fBank = tf("Account No & IFSC");
+        fPan = tf("PAN Number");
+        fAadhaar = tf("Aadhaar Number");
 
-        Object[][] rows = {
-            {"Address",           fAddress},
-            {"Emergency Contact", fEmContact},
-            {"Bank Account",      fBank},
-            {"PAN Number",        fPan},
-            {"Aadhaar Number",    fAadhaar},
-        };
-        addRows(p, g, rows);
+        addField(p, "Full Address", fAddress);
+        addField(p, "Emergency Contact", fEmContact);
+        addField(p, "Bank Account Info", fBank);
+        addField(p, "PAN Card Number", fPan);
+        addField(p, "Aadhaar Card Number", fAadhaar);
+        
         return p;
     }
 
-    private void addRows(JPanel panel, GridBagConstraints g, Object[][] rows) {
-        for (int i = 0; i < rows.length; i++) {
-            g.gridx = 0; g.gridy = i; g.weightx = 0.3;
-            JLabel lbl = new JLabel((String) rows[i][0]);
-            lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
-            panel.add(lbl, g);
-
-            g.gridx = 1; g.weightx = 0.7;
-            panel.add((Component) rows[i][1], g);
-        }
+    private void addField(JPanel p, String label, JComponent field) {
+        JLabel l = new JLabel(label);
+        l.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        l.setForeground(new Color(0x475569));
+        p.add(l);
+        p.add(field);
     }
 
-    private JTextField tf() { return tf(null); }
     private JTextField tf(String placeholder) {
-        JTextField f = new JTextField(18);
-        f.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        if (placeholder != null) f.putClientProperty("JTextField.placeholderText", placeholder);
+        JTextField f = new JTextField();
+        f.putClientProperty("JTextField.placeholderText", placeholder);
+        f.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         return f;
     }
+
     private JComboBox<String> combo(String... items) {
         JComboBox<String> cb = new JComboBox<>(items);
-        cb.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        cb.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         return cb;
     }
 
     private void loadEmployee(String id) {
         try {
-            Map<String, Object> r = DatabaseManager.getInstance()
-                .fetchOne("SELECT * FROM employees WHERE emp_id=?", id);
+            Map<String, Object> r = db.fetchOne("SELECT * FROM employees WHERE emp_id=?", id);
             if (r == null) return;
             setText(fEmpId, r.get("emp_id"));
             setText(fName, r.get("emp_name"));
@@ -193,20 +207,19 @@ public class EmployeeFormDialog extends JDialog {
     }
 
     private void onSave() {
-        String id = fEmpId.getText().trim();
+        String idStr = fEmpId.getText().trim();
         String name = fName.getText().trim();
-        if (id.isEmpty() || name.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Emp ID and Name are required.");
+        if (idStr.isEmpty() || name.isEmpty()) {
+            UIHelper.showError(this, "Employee ID and Name are mandatory.");
             return;
         }
         try {
-            DatabaseManager db = DatabaseManager.getInstance();
             if (empId == null) {
                 db.execute(
                     "INSERT INTO employees (emp_id, emp_name, phone, email, dob, doj, gender, blood_group, status, " +
                     "department, designation, shift, basic_salary, address, emergency_contact, bank_account, pan_number, aadhaar) " +
                     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    id, name, val(fPhone), val(fEmail), val(fDob), val(fDoj),
+                    idStr, name, val(fPhone), val(fEmail), val(fDob), val(fDoj),
                     fGender.getSelectedItem(), fBloodGroup.getSelectedItem(), fStatus.getSelectedItem(),
                     val(fDept), val(fDesig), fShift.getSelectedItem(), salaryVal(),
                     val(fAddress), val(fEmContact), val(fBank), val(fPan), val(fAadhaar)
@@ -224,10 +237,10 @@ public class EmployeeFormDialog extends JDialog {
                 );
             }
             saved = true;
-            JOptionPane.showMessageDialog(this, "Employee saved successfully.");
+            UIHelper.showSuccess(this, "Employee profile updated successfully.");
             dispose();
         } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
+            UIHelper.showError(this, "Database Error: " + ex.getMessage());
         }
     }
 

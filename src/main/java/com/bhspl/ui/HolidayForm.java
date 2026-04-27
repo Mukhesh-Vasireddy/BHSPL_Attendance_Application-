@@ -53,11 +53,16 @@ public class HolidayForm extends JDialog {
         } catch (Exception ignored) {}
         header.add(title, BorderLayout.WEST);
 
-        JButton closeBtn = new JButton("\u00D7"); // Use multiplication sign for better rendering
-        closeBtn.setFont(new Font("Segoe UI", Font.PLAIN, 24));
-        closeBtn.setForeground(Color.WHITE);
-        closeBtn.setContentAreaFilled(false);
+        JButton closeBtn = new JButton();
+        try {
+            com.formdev.flatlaf.extras.FlatSVGIcon cIcon = new com.formdev.flatlaf.extras.FlatSVGIcon("icons/x.svg", 16, 16);
+            cIcon.setColorFilter(new com.formdev.flatlaf.extras.FlatSVGIcon.ColorFilter(c -> Color.WHITE));
+            closeBtn.setIcon(cIcon);
+        } catch (Exception e) {
+            closeBtn.setText("X");
+        }
         closeBtn.setBorderPainted(false);
+        closeBtn.setContentAreaFilled(false);
         closeBtn.setFocusPainted(false);
         closeBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         closeBtn.addActionListener(e -> dispose());

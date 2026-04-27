@@ -184,7 +184,7 @@ public class DashboardPanel extends JPanel {
         title.setForeground(UIHelper.TEXT_DARK);
         header.add(title, "growx");
 
-        JButton refreshBtn = UIHelper.makeButton("↺ Refresh Data", new Color(0x334155));
+        JButton refreshBtn = UIHelper.makeButton("Refresh Data", new Color(0x334155));
         refreshBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
         refreshBtn.addActionListener(e -> {
             refreshBtn.setEnabled(false);
@@ -192,7 +192,7 @@ public class DashboardPanel extends JPanel {
             SyncService.forceUpdateToday(() -> {
                 loadTable();
                 refreshBtn.setEnabled(true);
-                refreshBtn.setText("↺ Refresh Data");
+                refreshBtn.setText("Refresh Data");
             });
         });
         header.add(refreshBtn);

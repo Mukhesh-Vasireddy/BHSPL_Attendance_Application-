@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Form to manually add a raw punch log.
+ * Modern form to manually add a raw punch log with premium UI.
  */
 public class RawPunchForm extends JDialog {
 
@@ -21,33 +21,39 @@ public class RawPunchForm extends JDialog {
     private final DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     public RawPunchForm(JFrame parent, Runnable callback) {
-        super(parent, "Add Raw Punch Log", true);
+        super(parent, "Manual Punch Entry", true);
         this.callback = callback;
-        setSize(400, 350);
-        UIHelper.centerWindow(this, 400, 350);
         
-        getContentPane().setBackground(Color.WHITE);
-        setLayout(new MigLayout("ins 24, wrap, gap 12", "[grow, fill]", "[] 16 [grow] 24 []"));
-
+        setSize(450, 500);
+        UIHelper.centerWindow(this, 450, 500);
         buildUI();
+        setVisible(true);
     }
 
     private void buildUI() {
+        JPanel root = new JPanel(new MigLayout("fill, ins 0, gap 0, wrap", "[grow]", "[] [grow] []"));
+        root.setBackground(Color.WHITE);
+
         // Header
-        JLabel title = new JLabel("Manual Raw Punch Entry");
-        title.setFont(UIHelper.FNT_TITLE);
-        title.setForeground(UIHelper.PRIMARY);
-        add(title);
-
-        // Form
-        JPanel form = new JPanel(new MigLayout("ins 0, wrap 2, gap 16", "[right][grow, fill]"));
-        form.setOpaque(false);
-
-        empIdField = new JTextField(15);
-        deviceIdField = new JTextField("1", 15);
-        timeField = new JTextField(LocalDateTime.now().format(dtf), 15);
+        UIHelper.GradientPanel hdr = new UIHelper.GradientPanel(UIHelper.PRIMARY, UIHelper.SECONDARY);
+        hdr.setLayout(new MigLayout("ins 20", "[] 15 [grow]"));
+        hdr.add(new JLabel(new com.formdev.flatlaf.extras.FlatSVGIcon("icons/raw_logs.svg", 32, 32)));
         
-        // 0=Check-In, 1=Check-Out, etc. (standard ZK types)
+        JLabel title = new JLabel("Add Manual Raw Punch");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        title.setForeground(Color.WHITE);
+        hdr.add(title);
+        root.add(hdr, "growx, h 80!");
+
+        // Content
+        JPanel form = new JPanel(new MigLayout("ins 30, wrap 2, gapy 15, fillx", "[shrink] 20 [grow, fill]"));
+        form.setBackground(Color.WHITE);
+
+        addField(form, "Enroll / Emp ID *", empIdField = tf("e.g. 101"));
+        addField(form, "Device ID *", deviceIdField = tf("1"));
+        addField(form, "Punch Time *", timeField = tf("yyyy-MM-dd HH:mm:ss"));
+        timeField.setText(LocalDateTime.now().format(dtf));
+
         typeCombo = new JComboBox<>(new Integer[]{0, 1, 2, 3, 4, 5});
         typeCombo.setRenderer(new DefaultListCellRenderer() {
             @Override
@@ -64,41 +70,40 @@ public class RawPunchForm extends JDialog {
                 return super.getListCellRendererComponent(list, label, index, isSelected, cellHasFocus);
             }
         });
+        addField(form, "Punch Type", typeCombo);
 
-        Object[][] rows = {
-            {"Enroll / Emp ID *", empIdField},
-            {"Device ID *", deviceIdField},
-            {"Punch Time *", timeField},
-            {"Punch Type", typeCombo}
-        };
-
-        for (Object[] row : rows) {
-            JLabel lbl = new JLabel((String) row[0]);
-            lbl.setFont(UIHelper.FNT_BOLD);
-            form.add(lbl);
-            
-            Component comp = (Component) row[1];
-            comp.setFont(UIHelper.FNT_MAIN);
-            if (comp instanceof JTextField) ((JTextField) comp).setPreferredSize(new Dimension(0, 32));
-            form.add(comp);
-        }
-        add(form, "grow");
+        root.add(form, "grow, push");
 
         // Footer
-        JPanel footer = new JPanel(new MigLayout("ins 0, gap 12", "grow [] 8 []"));
-        footer.setOpaque(false);
-
-        JButton saveBtn = UIHelper.makeButton("Save", UIHelper.SUCCESS);
+        JPanel footer = new JPanel(new MigLayout("ins 20, gap 12", "push [] []"));
+        footer.setBackground(new Color(0xF8FAFC));
+        
+        JButton cancelBtn = UIHelper.makeButton("Cancel", new Color(0x64748B), "x.svg");
+        cancelBtn.addActionListener(e -> dispose());
+        
+        JButton saveBtn = UIHelper.makeButton("Save Punch", UIHelper.SUCCESS, "check.svg");
         saveBtn.addActionListener(e -> save());
         
-        JButton cancelBtn = UIHelper.makeButton("Cancel", UIHelper.DANGER);
-        cancelBtn.addActionListener(e -> dispose());
+        footer.add(cancelBtn);
+        footer.add(saveBtn);
+        root.add(footer, "growx");
 
-        footer.add(saveBtn, "cell 1 0, h 36!, w 80!");
-        footer.add(cancelBtn, "cell 2 0, h 36!, w 80!");
-        add(footer, "growx");
+        setContentPane(root);
+    }
 
-        getRootPane().setDefaultButton(saveBtn);
+    private void addField(JPanel p, String label, JComponent field) {
+        JLabel l = new JLabel(label);
+        l.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        l.setForeground(new Color(0x475569));
+        p.add(l);
+        p.add(field);
+    }
+
+    private JTextField tf(String placeholder) {
+        JTextField f = new JTextField();
+        f.putClientProperty("JTextField.placeholderText", placeholder);
+        f.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        return f;
     }
 
     private void save() {
@@ -107,22 +112,20 @@ public class RawPunchForm extends JDialog {
         String timeStr = timeField.getText().trim();
 
         if (empId.isEmpty() || devId.isEmpty() || timeStr.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "All starred fields are required.", "Input Error", JOptionPane.WARNING_MESSAGE);
+            UIHelper.showError(this, "All starred fields are required.");
             return;
         }
 
         try {
-            // Validate time format
             LocalDateTime.parse(timeStr, dtf);
-
             db.execute("INSERT INTO raw_logs (device_id, emp_id, punch_time, punch_type, synced) VALUES (?,?,?,?,0)",
                 Integer.parseInt(devId), empId, timeStr, typeCombo.getSelectedItem());
 
-            JOptionPane.showMessageDialog(this, "Raw log added successfully.");
+            UIHelper.showSuccess(this, "Raw log added successfully.");
             if (callback != null) callback.run();
             dispose();
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error: " + e.getMessage(), "Database Error", JOptionPane.ERROR_MESSAGE);
+            UIHelper.showError(this, "Error: " + e.getMessage());
         }
     }
 }
