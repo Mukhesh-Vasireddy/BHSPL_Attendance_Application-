@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{layout :: main-layout(~{::section}, 'Reports Dashboard', 'reports')}">
+<body>
+    <section>
+        <div style="margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end;">
+            <div>
+                <h2 style="color: var(--accent-purple); margin: 0;">Attendance Reports</h2>
+                <p style="color: #64748B; margin: 5px 0 0;">Generate and export detailed attendance summaries</p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn-primary" style="background: #334155;" onclick="processLogs()">
+                    <i class="fas fa-microchip"></i> Process Attendance
+                </button>
+            </div>
+        </div>
+
+        <script>
+            function processLogs() {
+                if(confirm('This will process all new biometric logs. Continue?')) {
+                    const btn = event.target.closest('button');
+                    btn.disabled = true;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+                    fetch('/system/process-logs', {method: 'POST'})
+                        .then(r => r.text())
+                        .then(msg => {
+                            alert(msg);
+                            location.reload();
+                        })
+                        .catch(e => alert('Error: ' + e));
+                }
+            }
+        </script>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 25px;">
+            <!-- Daily Report Card -->
+            <a href="/reports/daily" class="card" style="text-decoration: none; padding: 30px; transition: transform 0.2s; cursor: pointer;">
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <div style="background: #E0E7FF; color: #4F46E5; width: 60px; height: 60px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                        <i class="fas fa-calendar-day"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; color: #1E293B;">Daily Attendance</h3>
+                        <p style="margin: 5px 0 0; color: #64748B; font-size: 14px;">Detailed in-out logs for a specific date</p>
+                    </div>
+                </div>
+            </a>
+
+            <!-- Monthly Summary Card -->
+            <a href="/reports/monthly" class="card" style="text-decoration: none; padding: 30px; transition: transform 0.2s; cursor: pointer;">
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <div style="background: #DCFCE7; color: #16A34A; width: 60px; height: 60px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                        <i class="fas fa-calendar-alt"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; color: #1E293B;">Monthly Summary</h3>
+                        <p style="margin: 5px 0 0; color: #64748B; font-size: 14px;">Present/Absent totals and work hours</p>
+                    </div>
+                </div>
+            </a>
+
+            <!-- Leave Report Card -->
+            <a href="/reports/leave" class="card" style="text-decoration: none; padding: 30px; transition: transform 0.2s; cursor: pointer;">
+                <div style="display: flex; align-items: center; gap: 20px;">
+                    <div style="background: #FEF3C7; color: #D97706; width: 60px; height: 60px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                        <i class="fas fa-plane-departure"></i>
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; color: #1E293B;">Leave Report</h3>
+                        <p style="margin: 5px 0 0; color: #64748B; font-size: 14px;">Approved leave records and balances</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="card" style="margin-top: 40px; padding: 40px; text-align: center; background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); color: white; border: none;">
+            <i class="fas fa-info-circle" style="font-size: 40px; margin-bottom: 20px; opacity: 0.8;"></i>
+            <h3>Reporting Engine v2.0</h3>
+            <p style="opacity: 0.9; max-width: 600px; margin: 10px auto;">Select a report type above to filter by department, date range, or employee. All reports can be exported to Excel or PDF for payroll processing.</p>
+        </div>
+    </section>
+
+    <style>
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-purple);
+        }
+    </style>
+</body>
+</html>

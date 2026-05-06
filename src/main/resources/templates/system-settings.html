@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{layout :: main-layout(~{::section}, 'System Information', 'system')}">
+<body>
+    <section>
+        <div style="display: flex; justify-content: center; padding-top: 20px;">
+            <div class="card" style="width: 100%; max-width: 650px; padding: 40px;">
+                <h2 style="text-align: center; color: var(--accent-purple); margin-bottom: 30px; font-weight: 700;">
+                    Application Infrastructure Profile
+                </h2>
+                
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 20px 40px;">
+                    <div style="text-align: right; font-weight: 700; color: #64748B;">Application Name:</div>
+                    <div th:text="${appName}" style="font-weight: 500; color: #1E293B;">BHSPL Attendance</div>
+                    
+                    <div style="text-align: right; font-weight: 700; color: #64748B;">Software Version:</div>
+                    <div th:text="${version}" style="font-weight: 500; color: #1E293B;">2.0.42</div>
+                    
+                    <div style="text-align: right; font-weight: 700; color: #64748B;">Runtime Env:</div>
+                    <div th:text="${runtime}" style="font-weight: 500; color: #1E293B;">Java 17</div>
+                    
+                    <div style="text-align: right; font-weight: 700; color: #64748B;">Core Framework:</div>
+                    <div th:text="${framework}" style="font-weight: 500; color: #1E293B;">Spring Boot</div>
+                    
+                    <div style="text-align: right; font-weight: 700; color: #64748B;">Persistence:</div>
+                    <div th:text="${db}" style="font-weight: 500; color: #1E293B;">MySQL</div>
+                    
+                    <div style="text-align: right; font-weight: 700; color: #64748B;">ADMS Protocol:</div>
+                    <div th:text="${admsStatus}" 
+                         th:style="${#strings.contains(admsStatus, 'Active') ? 'color: #10B981; font-weight: 700;' : 'color: #EF4444; font-weight: 700;'}">
+                        Active
+                    </div>
+                    
+                    <div style="text-align: right; font-weight: 700; color: #64748B;">ADMS Port:</div>
+                    <div th:text="${admsPort}" style="font-weight: 500; color: #1E293B;">8081</div>
+                    
+                    <div style="text-align: right; font-weight: 700; color: #64748B;">Module Status:</div>
+                    <div style="color: #10B981; font-weight: 700;">Running / Connected</div>
+                </div>
+                
+                <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #E2E8F0; text-align: center;">
+                    <button class="btn-primary" onclick="location.reload()">
+                        <i class="fas fa-sync"></i> Refresh System Status
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+</body>
+</html>

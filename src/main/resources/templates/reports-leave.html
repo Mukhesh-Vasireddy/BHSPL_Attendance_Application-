@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{layout :: main-layout(~{::section}, 'Leave History Report', 'reports')}">
+<body>
+    <section>
+        <!-- Filter Header -->
+        <div class="card" style="margin-bottom: 20px; padding: 20px;">
+            <form action="/reports/leave" method="get" style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase;">From Date</label>
+                    <input type="date" name="from" th:value="${selFrom}" class="form-control" style="width: 170px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase;">To Date</label>
+                    <input type="date" name="to" th:value="${selTo}" class="form-control" style="width: 170px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase;">Department</label>
+                    <select name="dept" class="form-control" style="width: 180px;">
+                        <option>All</option>
+                        <option th:each="d : ${depts}" th:value="${d['dept_name']}" th:text="${d['dept_name']}" th:selected="${selDept == d['dept_name']}"></option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn-primary"><i class="fas fa-search"></i> Search</button>
+                    <button type="button" class="btn-primary" style="background: #EF4444;"><i class="fas fa-file-pdf"></i> Export PDF</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Report Results -->
+        <div class="card" style="padding: 0; overflow: hidden;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead style="background: #F8FAFC;">
+                    <tr>
+                        <th style="padding: 15px 20px; text-align: left; font-size: 11px; color: #64748B; text-transform: uppercase; border-bottom: 1px solid #E2E8F0;">Emp ID</th>
+                        <th style="padding: 15px 20px; text-align: left; font-size: 11px; color: #64748B; text-transform: uppercase; border-bottom: 1px solid #E2E8F0;">Employee Name</th>
+                        <th style="padding: 15px 20px; text-align: left; font-size: 11px; color: #64748B; text-transform: uppercase; border-bottom: 1px solid #E2E8F0;">Leave Type</th>
+                        <th style="padding: 15px 20px; text-align: left; font-size: 11px; color: #64748B; text-transform: uppercase; border-bottom: 1px solid #E2E8F0;">From</th>
+                        <th style="padding: 15px 20px; text-align: left; font-size: 11px; color: #64748B; text-transform: uppercase; border-bottom: 1px solid #E2E8F0;">To</th>
+                        <th style="padding: 15px 20px; text-align: center; font-size: 11px; color: #64748B; text-transform: uppercase; border-bottom: 1px solid #E2E8F0;">Days</th>
+                        <th style="padding: 15px 20px; text-align: center; font-size: 11px; color: #64748B; text-transform: uppercase; border-bottom: 1px solid #E2E8F0;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="r : ${data}" style="border-bottom: 1px solid #F1F5F9;">
+                        <td th:text="${r['emp_id']}" style="padding: 15px 20px; font-weight: 500;">101</td>
+                        <td th:text="${r['emp_name']}" style="padding: 15px 20px; font-weight: 700; color: #1E293B;">John Doe</td>
+                        <td th:text="${r['leave_type']}" style="padding: 15px 20px; color: #6366F1; font-weight: 600;">Casual Leave</td>
+                        <td th:text="${r['from_date']}" style="padding: 15px 20px;">2026-05-01</td>
+                        <td th:text="${r['to_date']}" style="padding: 15px 20px;">2026-05-02</td>
+                        <td th:text="${r['days']}" style="padding: 15px 20px; text-align: center; font-weight: 700;">2.0</td>
+                        <td style="padding: 15px 20px; text-align: center;">
+                            <span th:text="${r['status']}" 
+                                  th:classappend="${r['status'] == 'Approved' ? 'badge-success' : (r['status'] == 'Rejected' ? 'badge-danger' : 'badge-warning')}"
+                                  class="badge">Approved</span>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(data)}">
+                        <td colspan="7" style="padding: 60px; text-align: center; color: #94A3B8;">
+                            No leave records found for the selected period.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</body>
+</html>

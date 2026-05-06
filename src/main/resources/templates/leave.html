@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{layout :: main-layout(~{::section}, 'Leave Manager', 'leave')}">
+<body>
+    <section>
+        <!-- Toolbar -->
+        <div class="card" style="margin-bottom: 15px; padding: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <span style="font-weight: 600; color: #64748B;">Status:</span>
+                    <select id="statusFilter" class="form-control" style="width: 150px;" onchange="filterTable()">
+                        <option>All</option>
+                        <option>Pending</option>
+                        <option>Approved</option>
+                        <option>Rejected</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-primary" onclick="openLeaveModal()"><i class="fas fa-plus"></i> Apply Leave</button>
+                    <button class="btn-primary" style="background: #6366F1;" onclick="editSelected()"><i class="fas fa-edit"></i> Edit</button>
+                    <button class="btn-primary" style="background: #10B981;" onclick="updateStatus('Approved')"><i class="fas fa-check"></i> Approve</button>
+                    <button class="btn-primary" style="background: #EF4444;" onclick="updateStatus('Rejected')"><i class="fas fa-times"></i> Reject</button>
+                    <button class="btn-primary" style="background: #334155;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="card">
+            <table id="leaveTable">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"><input type="checkbox" id="selectAll"></th>
+                        <th>ID</th>
+                        <th>Emp ID</th>
+                        <th>Name</th>
+                        <th>Leave Type</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Days</th>
+                        <th>Status</th>
+                        <th>Applied On</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="l : ${leaves}" th:data-status="${l['status']}" th:data-id="${l['id']}">
+                        <td><input type="checkbox" class="row-check" th:value="${l['id']}"></td>
+                        <td th:text="${l['id']}">1</td>
+                        <td th:text="${l['emp_id']}">101</td>
+                        <td th:text="${l['emp_name']}">John Doe</td>
+                        <td th:text="${l['leave_type']}">Casual Leave</td>
+                        <td th:text="${l['from_date']}">2026-05-06</td>
+                        <td th:text="${l['to_date']}">2026-05-07</td>
+                        <td th:text="${l['days']}">1.0</td>
+                        <td>
+                            <span th:text="${l['status']}" 
+                                  th:classappend="${l['status'] == 'Approved' ? 'badge-success' : (l['status'] == 'Rejected' ? 'badge-danger' : 'badge-warning')}"
+                                  class="badge">Pending</span>
+                        </td>
+                        <td th:text="${l['applied_on']}">2026-05-05</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Leave Application Modal (Matching LeaveForm.java) -->
+        <div id="leaveModal" class="modal">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Apply Leave Request</h3>
+                    <span class="close" onclick="closeLeaveModal()">&times;</span>
+                </div>
+                <form action="/leave/save" method="post" id="leaveForm">
+                    <input type="hidden" name="id" id="fieldId">
+                    <div style="padding: 20px;">
+                        <div class="form-group">
+                            <label>Employee ID *</label>
+                            <input type="text" name="empId" id="fieldEmpId" class="form-control" placeholder="e.g. 101" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Leave Type</label>
+                            <select name="type" id="fieldType" class="form-control">
+                                <option th:each="t : ${leaveTypes}" th:value="${t.leave_type}" th:text="${t.leave_type}"></option>
+                                <option th:if="${leaveTypes == null or leaveTypes.empty}">Casual Leave</option>
+                                <option th:if="${leaveTypes == null or leaveTypes.empty}">Sick Leave</option>
+                            </select>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div class="form-group">
+                                <label>From Date</label>
+                                <input type="date" name="from" id="fieldFrom" class="form-control" required onchange="calcDays()">
+                            </div>
+                            <div class="form-group">
+                                <label>To Date</label>
+                                <input type="date" name="to" id="fieldTo" class="form-control" required onchange="calcDays()">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Total Days</label>
+                            <input type="number" step="0.5" name="days" id="fieldDays" class="form-control" value="1.0">
+                        </div>
+                        <div class="form-group">
+                            <label>Reason</label>
+                            <textarea name="reason" id="fieldReason" class="form-control" style="height: 80px;" placeholder="Reason for leave"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select name="status" id="fieldStatus" class="form-control">
+                                <option>Pending</option>
+                                <option>Approved</option>
+                                <option>Rejected</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-primary" style="background: #64748B;" onclick="closeLeaveModal()">Cancel</button>
+                        <button type="submit" class="btn-primary" style="background: #10B981;">Submit Application</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            function filterTable() {
+                const status = document.getElementById('statusFilter').value;
+                const rows = document.querySelectorAll('#leaveTable tbody tr');
+                rows.forEach(row => {
+                    if (status === 'All' || row.dataset.status === status) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            }
+
+            function openLeaveModal() {
+                document.getElementById('leaveForm').reset();
+                document.getElementById('fieldId').value = '';
+                document.getElementById('modalTitle').innerText = 'Apply Leave Request';
+                document.getElementById('leaveModal').style.display = 'flex';
+            }
+
+            function closeLeaveModal() {
+                document.getElementById('leaveModal').style.display = 'none';
+            }
+
+            function calcDays() {
+                const start = new Date(document.getElementById('fieldFrom').value);
+                const end = new Date(document.getElementById('fieldTo').value);
+                if (start && end && end >= start) {
+                    const diffTime = Math.abs(end - start);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                    document.getElementById('fieldDays').value = diffDays;
+                }
+            }
+
+            function updateStatus(newStatus) {
+                const selected = document.querySelector('.row-check:checked');
+                if (!selected) {
+                    alert('Please select a leave record first.');
+                    return;
+                }
+                if (confirm('Mark leave request #' + selected.value + ' as ' + newStatus + '?')) {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '/leave/update-status';
+                    
+                    const idInput = document.createElement('input');
+                    idInput.name = 'id';
+                    idInput.value = selected.value;
+                    form.appendChild(idInput);
+                    
+                    const statusInput = document.createElement('input');
+                    statusInput.name = 'status';
+                    statusInput.value = newStatus;
+                    form.appendChild(statusInput);
+                    
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            }
+        </script>
+    </section>
+</body>
+</html>

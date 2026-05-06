@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{layout :: main-layout(~{::section}, 'Designation Master', 'masters')}">
+<body>
+    <section>
+        <!-- Toolbar -->
+        <div class="card" style="margin-bottom: 15px; padding: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button class="btn-primary" style="background: #10B981;" onclick="openDesigModal()"><i class="fas fa-plus"></i> Add New Designation</button>
+                    <button class="btn-primary" style="background: #EF4444;"><i class="fas fa-trash"></i> Delete Selected</button>
+                    <button class="btn-primary" style="background: #334155;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <span style="font-size: 13px; font-weight: 600; color: #64748B;">Search:</span>
+                    <form action="/masters/designations" method="get" style="display: flex; gap: 10px;">
+                        <input type="text" name="search" class="form-control" style="width: 200px;" placeholder="Search designations...">
+                        <button type="submit" class="btn-primary"><i class="fas fa-search"></i> Search</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"><input type="checkbox"></th>
+                        <th style="width: 60px;">ID</th>
+                        <th>Designation Name</th>
+                        <th style="width: 100px;">Level</th>
+                        <th>Description</th>
+                        <th style="width: 120px;">Status</th>
+                        <th style="width: 80px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="d : ${designations}" th:data-id="${d.id}" th:data-name="${d.desig_name}" th:data-level="${d.level_order}" th:data-desc="${d.description}" th:data-status="${d.status}">
+                        <td><input type="checkbox" class="row-check" th:value="${d.id}"></td>
+                        <td th:text="${d.id}">1</td>
+                        <td th:text="${d.desig_name}" style="font-weight: 600;">Software Engineer</td>
+                        <td th:text="${d.level_order}" style="text-align: center;">1</td>
+                        <td th:text="${d.description}">Core development role</td>
+                        <td>
+                            <span th:text="${d.status}" 
+                                  th:classappend="${d.status == 'Active' ? 'badge-success' : 'badge-danger'}"
+                                  class="badge">Active</span>
+                        </td>
+                        <td style="text-align: center;">
+                            <button style="background: none; border: none; cursor: pointer; color: var(--accent-purple);" onclick="editDesig(this.closest('tr'))">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Desig Modal -->
+        <div id="desigModal" class="modal">
+            <div class="modal-content" style="max-width: 450px;">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Add New Designation</h3>
+                    <span class="close" onclick="closeDesigModal()">&times;</span>
+                </div>
+                <form action="/masters/designations/save" method="post" id="desigForm">
+                    <input type="hidden" name="id" id="fieldId">
+                    <div style="padding: 20px;">
+                        <div class="form-group">
+                            <label>Designation Name *</label>
+                            <input type="text" name="name" id="fieldName" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Level Order (1-99)</label>
+                            <input type="number" name="level" id="fieldLevel" class="form-control" value="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Description</label>
+                            <textarea name="description" id="fieldDesc" class="form-control" style="height: 60px;"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select name="status" id="fieldStatus" class="form-control">
+                                <option>Active</option>
+                                <option>Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-primary" style="background: #64748B;" onclick="closeDesigModal()">Cancel</button>
+                        <button type="submit" class="btn-primary" style="background: #10B981;">Save Designation</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            function openDesigModal() {
+                document.getElementById('desigForm').reset();
+                document.getElementById('fieldId').value = '';
+                document.getElementById('modalTitle').innerText = 'Add New Designation';
+                document.getElementById('desigModal').style.display = 'flex';
+            }
+
+            function closeDesigModal() {
+                document.getElementById('desigModal').style.display = 'none';
+            }
+
+            function editDesig(row) {
+                document.getElementById('fieldId').value = row.dataset.id;
+                document.getElementById('fieldName').value = row.dataset.name;
+                document.getElementById('fieldLevel').value = row.dataset.level;
+                document.getElementById('fieldDesc').value = row.dataset.desc;
+                document.getElementById('fieldStatus').value = row.dataset.status;
+                
+                document.getElementById('modalTitle').innerText = 'Edit Designation';
+                document.getElementById('desigModal').style.display = 'flex';
+            }
+        </script>
+    </section>
+</body>
+</html>

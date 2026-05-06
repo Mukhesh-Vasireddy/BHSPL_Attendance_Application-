@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{layout :: main-layout(~{::section}, 'Weekly Off Master', 'masters')}">
+<body>
+    <section>
+        <!-- Toolbar -->
+        <div class="card" style="margin-bottom: 15px; padding: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; color: var(--accent-purple);"><i class="fas fa-calendar-week"></i> Weekly Off Master</h3>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-primary" style="background: #10B981;" onclick="openOffModal()"><i class="fas fa-plus"></i> Assign Off</button>
+                    <button class="btn-primary" style="background: #6366F1;"><i class="fas fa-edit"></i> Edit</button>
+                    <button class="btn-primary" style="background: #EF4444;"><i class="fas fa-trash"></i> Delete</button>
+                    <button class="btn-primary" style="background: #F59E0B;"><i class="fas fa-users"></i> Bulk Assign</button>
+                    <button class="btn-primary" style="background: #334155;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="card" style="margin-bottom: 15px; padding: 15px;">
+            <form action="/masters/weekly-off" method="get" style="display: flex; gap: 10px; align-items: center;">
+                <span style="font-size: 13px; font-weight: 600; color: #64748B;">Dept:</span>
+                <select name="dept" class="form-control" style="width: 150px;">
+                    <option>All</option>
+                    <option th:each="d : ${depts}" th:value="${d.dept_name}" th:text="${d.dept_name}" th:selected="${selDept == d.dept_name}"></option>
+                </select>
+                <button type="submit" class="btn-primary"><i class="fas fa-filter"></i> Filter</button>
+            </form>
+        </div>
+
+        <!-- Data Table -->
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"><input type="checkbox"></th>
+                        <th>ID</th>
+                        <th>Emp ID</th>
+                        <th>Name</th>
+                        <th>Dept</th>
+                        <th>Off Day 1</th>
+                        <th>Off Day 2</th>
+                        <th>From</th>
+                        <th>To</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="o : ${offs}">
+                        <td><input type="checkbox" class="row-check" th:value="${o.id}"></td>
+                        <td th:text="${o.id}">1</td>
+                        <td th:text="${o.emp_id}">101</td>
+                        <td th:text="${o.emp_name}" style="font-weight: 600;">John Doe</td>
+                        <td th:text="${o.dept_name}">Sales</td>
+                        <td th:text="${o.off_day1}">Sunday</td>
+                        <td th:text="${o.off_day2}">None</td>
+                        <td th:text="${o.effective_from}">2026-05-01</td>
+                        <td th:text="${o.effective_to}">2099-12-31</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Off Modal -->
+        <div id="offModal" class="modal">
+            <div class="modal-content" style="max-width: 450px;">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Assign Weekly Off</h3>
+                    <span class="close" onclick="closeOffModal()">&times;</span>
+                </div>
+                <form action="/masters/weekly-off/save" method="post" id="offForm">
+                    <div style="padding: 20px;">
+                        <div class="form-group">
+                            <label>Select Employee *</label>
+                            <select name="empId" class="form-control" required>
+                                <option th:each="e : ${employees}" th:value="${e.emp_id}" th:text="${e.emp_id + ' - ' + e.emp_name}"></option>
+                            </select>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div class="form-group">
+                                <label>Off Day 1</label>
+                                <select name="day1" class="form-control">
+                                    <option>Sunday</option><option>Monday</option><option>Tuesday</option>
+                                    <option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Off Day 2</label>
+                                <select name="day2" class="form-control">
+                                    <option>None</option><option>Sunday</option><option>Monday</option><option>Tuesday</option>
+                                    <option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div class="form-group">
+                                <label>Effective From</label>
+                                <input type="date" name="from" class="form-control" th:value="${#calendars.format(#calendars.createNow(), 'yyyy-MM-dd')}">
+                            </div>
+                            <div class="form-group">
+                                <label>Effective To</label>
+                                <input type="date" name="to" class="form-control" value="2099-12-31">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Remarks</label>
+                            <input type="text" name="remarks" class="form-control">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-primary" style="background: #64748B;" onclick="closeOffModal()">Cancel</button>
+                        <button type="submit" class="btn-primary" style="background: #10B981;">Save Assignment</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            function openOffModal() {
+                document.getElementById('offModal').style.display = 'flex';
+            }
+            function closeOffModal() {
+                document.getElementById('offModal').style.display = 'none';
+            }
+        </script>
+    </section>
+</body>
+</html>

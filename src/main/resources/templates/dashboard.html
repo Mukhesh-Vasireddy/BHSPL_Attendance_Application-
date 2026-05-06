@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{layout :: main-layout(~{::section}, 'Dashboard', 'dashboard')}">
+<body>
+    <section>
+        <div class="stats-grid">
+            <div class="stat-card present">
+                <div class="stat-info">
+                    <h3 th:text="${presentCount}">28</h3>
+                    <p>Today Present</p>
+                </div>
+                <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+            </div>
+            <div class="stat-card absent">
+                <div class="stat-info">
+                    <h3 th:text="${absentCount}">19</h3>
+                    <p>Today Absents</p>
+                </div>
+                <div class="stat-icon"><i class="fas fa-user-slash"></i></div>
+            </div>
+            <div class="stat-card total">
+                <div class="stat-info">
+                    <h3 th:text="${totalEmps}">47</h3>
+                    <p>Total Employees</p>
+                </div>
+                <div class="stat-icon"><i class="fas fa-users"></i></div>
+            </div>
+            <div class="stat-card leave">
+                <div class="stat-info">
+                    <h3 th:text="${leaveCount}">0</h3>
+                    <p>On Leave Today</p>
+                </div>
+                <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <div class="table-header">
+                <h3>Live Attendance Overview</h3>
+                <button class="refresh-btn"><i class="fas fa-redo"></i> Refresh Data</button>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Emp ID</th>
+                        <th>Name</th>
+                        <th>In Time</th>
+                        <th>Punches</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="log : ${recentLogs}">
+                        <td th:text="${log.emp_id}">0001</td>
+                        <td th:text="${log.emp_name}">NaveenA</td>
+                        <td th:text="${#temporals.format(log.in_time, 'HH:mm')}">16:58</td>
+                        <td th:text="${log.punches}">1</td>
+                        <td><span class="status-late">Late</span></td>
+                    </tr>
+                    <tr th:if="${recentLogs == null or recentLogs.empty}">
+                        <td colspan="5" style="text-align: center; padding: 20px;">No attendance records for today.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</body>
+</html>

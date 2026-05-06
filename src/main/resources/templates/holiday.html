@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{layout :: main-layout(~{::section}, 'Holiday Master', 'leave')}">
+<body>
+    <section>
+        <!-- Toolbar -->
+        <div class="card" style="margin-bottom: 15px; padding: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; color: var(--accent-purple);"><i class="fas fa-umbrella-beach"></i> Holiday Master</h3>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-primary" style="background: #10B981;"><i class="fas fa-plus"></i> Add Holiday</button>
+                    <button class="btn-primary" style="background: #6366F1;"><i class="fas fa-edit"></i> Edit</button>
+                    <button class="btn-primary" style="background: #EF4444;"><i class="fas fa-trash"></i> Delete</button>
+                    <form action="/leave/holidays/load-defaults" method="post" style="display: inline;">
+                        <button type="submit" class="btn-primary" style="background: #F59E0B;"><i class="fas fa-download"></i> Load Defaults</button>
+                    </form>
+                    <button class="btn-primary" style="background: #4B5563;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Filters -->
+        <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+            <a href="/leave/holidays?type=All" class="btn-primary" style="background: #64748b; font-size: 11px; padding: 6px 12px;">All Holidays</a>
+            <a href="/leave/holidays?type=National Holiday" class="btn-primary" style="background: #991B1B; font-size: 11px; padding: 6px 12px;">National Holiday</a>
+            <a href="/leave/holidays?type=Public Holiday" class="btn-primary" style="background: #1D4ED8; font-size: 11px; padding: 6px 12px;">Public Holiday</a>
+            <a href="/leave/holidays?type=Festival Holiday" class="btn-primary" style="background: #EA580C; font-size: 11px; padding: 6px 12px;">Festival Holiday</a>
+            <a href="/leave/holidays?type=Optional Holiday" class="btn-primary" style="background: #CA8A04; font-size: 11px; padding: 6px 12px;">Optional Holiday</a>
+            <a href="/leave/holidays?type=Company Holiday" class="btn-primary" style="background: #059669; font-size: 11px; padding: 6px 12px;">Company Holiday</a>
+            <a href="/leave/holidays?type=Regional Holiday" class="btn-primary" style="background: #4F46E5; font-size: 11px; padding: 6px 12px;">Regional Holiday</a>
+        </div>
+
+        <!-- Data Table -->
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"><input type="checkbox"></th>
+                        <th>ID</th>
+                        <th>Date</th>
+                        <th>Holiday Name</th>
+                        <th>Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="h : ${holidays}" 
+                        th:style="${h['holiday_type'] == 'National Holiday' ? 'background: #FFF1F2;' : (h['holiday_type'] == 'Festival Holiday' ? 'background: #FFFBEB;' : (h['holiday_type'] == 'Public Holiday' ? 'background: #EFF6FF;' : ''))}">
+                        <td><input type="checkbox" class="row-check" th:value="${h['id']}"></td>
+                        <td th:text="${h['id']}">1</td>
+                        <td th:text="${h['holiday_date']}" style="font-weight: 600;">01-01-2026</td>
+                        <td th:text="${h['holiday_name']}">New Year's Day</td>
+                        <td>
+                            <span th:text="${h['holiday_type']}" 
+                                  th:style="${'background: none; border: 1px solid #E2E8F0; color: #475569;'}"
+                                  class="badge">National Holiday</span>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(holidays)}">
+                        <td colspan="5" style="text-align: center; padding: 40px; color: #94A3B8;">No holidays found. Click 'Load Defaults' to populate common holidays.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</body>
+</html>

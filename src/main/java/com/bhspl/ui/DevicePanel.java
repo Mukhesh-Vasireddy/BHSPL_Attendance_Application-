@@ -16,7 +16,7 @@ public class DevicePanel extends JPanel {
     private UIHelper.StyledTablePanel tablePanel;
 
     private static final String[] COLUMNS = {
-        "ID", "Device Name", "IP Address", "Port", "Location", "Status", "Last Sync", "Sync Status"
+        "ID", "Device Name", "IP Address", "Serial Number", "Port", "Location", "Status", "Last Sync", "Sync Status"
     };
 
     public DevicePanel() {
@@ -40,7 +40,7 @@ public class DevicePanel extends JPanel {
         title.setForeground(UIHelper.PRIMARY);
         
         // Responsive button panel
-        JPanel btnPanel = new JPanel(new MigLayout("ins 0, gap 6, wrap", "[] [] [] [] [] [] [] []"));
+        JPanel btnPanel = new JPanel(new MigLayout("ins 0, gap 6, wrap", "[] [] [] [] [] [] [] [] []"));
         btnPanel.setOpaque(false);
         btnPanel.setOpaque(false);
 
@@ -51,6 +51,7 @@ public class DevicePanel extends JPanel {
         JButton syncBtn    = createCompactButton("Sync Logs",     new Color(0x0f766e),       "sync.svg");
         JButton importBtn  = createCompactButton("Import Users",  UIHelper.PRIMARY,          "employees.svg");
         JButton diagBtn    = createCompactButton("Diagnose",      new Color(0x7e22ce),       "search.svg");
+        JButton admsBtn    = createCompactButton("Deploy ADMS",   new Color(0x0369a1),       "settings.svg");
         JButton refreshBtn = createCompactButton("Refresh",       new Color(0x475569),       "refresh.svg");
 
         addBtn.addActionListener(e -> openDeviceDialog(null));
@@ -67,6 +68,7 @@ public class DevicePanel extends JPanel {
         syncBtn.addActionListener(e -> syncSelected());
         importBtn.addActionListener(e -> importUsersSelected());
         diagBtn.addActionListener(e -> diagnoseSelected());
+        admsBtn.addActionListener(e -> deployAdmsSelected());
         refreshBtn.addActionListener(e -> loadData());
 
         btnPanel.add(addBtn,     "shrink 0");
@@ -76,6 +78,7 @@ public class DevicePanel extends JPanel {
         btnPanel.add(syncBtn,    "shrink 0");
         btnPanel.add(importBtn,  "shrink 0");
         btnPanel.add(diagBtn,    "shrink 0");
+        btnPanel.add(admsBtn,    "shrink 0");
         btnPanel.add(refreshBtn, "shrink 0");
 
         toolbar.add(title,    "left, growx, pushx");
@@ -92,7 +95,7 @@ public class DevicePanel extends JPanel {
                     btnPanel.setLayout(new MigLayout("ins 0, gap 6, wrap 4", "[grow, fill] [grow, fill] [grow, fill] [grow, fill]"));
                 } else {
                     toolbar.setLayout(new MigLayout("ins 0, gap 0, fillx", "[grow][right]"));
-                    btnPanel.setLayout(new MigLayout("ins 0, gap 6", "[] [] [] [] [] [] [] []"));
+                    btnPanel.setLayout(new MigLayout("ins 0, gap 6", "[] [] [] [] [] [] [] [] []"));
                 }
                 toolbar.revalidate();
             }
@@ -126,7 +129,7 @@ public class DevicePanel extends JPanel {
             @Override
             protected List<Map<String, Object>> doInBackground() throws Exception {
                 return DatabaseManager.getInstance().fetchAll(
-                    "SELECT device_id, device_name, ip_address, port, location, status, last_sync, last_error FROM devices ORDER BY device_id");
+                    "SELECT device_id, device_name, ip_address, serial_number, port, location, status, last_sync, last_error FROM devices ORDER BY device_id");
             }
             @Override
             protected void done() {
@@ -137,7 +140,7 @@ public class DevicePanel extends JPanel {
                         
                         tablePanel.addRow(new Object[]{
                             r.get("device_id"), r.get("device_name"), r.get("ip_address"),
-                            r.get("port"), r.get("location"), r.get("status"), r.get("last_sync"),
+                            r.get("serial_number"), r.get("port"), r.get("location"), r.get("status"), r.get("last_sync"),
                             syncStatus
                         });
                     }
@@ -150,8 +153,8 @@ public class DevicePanel extends JPanel {
     private void openDeviceDialog(Integer deviceId) {
         JDialog dlg = new JDialog((JFrame) SwingUtilities.getWindowAncestor(this), 
             (deviceId == null ? "Register New Device" : "Edit Device Settings"), true);
-        dlg.setSize(450, 460);
-        UIHelper.centerWindow(dlg, 450, 460);
+        dlg.setSize(450, 500);
+        UIHelper.centerWindow(dlg, 450, 500);
         
         JPanel root = new JPanel(new BorderLayout());
         root.setBackground(Color.WHITE);
@@ -178,6 +181,7 @@ public class DevicePanel extends JPanel {
 
         JTextField name = new JTextField(14);
         JTextField ip   = new JTextField(14);
+        JTextField sn   = new JTextField(14);
         JTextField port = new JTextField("4370", 14);
         JTextField loc  = new JTextField(14);
         JTextField pwd  = new JTextField("0", 14);
@@ -188,6 +192,7 @@ public class DevicePanel extends JPanel {
                 if (data != null) {
                     name.setText(DatabaseManager.str(data, "device_name"));
                     ip.setText(DatabaseManager.str(data, "ip_address"));
+                    sn.setText(DatabaseManager.str(data, "serial_number"));
                     port.setText(String.valueOf(data.get("port")));
                     loc.setText(DatabaseManager.str(data, "location"));
                     pwd.setText(String.valueOf(data.get("comm_password")));
@@ -198,11 +203,12 @@ public class DevicePanel extends JPanel {
             }
         }
 
-        p.add(new JLabel("Device Name:")); p.add(name, "growx");
-        p.add(new JLabel("IP Address:"));  p.add(ip,   "growx");
-        p.add(new JLabel("Port:"));        p.add(port, "growx");
-        p.add(new JLabel("Location:"));    p.add(loc,  "growx");
-        p.add(new JLabel("Password:"));    p.add(pwd,  "growx");
+        p.add(new JLabel("Device Name:"));   p.add(name, "growx");
+        p.add(new JLabel("IP Address:"));    p.add(ip,   "growx");
+        p.add(new JLabel("Serial Number:")); p.add(sn,   "growx");
+        p.add(new JLabel("Port:"));          p.add(port, "growx");
+        p.add(new JLabel("Location:"));      p.add(loc,  "growx");
+        p.add(new JLabel("Password:"));      p.add(pwd,  "growx");
 
         JButton save = UIHelper.makeButton(deviceId == null ? "Save Device" : "Update Device", 
             UIHelper.SUCCESS, deviceId == null ? "plus.svg" : "check.svg");
@@ -213,13 +219,13 @@ public class DevicePanel extends JPanel {
                 
                 if (deviceId == null) {
                     DatabaseManager.getInstance().execute(
-                        "INSERT INTO devices (device_name, ip_address, port, location, comm_password) VALUES (?,?,?,?,?)",
-                        name.getText().trim(), ip.getText().trim(), portNum, loc.getText().trim(), pwdVal
+                        "INSERT INTO devices (device_name, ip_address, serial_number, port, location, comm_password) VALUES (?,?,?,?,?,?)",
+                        name.getText().trim(), ip.getText().trim(), sn.getText().trim(), portNum, loc.getText().trim(), pwdVal
                     );
                 } else {
                     DatabaseManager.getInstance().execute(
-                        "UPDATE devices SET device_name=?, ip_address=?, port=?, location=?, comm_password=? WHERE device_id=?",
-                        name.getText().trim(), ip.getText().trim(), portNum, loc.getText().trim(), pwdVal, deviceId
+                        "UPDATE devices SET device_name=?, ip_address=?, serial_number=?, port=?, location=?, comm_password=? WHERE device_id=?",
+                        name.getText().trim(), ip.getText().trim(), sn.getText().trim(), portNum, loc.getText().trim(), pwdVal, deviceId
                     );
                 }
                 dlg.dispose();
@@ -367,5 +373,86 @@ public class DevicePanel extends JPanel {
         } catch (SQLException ex) {
             UIHelper.showError(this, "Error: " + ex.getMessage());
         }
+    }
+
+    private void deployAdmsSelected() {
+        java.util.List<Object> ids = tablePanel.getSelectedValues();
+        if (ids.isEmpty()) {
+            UIHelper.showInfo(this, "Please select at least one device to configure.");
+            return;
+        }
+
+        String currentIp = "127.0.0.1";
+        try {
+            currentIp = java.net.InetAddress.getLocalHost().getHostAddress();
+        } catch (Exception ignored) {}
+
+        String serverIp = JOptionPane.showInputDialog(this, 
+            "Enter this Server's IP address (reachable by the devices):", currentIp);
+        
+        if (serverIp == null || serverIp.trim().isEmpty()) return;
+
+        if (!UIHelper.confirmYesNo(this, "Bulk Deploy ADMS", 
+            "This will remotely update " + ids.size() + " device(s) to push data to:<br><b>" + serverIp + ":8081</b><br><br>The devices will REBOOT after deployment. Continue?")) {
+            return;
+        }
+
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        SwingWorker<java.util.List<String>, String> worker = new SwingWorker<>() {
+            @Override
+            protected java.util.List<String> doInBackground() throws Exception {
+                java.util.List<String> results = new java.util.ArrayList<>();
+                for (Object idVal : ids) {
+                    int deviceId = (int) idVal;
+                    Map<String, Object> dev = DatabaseManager.getInstance().fetchOne("SELECT * FROM devices WHERE device_id=?", deviceId);
+                    if (dev == null) continue;
+
+                    String name = DatabaseManager.str(dev, "device_name");
+                    String ip = DatabaseManager.str(dev, "ip_address");
+                    int port = DatabaseManager.num(dev, "port");
+                    int pwd = DatabaseManager.num(dev, "comm_password");
+
+                    publish("Configuring " + name + " (" + ip + ")...");
+                    
+                    com.bhspl.util.ZkProtocol zk = new com.bhspl.util.ZkProtocol(ip, port, 10000);
+                    zk.setPassword(pwd);
+                    if (!zk.connect()) {
+                        results.add(name + ": Connection failed.");
+                        continue;
+                    }
+
+                    try {
+                        zk.setOption("ADMSOn", "1");
+                        zk.setOption("ADMSHost", serverIp);
+                        zk.setOption("ADMSPort", "8081");
+                        zk.reboot();
+                        results.add(name + ": Success");
+                    } catch (Exception e) {
+                        results.add(name + ": Error - " + e.getMessage());
+                    } finally {
+                        zk.disconnect();
+                    }
+                }
+                return results;
+            }
+
+            @Override
+            protected void done() {
+                setCursor(Cursor.getDefaultCursor());
+                try {
+                    java.util.List<String> results = get();
+                    StringBuilder sb = new StringBuilder("<html><b>ADMS Deployment Results:</b><br><br>");
+                    for (String r : results) {
+                        sb.append(r).append("<br>");
+                    }
+                    sb.append("</html>");
+                    UIHelper.showInfo(DevicePanel.this, sb.toString());
+                    loadData();
+                } catch (Exception e) {
+                    UIHelper.showError(DevicePanel.this, "Error: " + e.getMessage());
+                }
+            }
+        };
+        worker.execute();
     }
 }

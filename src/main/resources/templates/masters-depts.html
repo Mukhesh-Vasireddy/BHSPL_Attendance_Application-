@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{layout :: main-layout(~{::section}, 'Department Structure', 'masters')}">
+<body>
+    <section>
+        <!-- Toolbar -->
+        <div class="card" style="margin-bottom: 15px; padding: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; color: var(--accent-purple);"><i class="fas fa-sitemap"></i> Department Structure</h3>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-primary" style="background: #10B981;" onclick="openDeptModal()"><i class="fas fa-plus"></i> Add Dept</button>
+                    <button class="btn-primary" style="background: #6366F1;" onclick="editSelected()"><i class="fas fa-edit"></i> Edit</button>
+                    <button class="btn-primary" style="background: #EF4444;"><i class="fas fa-trash"></i> Delete</button>
+                    <button class="btn-primary" style="background: #334155;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="card">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"><input type="checkbox"></th>
+                        <th>ID</th>
+                        <th>Dept Name</th>
+                        <th>Code</th>
+                        <th>Head Person</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="d : ${depts}" th:data-id="${d.id}" th:data-name="${d.dept_name}" th:data-code="${d.dept_code}" th:data-head="${d.head_name}" th:data-status="${d.status}">
+                        <td><input type="checkbox" class="row-check" th:value="${d.id}"></td>
+                        <td th:text="${d.id}">1</td>
+                        <td th:text="${d.dept_name}" style="font-weight: 600;">Sales</td>
+                        <td th:text="${d.dept_code}">SLS</td>
+                        <td th:text="${d.head_name}">John Manager</td>
+                        <td>
+                            <span th:text="${d.status}" 
+                                  th:classappend="${d.status == 'Active' ? 'badge-success' : 'badge-danger'}"
+                                  class="badge">Active</span>
+                        </td>
+                        <td th:text="${d.created_at}">2026-05-01</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Dept Modal -->
+        <div id="deptModal" class="modal">
+            <div class="modal-content" style="max-width: 400px;">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Create Department</h3>
+                    <span class="close" onclick="closeDeptModal()">&times;</span>
+                </div>
+                <form action="/masters/departments/save" method="post" id="deptForm">
+                    <input type="hidden" name="id" id="fieldId">
+                    <div style="padding: 20px;">
+                        <div class="form-group">
+                            <label>Dept Name *</label>
+                            <input type="text" name="name" id="fieldName" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Short Code</label>
+                            <input type="text" name="code" id="fieldCode" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>Head Person</label>
+                            <input type="text" name="head" id="fieldHead" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select name="status" id="fieldStatus" class="form-control">
+                                <option>Active</option>
+                                <option>Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-primary" style="background: #64748B;" onclick="closeDeptModal()">Cancel</button>
+                        <button type="submit" class="btn-primary" style="background: #10B981;">Save Department</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            function openDeptModal() {
+                document.getElementById('deptForm').reset();
+                document.getElementById('fieldId').value = '';
+                document.getElementById('modalTitle').innerText = 'Create Department';
+                document.getElementById('deptModal').style.display = 'flex';
+            }
+
+            function closeDeptModal() {
+                document.getElementById('deptModal').style.display = 'none';
+            }
+
+            function editSelected() {
+                const selected = document.querySelector('.row-check:checked');
+                if (!selected) {
+                    alert('Please select a department first.');
+                    return;
+                }
+                const row = selected.closest('tr');
+                document.getElementById('fieldId').value = row.dataset.id;
+                document.getElementById('fieldName').value = row.dataset.name;
+                document.getElementById('fieldCode').value = row.dataset.code;
+                document.getElementById('fieldHead').value = row.dataset.head;
+                document.getElementById('fieldStatus').value = row.dataset.status;
+                
+                document.getElementById('modalTitle').innerText = 'Edit Department';
+                document.getElementById('deptModal').style.display = 'flex';
+            }
+        </script>
+    </section>
+</body>
+</html>

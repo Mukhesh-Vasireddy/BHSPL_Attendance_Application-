@@ -1,47 +1,20 @@
-import java.sql.*;
-import java.util.*;
+import com.bhspl.db.DatabaseManager;
+import java.util.List;
+import java.util.Map;
 
 public class DbCheck {
     public static void main(String[] args) throws Exception {
-        String url = "jdbc:mysql://localhost:3306/bhspl_db?useSSL=false&serverTimezone=Asia/Kolkata";
-        String user = "root";
-        String pass = "root"; // Assuming root/root or similar based on common setups seen in previous sessions
+        DatabaseManager db = DatabaseManager.getInstance();
+        List<Map<String, Object>> logs = db.query("SELECT punch_time, emp_id FROM raw_logs ORDER BY punch_time DESC LIMIT 20");
+        System.out.println("--- RECENT LOGS ---");
+        for (Map<String, Object> log : logs) {
+            System.out.println(log.get("punch_time") + " | ID: " + log.get("emp_id"));
+        }
         
-        try (Connection conn = DriverManager.getConnection(url, user, pass)) {
-            System.out.println("--- Table Counts ---");
-            checkCount(conn, "employees");
-            checkCount(conn, "devices");
-            checkCount(conn, "raw_logs");
-            checkCount(conn, "attendance");
-            
-            System.out.println("\n--- Sample Raw Logs (Top 5) ---");
-            printQuery(conn, "SELECT emp_id, punch_time, synced FROM raw_logs ORDER BY punch_time DESC LIMIT 5");
-            
-            System.out.println("\n--- Sample Attendance (Top 5) ---");
-            printQuery(conn, "SELECT emp_id, punch_date, in_time, out_time, status FROM attendance ORDER BY punch_date DESC LIMIT 5");
-        } catch (Exception e) {
-            System.err.println("Database check failed: " + e.getMessage());
-        }
-    }
-    
-    private static void checkCount(Connection conn, String table) throws Exception {
-        try (Statement st = conn.createStatement();
-             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM " + table)) {
-            if (rs.next()) System.out.println(table + ": " + rs.getInt(1));
-        }
-    }
-    
-    private static void printQuery(Connection conn, String sql) throws Exception {
-        try (Statement st = conn.createStatement();
-             ResultSet rs = st.executeQuery(sql)) {
-             ResultSetMetaData meta = rs.getMetaData();
-             int cols = meta.getColumnCount();
-             while (rs.next()) {
-                 for (int i = 1; i <= cols; i++) {
-                     System.out.print(meta.getColumnLabel(i) + ": " + rs.getObject(i) + " | ");
-                 }
-                 System.out.println();
-             }
+        List<Map<String, Object>> emps = db.query("SELECT emp_id, emp_name FROM employees LIMIT 5");
+        System.out.println("--- EMP SAMPLES ---");
+        for (Map<String, Object> e : emps) {
+            System.out.println(e.get("emp_id") + " | " + e.get("emp_name"));
         }
     }
 }

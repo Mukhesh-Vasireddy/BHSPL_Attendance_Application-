@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{layout :: main-layout(~{::section}, 'Leave Policy', 'leave')}">
+<body>
+    <section>
+        <!-- Toolbar -->
+        <div class="card" style="margin-bottom: 15px; padding: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="text" id="policySearch" class="form-control" style="width: 250px;" placeholder="Search leave type..." onkeyup="searchPolicy()">
+                    <button class="btn-primary" onclick="searchPolicy()"><i class="fas fa-search"></i> Search</button>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-primary" style="background: #10B981;"><i class="fas fa-plus"></i> Add Policy</button>
+                    <button class="btn-primary" style="background: #6366F1;"><i class="fas fa-edit"></i> Edit</button>
+                    <button class="btn-primary" style="background: #EF4444;"><i class="fas fa-trash"></i> Delete</button>
+                    <button class="btn-primary" style="background: #64748B;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="card" style="overflow-x: auto;">
+            <table id="policyTable">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"><input type="checkbox"></th>
+                        <th>ID</th>
+                        <th>Leave Type</th>
+                        <th>Days/Year</th>
+                        <th>Credit</th>
+                        <th>Carry Fwd</th>
+                        <th>Max Carry</th>
+                        <th>Expire (mo)</th>
+                        <th>Encash</th>
+                        <th>Pro-rata</th>
+                        <th>Gender</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="p : ${policies}" th:data-type="${p['leave_type']}">
+                        <td><input type="checkbox" class="row-check" th:value="${p['id']}"></td>
+                        <td th:text="${p['id']}">1</td>
+                        <td th:text="${p['leave_type']}" style="font-weight: 600; color: var(--accent-purple);">Casual Leave</td>
+                        <td th:text="${p['days_per_year']}">12</td>
+                        <td th:text="${p['credit_method']}">Monthly</td>
+                        <td th:text="${#strings.toString(p['carry_forward']) == '1' ? 'Yes' : 'No'}">Yes</td>
+                        <td th:text="${p['max_carry']}">10</td>
+                        <td th:text="${p['expire_months']}">0</td>
+                        <td th:text="${#strings.toString(p['encashable']) == '1' ? 'Yes' : 'No'}">No</td>
+                        <td th:text="${#strings.toString(p['pro_rata']) == '1' ? 'Yes' : 'No'}">Yes</td>
+                        <td th:text="${p['applicable_gender']}">All</td>
+                        <td>
+                            <span th:text="${p['status']}" 
+                                  th:classappend="${p['status'] == 'Active' ? 'badge-success' : 'badge-danger'}"
+                                  class="badge">Active</span>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(policies)}">
+                        <td colspan="12" style="text-align: center; padding: 40px; color: #94A3B8;">No leave policies defined.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <script>
+            function searchPolicy() {
+                const query = document.getElementById('policySearch').value.toLowerCase();
+                const rows = document.querySelectorAll('#policyTable tbody tr');
+                rows.forEach(row => {
+                    const type = row.dataset.type ? row.dataset.type.toLowerCase() : '';
+                    if (type.includes(query)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            }
+        </script>
+    </section>
+</body>
+</html>

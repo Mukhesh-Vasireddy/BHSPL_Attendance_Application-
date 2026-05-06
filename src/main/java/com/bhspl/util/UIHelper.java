@@ -616,6 +616,15 @@ public class UIHelper {
                 return null;
             return model.getValueAt(table.convertRowIndexToModel(row), 0);
         }
+
+        public java.util.List<Object> getSelectedValues() {
+            int[] rows = table.getSelectedRows();
+            java.util.List<Object> list = new java.util.ArrayList<>();
+            for (int r : rows) {
+                list.add(model.getValueAt(table.convertRowIndexToModel(r), 0));
+            }
+            return list;
+        }
     }
 
     /**

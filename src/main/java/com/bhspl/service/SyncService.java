@@ -49,9 +49,9 @@ public class SyncService {
             return;
         IsRunning = true;
         System.out.println("SyncService: Initializing background scheduler...");
-        // Wait 5 seconds for initial run, then 5 minutes between runs
-        scheduler.scheduleWithFixedDelay(SyncService::performSync, 5, 300, TimeUnit.SECONDS);
-        broadcast("Background polling active (5m interval).");
+        // Wait 5 seconds for initial run, then 60 seconds between runs
+        scheduler.scheduleWithFixedDelay(SyncService::performSync, 5, 60, TimeUnit.SECONDS);
+        broadcast("Background polling active (1m interval).");
     }
 
     public static void performSync() {
@@ -60,8 +60,13 @@ public class SyncService {
             return;
         }
         long start = System.currentTimeMillis();
-        broadcast("Checking for active devices...");
         try {
+            // Auto-refresh last 2 days to ensure status updates (e.g. IN becomes PRESENT when OUT arrives)
+            try { 
+                DatabaseManager.getInstance().execute("UPDATE raw_logs SET synced=0 WHERE punch_time >= DATE_SUB(NOW(), INTERVAL 2 DAY)"); 
+            } catch (Exception ignored) {}
+
+            broadcast("Checking for active devices...");
             List<Map<String, Object>> devices;
             try {
                 devices = DatabaseManager.getInstance().query("SELECT * FROM devices WHERE status='Active'");
@@ -201,25 +206,17 @@ public class SyncService {
             for (Map<String, Object> e : employees) {
                 String sid = DatabaseManager.str(e, "emp_id");
                 String eid = DatabaseManager.str(e, "device_enroll_id");
-                if (!eid.isEmpty()) {
-                    enrollMap.put(eid, sid);
-                    reverseEnrollMap.put(sid, eid);
-                    
-                    // Also map normalized version (no leading zeros)
-                    try {
-                        String norm = String.valueOf(Long.parseLong(eid));
-                        if (!norm.equals(eid)) {
-                            enrollMap.put(norm, sid);
-                        }
-                    } catch (Exception ignored) {}
-                }
                 
-                // Map emp_id directly
+                enrollMap.put(sid, sid);
+                reverseEnrollMap.put(sid, eid.isEmpty() ? sid : eid);
+                if (!eid.isEmpty()) enrollMap.put(eid, sid);
+                
                 try {
                     String normSid = String.valueOf(Long.parseLong(sid));
-                    enrollMap.put(sid, sid);
-                    if (!normSid.equals(sid)) {
-                        enrollMap.put(normSid, sid);
+                    enrollMap.put(normSid, sid);
+                    if (!eid.isEmpty()) {
+                        String normEid = String.valueOf(Long.parseLong(eid));
+                        enrollMap.put(normEid, sid);
                     }
                 } catch (Exception ignored) {}
             }
@@ -240,44 +237,47 @@ public class SyncService {
             Set<String> affectedDays = new HashSet<>();
             List<Integer> newRawIds = new ArrayList<>();
             List<String> unknownUids = new ArrayList<>();
+            
             try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter("sync_debug.txt", true))) {
                 pw.println("\n--- Processing " + raw.size() + " raw logs at " + new java.util.Date());
                 for (Map<String, Object> r : raw) {
                     String uid = DatabaseManager.str(r, "emp_id");
                     String eid = enrollMap.get(uid);
+                    
+                    // Try normalized match
                     if (eid == null) {
-                        for (Map<String, Object> e : employees) {
-                            if (DatabaseManager.str(e, "emp_id").equals(uid)) {
-                                eid = uid;
-                                break;
-                            }
-                        }
+                        try {
+                            String norm = String.valueOf(Long.parseLong(uid));
+                            eid = enrollMap.get(norm);
+                        } catch (Exception ignored) {}
                     }
+
                     newRawIds.add(DatabaseManager.num(r, "id"));
                     if (eid != null) {
                         Object p = r.get("punch_time");
-                        LocalDate d;
+                        LocalDate d = null;
                         try {
                             if (p instanceof LocalDateTime) {
                                 d = ((LocalDateTime) p).toLocalDate();
                             } else if (p instanceof java.sql.Timestamp) {
                                 d = ((java.sql.Timestamp) p).toLocalDateTime().toLocalDate();
                             } else {
-                                d = LocalDate.parse(p.toString().replace("T", " ").split(" ")[0]);
+                                String s = p.toString().replace("T", " ").split(" ")[0];
+                                d = LocalDate.parse(s);
                             }
                         } catch (Exception ex) {
                             pw.println("Date parse failed for " + p);
                             continue;
                         }
-                        affectedDays.add(eid + "|" + d);
+                        if (d != null) affectedDays.add(eid + "|" + d);
                     } else {
                         pw.println("UNMATCHED UID from log entry: '" + uid + "'");
-                        if (!unknownUids.contains(uid))
-                            unknownUids.add(uid);
+                        if (!unknownUids.contains(uid)) unknownUids.add(uid);
                     }
                 }
                 pw.println("Identified " + affectedDays.size() + " distinct day combos to process.");
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                e.printStackTrace();
             }
 
             for (String dayKey : affectedDays) {
@@ -318,108 +318,76 @@ public class SyncService {
                     if (matched.isEmpty())
                         continue;
 
-                    List<LocalDateTime> list = matched.stream().map(m -> {
-                        Object o = m.get("punch_time");
-                        try {
-                            if (o instanceof LocalDateTime)
-                                return (LocalDateTime) o;
-                            if (o instanceof java.sql.Timestamp)
-                                return ((java.sql.Timestamp) o).toLocalDateTime();
-                            String s = o.toString().replace(" ", "T");
-                            if (s.contains("."))
-                                s = s.split("\\.")[0];
-                            return LocalDateTime.parse(s);
-                        } catch (Exception e) {
-                            return null;
-                        }
-                    }).filter(Objects::nonNull).sorted().collect(Collectors.toList());
-
-                    if (list.isEmpty())
-                        continue;
                     Map<String, Object> shift = empToShiftMap.get(empId);
-                    boolean isOvernight = false;
+                    boolean overnightFlag = false;
                     if (shift != null) {
                         try {
                             Object st = shift.get("start_time");
                             Object et = shift.get("end_time");
                             if (st != null && et != null) {
                                 LocalTime sTime;
-                                if (st instanceof java.sql.Time) {
-                                    sTime = ((java.sql.Time) st).toLocalTime();
-                                } else {
-                                    sTime = LocalTime.parse(st.toString().substring(0, 5));
-                                }
+                                if (st instanceof java.sql.Time) sTime = ((java.sql.Time) st).toLocalTime();
+                                else sTime = LocalTime.parse(st.toString().substring(0, 5));
 
                                 LocalTime eTime;
-                                if (et instanceof java.sql.Time) {
-                                    eTime = ((java.sql.Time) et).toLocalTime();
-                                } else {
-                                    eTime = LocalTime.parse(et.toString().substring(0, 5));
-                                }
+                                if (et instanceof java.sql.Time) eTime = ((java.sql.Time) et).toLocalTime();
+                                else eTime = LocalTime.parse(et.toString().substring(0, 5));
 
-                                if (eTime.isBefore(sTime))
-                                    isOvernight = true;
+                                if (eTime.isBefore(sTime)) overnightFlag = true;
                             }
-                        } catch (Exception ignored) {
-                        }
+                        } catch (Exception ignored) {}
                     }
 
-                    List<AttendanceSession> sessions = new ArrayList<>();
-                    for (int i = 0; i < list.size(); i++) {
-                        LocalDateTime in = list.get(i);
-                        LocalDateTime next = (i + 1 < list.size()) ? list.get(i + 1) : null;
-                        if (!in.toLocalDate().toString().equals(date))
-                            continue;
-                        if (next != null && next.isBefore(in.plusMinutes(5)))
-                            continue;
-                        LocalDateTime out = null;
-                        if (next != null) {
-                            long g = Duration.between(in, next).toHours();
-                            if ((next.toLocalDate().equals(in.toLocalDate()) && g < 14) || (isOvernight && g < 16)) {
-                                out = next;
-                                i++;
-                            }
-                        }
-                        sessions.add(new AttendanceSession(in, out));
+                    final String dStr = date;
+                    final boolean isOvernight = overnightFlag;
+                    List<LocalDateTime> list = matched.stream().map(m -> {
+                        Object o = m.get("punch_time");
+                        try {
+                            LocalDateTime ldt;
+                            if (o instanceof LocalDateTime) ldt = (LocalDateTime) o;
+                            else if (o instanceof java.sql.Timestamp) ldt = ((java.sql.Timestamp) o).toLocalDateTime();
+                            else ldt = LocalDateTime.parse(o.toString().replace(" ", "T").split("\\.")[0]);
+                            
+                            if (!isOvernight && !ldt.toLocalDate().toString().equals(dStr)) return null;
+                            return ldt;
+                        } catch (Exception e) { return null; }
+                    }).filter(Objects::nonNull).sorted().collect(Collectors.toList());
+
+                    if (list.isEmpty()) continue;
+
+                    // SIMPLE FIRST-IN / LAST-OUT LOGIC
+                    LocalDateTime firstIn = list.get(0);
+                    LocalDateTime lastOut = (list.size() > 1) ? list.get(list.size() - 1) : null;
+                    
+                    // Sanity check: if there's only one punch, it's just an IN.
+                    // If the "last" punch is within 1 minute of the "first", ignore it as a double-swipe.
+                    if (lastOut != null && Duration.between(firstIn, lastOut).toMinutes() < 1) {
+                        lastOut = null;
+                    }
+                    
+                    double totalDuration = 0;
+                    if (lastOut != null) {
+                        totalDuration = Duration.between(firstIn, lastOut).toMinutes() / 60.0;
                     }
 
-                    if (sessions.isEmpty())
-                        continue;
+                    // Saving the daily record
+                    com.bhspl.util.AttendanceCalculator.Metrics met = com.bhspl.util.AttendanceCalculator.calculate(firstIn, lastOut, shift);
+                    
                     double otThreshold = 9.0;
                     if (shift != null) {
                         otThreshold = DatabaseManager.dbl(shift, "overtime_after");
-                        if (otThreshold <= 0)
-                            otThreshold = DatabaseManager.dbl(shift, "work_hours");
-                        if (otThreshold <= 0)
-                            otThreshold = 9.0;
+                        if (otThreshold <= 0) otThreshold = DatabaseManager.dbl(shift, "work_hours");
+                        if (otThreshold <= 0) otThreshold = 9.0;
                     }
+                    double totalOT = Math.max(0, totalDuration - otThreshold);
 
-                    double cumulative = 0;
-                    double prevOT = 0;
-                    for (int i = 0; i < sessions.size(); i++) {
-                        AttendanceSession s = sessions.get(i);
-                        com.bhspl.util.AttendanceCalculator.Metrics met = com.bhspl.util.AttendanceCalculator
-                                .calculate(s.in, s.out, shift);
-                        if (s.out != null)
-                            s.duration = Duration.between(s.in, s.out).toMinutes() / 60.0;
-                        cumulative += s.duration;
-                        double totalOT = Math.max(0, cumulative - otThreshold);
-                        double sessionOT = totalOT - prevOT;
-                        prevOT = totalOT;
-
-                        if (logConsumer != null)
-                            logConsumer.accept("Saving: " + empId + " (" + (i + 1) + "/" + sessions.size() + ")");
-                        db.execute(
-                                "INSERT INTO attendance (emp_id, punch_date, in_time, out_time, status, work_hours, overtime, late_mins, early_mins, punch_type) "
-                                        +
-                                        "VALUES (?,?,?,?,?,?,?,?,?, 'Device') ON DUPLICATE KEY UPDATE in_time=VALUES(in_time), out_time=VALUES(out_time), "
-                                        +
-                                        "work_hours=VALUES(work_hours), overtime=VALUES(overtime), late_mins=VALUES(late_mins), early_mins=VALUES(early_mins), status=VALUES(status)",
-                                empId, date, java.sql.Timestamp.valueOf(s.in),
-                                (s.out != null ? java.sql.Timestamp.valueOf(s.out) : null),
-                                (i == 0 ? met.status : "Present"), s.duration, sessionOT, (i == 0 ? met.lateMins : 0),
-                                (i == sessions.size() - 1 ? met.earlyMins : 0));
-                    }
+                    db.execute(
+                            "INSERT INTO attendance (emp_id, punch_date, in_time, out_time, status, work_hours, overtime, late_mins, early_mins, punch_type) "
+                                    + "VALUES (?,?,?,?,?,?,?,?,?, 'Device') ON DUPLICATE KEY UPDATE in_time=VALUES(in_time), out_time=VALUES(out_time), "
+                                    + "work_hours=VALUES(work_hours), overtime=VALUES(overtime), late_mins=VALUES(late_mins), early_mins=VALUES(early_mins), status=VALUES(status)",
+                            empId, date, java.sql.Timestamp.valueOf(firstIn),
+                            (lastOut != null ? java.sql.Timestamp.valueOf(lastOut) : null),
+                            met.status, totalDuration, totalOT, met.lateMins, met.earlyMins);
                 } catch (Exception e) {
                     if (logConsumer != null)
                         logConsumer.accept("Error: " + e.getMessage());

@@ -590,9 +590,33 @@ public class DatabaseManager {
 
     /** Convenience: safe get int from row map */
     public static int num(Map<String, Object> row, String key) {
-        Object v = row == null ? null : row.get(key);
+        Object v = row.get(key);
         if (v == null) return 0;
         if (v instanceof Number) return ((Number) v).intValue();
         try { return Integer.parseInt(v.toString()); } catch (Exception e) { return 0; }
+    }
+
+    public static void main(String[] args) {
+        if (args.length == 0) {
+            System.out.println("Usage: DatabaseManager \"SELECT ...\"");
+            return;
+        }
+        try {
+            java.util.Map<String, String> config = com.bhspl.core.Config.loadDbConfig();
+            if (config == null) {
+                System.out.println("Config not found!");
+                return;
+            }
+            DatabaseManager db = DatabaseManager.getInstance();
+            db.connect(config.get("host"), config.get("port"), config.get("user"), config.get("password"), config.get("database"));
+            
+            List<Map<String, Object>> results = db.query(args[0]);
+            System.out.println("--- Results (" + results.size() + ") ---");
+            for (Map<String, Object> row : results) {
+                System.out.println(row);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{layout :: main-layout(~{::section}, 'Employee Master', 'employees')}">
+<body>
+    <section>
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3>Employee Directory</h3>
+                <div style="display: flex; gap: 10px;">
+                    <form action="/employees" method="get" style="display: flex; gap: 10px;">
+                        <input type="text" name="search" th:value="${selSearch}" placeholder="Search employees..." style="padding: 8px 12px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                        <button type="submit" class="btn-primary" style="background: #64748B;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        </button>
+                    </form>
+                    <button class="btn-primary" onclick="openModal()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg>
+                        Add Employee
+                    </button>
+                </div>
+            </div>
+            <table class="table">
+                <thead>
+                    <tr style="background: #800080; color: white;">
+                        <th style="padding: 12px;">Emp ID</th>
+                        <th style="padding: 12px;">Name</th>
+                        <th style="padding: 12px;">Department</th>
+                        <th style="padding: 12px;">Designation</th>
+                        <th style="padding: 12px;">Status</th>
+                        <th style="padding: 12px; width: 100px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="emp : ${employees}" style="border-bottom: 1px solid #eee;">
+                        <td th:text="${emp['emp_id']}" style="padding: 12px;">001</td>
+                        <td th:text="${emp['emp_name']}" style="padding: 12px; font-weight: bold;">Employee Name</td>
+                        <td th:text="${emp['department']}" style="padding: 12px;">Department</td>
+                        <td th:text="${emp['designation']}" style="padding: 12px;">Designation</td>
+                        <td style="padding: 12px;">
+                            <span th:text="${emp['status']}" 
+                                  th:style="${emp['status'] == 'Active' ? 'background: #10B981' : 'background: #EF4444'}"
+                                  style="color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">Active</span>
+                        </td>
+                        <td style="padding: 12px; display: flex; gap: 15px;">
+                            <!-- SVG Edit Button -->
+                            <button th:attr="data-id=${emp['emp_id']}" onclick="editEmployee(this.getAttribute('data-id'))" 
+                                    style="background: #F1F5F9; border: none; color: #800080; cursor: pointer; width: 32px; height: 32px; border-radius: 6px; display: grid; place-items: center;"
+                                    title="Edit Employee">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                            </button>
+                            <!-- SVG Delete Button -->
+                            <a th:href="@{/employees/delete/{id}(id=${emp['emp_id']})}" onclick="return confirm('Are you sure you want to delete this employee?')" 
+                               style="background: #F1F5F9; color: #EF4444; text-decoration: none; width: 32px; height: 32px; border-radius: 6px; display: grid; place-items: center;"
+                               title="Delete Employee">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                            </a>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Employee Modal -->
+        <div id="empModal" style="display:none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);">
+            <div style="background: white; margin: 5% auto; padding: 30px; width: 500px; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                    <h3 id="modalTitle">Add New Employee</h3>
+                    <button onclick="closeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #64748B;">&times;</button>
+                </div>
+                <form action="/employees/save" method="post" id="empForm">
+                    <input type="hidden" name="is_edit" id="form_is_edit" value="false">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 8px;">Employee ID</label>
+                            <input type="text" name="emp_id" id="form_emp_id" required class="form-control" style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 8px;">Full Name</label>
+                            <input type="text" name="emp_name" id="form_emp_name" required class="form-control" style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 8px;">Department</label>
+                            <select name="department" id="form_dept" class="form-control" style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                                <option value="">Select Dept</option>
+                                <option th:each="d : ${depts}" th:value="${d['dept_name']}" th:text="${d['dept_name']}">IT</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 8px;">Designation</label>
+                            <input type="text" name="designation" id="form_desig" class="form-control" style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 8px;">Shift</label>
+                            <select name="shift" id="form_shift" class="form-control" style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                                <option value="Day">Day</option>
+                                <option value="Night">Night</option>
+                                <option value="General">General</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 8px;">Status</label>
+                            <select name="status" id="form_status" class="form-control" style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 30px;">
+                        <button type="button" onclick="closeModal()" class="btn-primary" style="background: #94A3B8;">Cancel</button>
+                        <button type="submit" class="btn-primary">Save Employee</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script th:inline="javascript">
+            const rawEmps = /*[[${employees}]]*/ [];
+            
+            function openModal() {
+                document.getElementById('modalTitle').innerText = 'Add New Employee';
+                document.getElementById('empForm').reset();
+                document.getElementById('form_is_edit').value = 'false';
+                document.getElementById('form_emp_id').readOnly = false;
+                document.getElementById('empModal').style.display = 'block';
+            }
+
+            function closeModal() {
+                document.getElementById('empModal').style.display = 'none';
+            }
+
+            function editEmployee(empId) {
+                const emp = rawEmps.find(e => (e.emp_id || e['emp_id']) == empId);
+                if (emp) {
+                    document.getElementById('modalTitle').innerText = 'Edit Employee';
+                    document.getElementById('form_is_edit').value = 'true';
+                    document.getElementById('form_emp_id').value = emp.emp_id || emp['emp_id'];
+                    document.getElementById('form_emp_id').readOnly = true;
+                    document.getElementById('form_emp_name').value = emp.emp_name || emp['emp_name'];
+                    document.getElementById('form_dept').value = emp.department || emp['department'] || '';
+                    document.getElementById('form_desig').value = emp.designation || emp['designation'] || '';
+                    document.getElementById('form_shift').value = emp.shift || emp['shift'] || 'General';
+                    document.getElementById('form_status').value = emp.status || emp['status'] || 'Active';
+                    document.getElementById('empModal').style.display = 'block';
+                }
+            }
+        </script>
+    </section>
+</body>
+</html>

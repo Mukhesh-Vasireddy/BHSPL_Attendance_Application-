@@ -42,6 +42,8 @@ package com.bhspl.ui;
              {"Core Framework", "Spring Boot 3.x / Swing UI"},
              {"Persistence", "MySQL 8.0 (Connector/J)"},
              {"SDK Interface", "ZKTeco Native Library (Java)"},
+             {"ADMS Protocol", com.bhspl.service.PushService.isRunning() ? "Active (Listening)" : "Inactive"},
+             {"ADMS Port", String.valueOf(com.bhspl.service.PushService.getPort())},
              {"Module Status", "Running / Connected"}
          };
  

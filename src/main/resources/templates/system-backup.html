@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{layout :: main-layout(~{::section}, 'Database Maintenance', 'system')}">
+<body>
+    <section>
+        <div style="display: flex; flex-direction: column; align-items: center; padding-top: 20px; gap: 30px;">
+            <h1 style="color: var(--accent-purple); font-weight: 700; margin: 0;">Database Maintenance & Backup</h1>
+            
+            <!-- Backup Section -->
+            <div class="card" style="width: 100%; max-width: 600px; padding: 40px; text-align: center;">
+                <h3 style="color: var(--accent-purple); font-weight: 700; margin-bottom: 15px;">Backup & Recovery Operations</h3>
+                <p style="color: #64748B; font-size: 14px; margin-bottom: 30px;">
+                    Secure your enterprise data by creating regular backups.<br>
+                    Files are stored in the root 'backups' folder.
+                </p>
+                
+                <button class="btn-primary" style="background: #10B981; width: 100%; padding: 15px; font-size: 16px; margin-bottom: 15px;">
+                    <i class="fas fa-database"></i> Create Full Backup Now
+                </button>
+                
+                <button class="btn-primary" style="width: 100%; padding: 12px;">
+                    <i class="fas fa-file-import"></i> Restore from SQL File
+                </button>
+            </div>
+
+            <!-- Connection Profile Section -->
+            <div class="card" style="width: 100%; max-width: 600px; padding: 40px;">
+                <h3 style="color: var(--accent-purple); font-weight: 700; margin-bottom: 25px; text-align: center;">Active Connection Profile</h3>
+                
+                <div style="display: grid; grid-template-columns: 150px 1fr; gap: 15px 30px;">
+                    <div style="text-align: right; font-weight: 700; color: #64748B;">Host Address:</div>
+                    <div th:text="${dbHost}" style="font-weight: 500; color: #1E293B;">localhost</div>
+                    
+                    <div style="text-align: right; font-weight: 700; color: #64748B;">Port:</div>
+                    <div th:text="${dbPort}" style="font-weight: 500; color: #1E293B;">3306</div>
+                    
+                    <div style="text-align: right; font-weight: 700; color: #64748B;">Database:</div>
+                    <div th:text="${dbName}" style="font-weight: 500; color: #1E293B;">biotest</div>
+                    
+                    <div style="text-align: right; font-weight: 700; color: #64748B;">Service User:</div>
+                    <div th:text="${dbUser}" style="font-weight: 500; color: #1E293B;">root</div>
+                </div>
+                
+                <div style="margin-top: 30px; border-top: 1px solid #E2E8F0; padding-top: 25px; text-align: center;">
+                    <button class="btn-primary" style="background: #EF4444;">
+                        <i class="fas fa-exclamation-triangle"></i> Modify Connection Configuration
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+</body>
+</html>

@@ -49,15 +49,27 @@ public class Main {
                     try {
                         if (get()) {
                             com.bhspl.service.SyncService.start();
-                            new LoginWindow().setVisible(true);
+                            com.bhspl.service.PushService.start();
+                            
+                            // Start Java Web Portal (Spring Boot) on port 8080
+                            com.bhspl.web.WebApplication.start(args);
+
+                            // new LoginWindow().setVisible(true);
                         } else {
-                            new DBSetupWindow().setVisible(true);
+                            // new DBSetupWindow().setVisible(true);
                         }
                     } catch (Exception e) {
-                        new DBSetupWindow().setVisible(true);
+                        // new DBSetupWindow().setVisible(true);
                     }
                 }
             }.execute();
         });
+
+        // Keep the main thread alive so the Web Portal and Background Services don't close
+        try {
+            Thread.currentThread().join();
+        } catch (InterruptedException e) {
+            System.err.println("Main thread interrupted");
+        }
     }
 }

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{layout :: main-layout(~{::section}, 'System Settings', 'system')}">
+<body>
+    <section>
+        <div style="max-width: 800px; margin: 0 auto;">
+            <!-- Database Settings -->
+            <div class="card">
+                <h3 style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-database" style="color: var(--accent-purple);"></i>
+                    Database Configuration
+                </h3>
+                <div style="margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px;">Host</label>
+                        <input type="text" value="localhost" style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 8px;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px;">Database Name</label>
+                        <input type="text" value="bhspl_attendance" style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 8px;">
+                    </div>
+                </div>
+                <div style="margin-top: 20px; text-align: right;">
+                    <button class="btn-primary" style="display: inline-flex;">Save DB Settings</button>
+                </div>
+            </div>
+
+            <!-- Server Settings -->
+            <div class="card">
+                <h3 style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-server" style="color: var(--accent-purple);"></i>
+                    Server Status
+                </h3>
+                <div style="margin-top: 20px;">
+                    <div style="display: flex; justify-content: space-between; padding: 12px; background: #F8FAFC; border-radius: 8px; margin-bottom: 10px;">
+                        <span>Push Service (ADMS)</span>
+                        <span style="color: #10B981; font-weight: 700;">Running on Port 8081</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 12px; background: #F8FAFC; border-radius: 8px; margin-bottom: 10px;">
+                        <span>Web Server</span>
+                        <span style="color: #10B981; font-weight: 700;">Running on Port 8080</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backup & Restore -->
+            <div class="card">
+                <h3 style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-undo" style="color: var(--accent-purple);"></i>
+                    Backup & Maintenance
+                </h3>
+                <div style="margin-top: 20px; display: flex; gap: 15px;">
+                    <button class="btn-primary" style="background: #334155;"><i class="fas fa-download"></i> Backup Database</button>
+                    <button class="btn-primary" style="background: #EF4444;"><i class="fas fa-trash-alt"></i> Clear Old Logs</button>
+                </div>
+            </div>
+        </div>
+    </section>
+</body>
+</html>

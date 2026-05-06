@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{layout :: main-layout(~{::section}, 'Leave Balance', 'leave')}">
+<body>
+    <section>
+        <!-- Action Toolbar -->
+        <div class="card" style="margin-bottom: 20px; padding: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; color: var(--accent-purple); display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-wallet"></i> Leave Balance
+                </h3>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-primary" style="background: #10B981;"><i class="fas fa-plus"></i> Credit Leaves</button>
+                    <button class="btn-primary" style="background: #F59E0B;"><i class="fas fa-calendar-check"></i> Year-End Process</button>
+                    <button class="btn-primary" style="background: #6366F1;"><i class="fas fa-minus"></i> Adjust Balance</button>
+                    <button class="btn-primary" style="background: #334155;"><i class="fas fa-file-excel"></i> Export Excel</button>
+                    <button class="btn-primary" style="background: #64748B;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="card" style="margin-bottom: 20px; padding: 15px;">
+            <form action="/leave/balance" method="get" style="display: flex; gap: 20px; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 13px; font-weight: 600; color: #64748B;">Year:</span>
+                    <select name="year" class="form-control" style="width: 100px;">
+                        <option th:each="y : ${#numbers.sequence(2025, 2027)}" th:value="${y}" th:text="${y}" th:selected="${selYear == #strings.toString(y)}"></option>
+                    </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 13px; font-weight: 600; color: #64748B;">Dept:</span>
+                    <select name="dept" class="form-control" style="width: 160px;">
+                        <option>All</option>
+                        <option th:each="d : ${depts}" th:value="${d.dept_name}" th:text="${d.dept_name}" th:selected="${selDept == d.dept_name}"></option>
+                    </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 13px; font-weight: 600; color: #64748B;">Leave Type:</span>
+                    <select name="type" class="form-control" style="width: 180px;">
+                        <option>All</option>
+                        <option th:each="t : ${types}" th:value="${t.leave_type}" th:text="${t.leave_type}" th:selected="${selType == t.leave_type}"></option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary"><i class="fas fa-filter"></i> Filter</button>
+            </form>
+        </div>
+
+        <!-- Summary Stats Cards -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 24px;">
+            <div class="card" style="background: #1E293B; color: white; border: none; padding: 20px; text-align: center;">
+                <p style="margin: 0; font-size: 11px; font-weight: 700; opacity: 0.7; text-transform: uppercase;">Employees</p>
+                <h2 th:text="${stats.empCount}" style="margin: 10px 0 0; font-size: 24px;">0 / 0</h2>
+            </div>
+            <div class="card" style="background: #10B981; color: white; border: none; padding: 20px; text-align: center;">
+                <p style="margin: 0; font-size: 11px; font-weight: 700; opacity: 0.7; text-transform: uppercase;">Total Balance</p>
+                <h2 th:text="${stats.totalBal + ' days'}" style="margin: 10px 0 0; font-size: 24px;">0 days</h2>
+            </div>
+            <div class="card" style="background: #F59E0B; color: white; border: none; padding: 20px; text-align: center;">
+                <p style="margin: 0; font-size: 11px; font-weight: 700; opacity: 0.7; text-transform: uppercase;">Total Used</p>
+                <h2 th:text="${stats.totalUsed + ' days'}" style="margin: 10px 0 0; font-size: 24px;">0 days</h2>
+            </div>
+            <div class="card" style="background: #EF4444; color: white; border: none; padding: 20px; text-align: center;">
+                <p style="margin: 0; font-size: 11px; font-weight: 700; opacity: 0.7; text-transform: uppercase;">Total Lapsed</p>
+                <h2 th:text="${stats.totalLapsed + ' days'}" style="margin: 10px 0 0; font-size: 24px;">0 days</h2>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="card" style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Emp ID</th>
+                        <th>Name</th>
+                        <th>Dept</th>
+                        <th>Leave Type</th>
+                        <th>Year</th>
+                        <th>Opening</th>
+                        <th>Credited</th>
+                        <th>Carry Fwd</th>
+                        <th>Used</th>
+                        <th>Lapsed</th>
+                        <th>Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="b : ${balances}">
+                        <td th:text="${b.emp_id}">101</td>
+                        <td th:text="${b.emp_name}" style="font-weight: 600;">John Doe</td>
+                        <td th:text="${b.department}">Sales</td>
+                        <td th:text="${b.leave_type}">Casual Leave</td>
+                        <td th:text="${b.year}">2026</td>
+                        <td th:text="${b.opening_bal}">0.0</td>
+                        <td th:text="${b.credited}">12.0</td>
+                        <td th:text="${b.carry_fwd}">0.0</td>
+                        <td th:text="${b.used}" style="color: #F59E0B;">2.0</td>
+                        <td th:text="${b.lapsed}" style="color: #EF4444;">0.0</td>
+                        <td th:text="${b.closing_bal}" style="font-weight: 700; color: #10B981;">10.0</td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(balances)}">
+                        <td colspan="11" style="text-align: center; padding: 40px; color: #94A3B8;">No leave balances found for this selection.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</body>
+</html>

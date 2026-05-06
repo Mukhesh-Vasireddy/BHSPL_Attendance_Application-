@@ -20,6 +20,8 @@ public class ZkProtocol {
     private static final int ZK_CMD_DISABLEDEVICE = 1013;
     private static final int ZK_CMD_ACK_OK = 2000;
     private static final int ZK_CMD_ACK_UNAUTH = 2005;
+    private static final int ZK_CMD_REBOOT = 1004;
+    private static final int ZK_CMD_OPTIONS_WR = 11;
 
     private static final int ZK_CMD_READALLDATA = 13;   // Legacy CMD – works on this device
     private static final int ZK_CMD_ATTLOG = 1503;       // Not supported on this device (returns 4989)
@@ -144,12 +146,32 @@ public class ZkProtocol {
     }
 
     private boolean sendCommand(int cmd) {
+        return sendCommand(cmd, null);
+    }
+
+    private boolean sendCommand(int cmd, byte[] data) {
         try {
-            byte[] resp = sendAndReceive(cmd, null);
+            byte[] resp = sendAndReceive(cmd, data);
             return resp != null && getShortLE(resp, 0) == ZK_CMD_ACK_OK;
         } catch (Exception e) {
             return false;
         }
+    }
+
+    /**
+     * Sets a configuration option on the device.
+     * Common ADMS options: ADMSHost, ADMSPort, ADMSOn
+     */
+    public boolean setOption(String key, String value) {
+        String data = key + "=" + value + "\0";
+        return sendCommand(ZK_CMD_OPTIONS_WR, data.getBytes());
+    }
+
+    /**
+     * Reboots the device. Required after changing ADMS settings.
+     */
+    public boolean reboot() {
+        return sendCommand(ZK_CMD_REBOOT);
     }
 
     public List<Map<String, Object>> getAttendanceRecords() {
