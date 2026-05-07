@@ -11,9 +11,7 @@
                     <button class="btn-primary" onclick="searchPolicy()"><i class="fas fa-search"></i> Search</button>
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <button class="btn-primary" style="background: #10B981;"><i class="fas fa-plus"></i> Add Policy</button>
-                    <button class="btn-primary" style="background: #6366F1;"><i class="fas fa-edit"></i> Edit</button>
-                    <button class="btn-primary" style="background: #EF4444;"><i class="fas fa-trash"></i> Delete</button>
+                    <button class="btn-primary" style="background: #10B981;" onclick="openPolicyModal()"><i class="fas fa-plus"></i> Add Policy</button>
                     <button class="btn-primary" style="background: #64748B;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
                 </div>
             </div>
@@ -24,7 +22,6 @@
             <table id="policyTable">
                 <thead>
                     <tr>
-                        <th style="width: 40px;"><input type="checkbox"></th>
                         <th>ID</th>
                         <th>Leave Type</th>
                         <th>Days/Year</th>
@@ -36,11 +33,11 @@
                         <th>Pro-rata</th>
                         <th>Gender</th>
                         <th>Status</th>
+                        <th style="text-align: center;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr th:each="p : ${policies}" th:data-type="${p['leave_type']}">
-                        <td><input type="checkbox" class="row-check" th:value="${p['id']}"></td>
+                    <tr th:each="p : ${policies}" th:data-type="${p['leave_type']}" th:data-id="${p['id']}">
                         <td th:text="${p['id']}">1</td>
                         <td th:text="${p['leave_type']}" style="font-weight: 600; color: var(--accent-purple);">Casual Leave</td>
                         <td th:text="${p['days_per_year']}">12</td>
@@ -56,6 +53,12 @@
                                   th:classappend="${p['status'] == 'Active' ? 'badge-success' : 'badge-danger'}"
                                   class="badge">Active</span>
                         </td>
+                        <td>
+                            <div class="action-col">
+                                <button class="action-btn edit" title="Edit" onclick="editPolicy(this)"><i class="fas fa-pen"></i></button>
+                                <button class="action-btn delete" title="Delete" onclick="deletePolicy(this)"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(policies)}">
                         <td colspan="12" style="text-align: center; padding: 40px; color: #94A3B8;">No leave policies defined.</td>
@@ -65,6 +68,27 @@
         </div>
 
         <script>
+            function openPolicyModal() {
+                alert('Add Policy modal under development');
+            }
+
+            function editPolicy(btn) {
+                const tr = btn.closest('tr');
+                alert('Edit Policy for ID ' + tr.dataset.id + ' under development');
+            }
+
+            function deletePolicy(btn) {
+                const tr = btn.closest('tr');
+                if (confirm('Delete leave policy #' + tr.dataset.id + '?')) {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '/leave/policy/delete';
+                    const idInput = document.createElement('input'); idInput.name = 'id'; idInput.value = tr.dataset.id;
+                    form.appendChild(idInput);
+                    document.body.appendChild(form); form.submit();
+                }
+            }
+
             function searchPolicy() {
                 const query = document.getElementById('policySearch').value.toLowerCase();
                 const rows = document.querySelectorAll('#policyTable tbody tr');

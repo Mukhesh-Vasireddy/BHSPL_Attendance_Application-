@@ -9,9 +9,7 @@
                 <h3 style="margin: 0; color: var(--accent-purple);"><i class="fas fa-clock"></i> Shift Management</h3>
                 <div style="display: flex; gap: 10px;">
                     <button class="btn-primary" style="background: #10B981;" onclick="openShiftModal()"><i class="fas fa-plus"></i> Add Shift</button>
-                    <button class="btn-primary" style="background: #6366F1;" onclick="editSelected()"><i class="fas fa-edit"></i> Edit</button>
-                    <button class="btn-primary" style="background: #EF4444;"><i class="fas fa-trash"></i> Delete</button>
-                    <button class="btn-primary" style="background: #334155;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+                    <button class="btn-primary" style="background: #64748B;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
                 </div>
             </div>
         </div>
@@ -21,21 +19,20 @@
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 40px;"><input type="checkbox"></th>
                         <th>ID</th>
                         <th>Shift Name</th>
-                        <th>Start</th>
-                        <th>End</th>
+                        <th>Start Time</th>
+                        <th>End Time</th>
                         <th>Break</th>
                         <th>Grace</th>
                         <th>Off Day 1</th>
                         <th>Off Day 2</th>
                         <th>Work Hrs</th>
+                        <th style="text-align: center;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr th:each="s : ${shifts}" th:data-id="${s.id}" th:data-name="${s.shift_name}" th:data-start="${s.start_time}" th:data-end="${s.end_time}" th:data-break="${s.break_mins}" th:data-grace="${s.grace_mins}" th:data-off1="${s.weekly_off1}" th:data-off2="${s.weekly_off2}">
-                        <td><input type="checkbox" class="row-check" th:value="${s.id}"></td>
                         <td th:text="${s.id}">1</td>
                         <td th:text="${s.shift_name}" style="font-weight: 600;">General Shift</td>
                         <td th:text="${s.start_time}">09:00:00</td>
@@ -45,6 +42,12 @@
                         <td th:text="${s.weekly_off1}">Sunday</td>
                         <td th:text="${s.weekly_off2}">None</td>
                         <td th:text="${s.work_hours}">8.5</td>
+                        <td>
+                            <div class="action-col">
+                                <button class="action-btn edit" title="Edit" onclick="editShift(this)"><i class="fas fa-pen"></i></button>
+                                <button class="action-btn delete" title="Delete" onclick="deleteShift(this)"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -121,24 +124,31 @@
                 document.getElementById('shiftModal').style.display = 'none';
             }
 
-            function editSelected() {
-                const selected = document.querySelector('.row-check:checked');
-                if (!selected) {
-                    alert('Please select a shift record first.');
-                    return;
-                }
-                const row = selected.closest('tr');
-                document.getElementById('fieldId').value = row.dataset.id;
-                document.getElementById('fieldName').value = row.dataset.name;
-                document.getElementById('fieldStart').value = row.dataset.start;
-                document.getElementById('fieldEnd').value = row.dataset.end;
-                document.getElementById('fieldBreak').value = row.dataset.break;
-                document.getElementById('fieldGrace').value = row.dataset.grace;
-                document.getElementById('fieldOff1').value = row.dataset.off1;
-                document.getElementById('fieldOff2').value = row.dataset.off2;
+            function editShift(btn) {
+                const tr = btn.closest('tr');
+                document.getElementById('fieldId').value = tr.dataset.id;
+                document.getElementById('fieldName').value = tr.dataset.name;
+                document.getElementById('fieldStart').value = tr.dataset.start;
+                document.getElementById('fieldEnd').value = tr.dataset.end;
+                document.getElementById('fieldBreak').value = tr.dataset.break;
+                document.getElementById('fieldGrace').value = tr.dataset.grace;
+                document.getElementById('fieldOff1').value = tr.dataset.off1;
+                document.getElementById('fieldOff2').value = tr.dataset.off2;
                 
                 document.getElementById('modalTitle').innerText = 'Modify Shift Settings';
                 document.getElementById('shiftModal').style.display = 'flex';
+            }
+
+            function deleteShift(btn) {
+                const tr = btn.closest('tr');
+                if (confirm('Delete shift ' + tr.dataset.name + '?')) {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '/masters/shifts/delete';
+                    const idInput = document.createElement('input'); idInput.name = 'id'; idInput.value = tr.dataset.id;
+                    form.appendChild(idInput);
+                    document.body.appendChild(form); form.submit();
+                }
             }
         </script>
     </section>

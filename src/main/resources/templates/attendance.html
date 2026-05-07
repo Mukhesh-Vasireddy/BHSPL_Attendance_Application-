@@ -1,13 +1,15 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" 
-      th:replace="~{layout :: main-layout(~{::section}, 'Attendance', 'attendance')}">
+<html xmlns:th="http://www.thymeleaf.org"
+    th:replace="~{layout :: main-layout(~{::section}, 'Attendance', 'attendance')}">
+
 <body>
     <section>
         <div class="card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h3>Daily Attendance View</h3>
                 <form action="/attendance" method="get" style="display: flex; gap: 10px;">
-                    <input type="date" name="date" class="form-control" th:value="${selDate}" style="padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
+                    <input type="date" name="date" class="form-control" th:value="${selDate}"
+                        style="padding: 8px; border: 1px solid #E2E8F0; border-radius: 6px;">
                     <button type="submit" class="btn-primary"><i class="fas fa-search"></i> View</button>
                 </form>
             </div>
@@ -28,18 +30,25 @@
                         <td th:text="${a['emp_id']}" style="padding: 12px;">101</td>
                         <td th:text="${a['emp_name']}" style="padding: 12px; font-weight: bold;">John Doe</td>
                         <td th:text="${a['shift'] ?: '--'}" style="padding: 12px;">Day</td>
-                        <td th:text="${a['in_time'] != null ? #strings.substring(a['in_time'], 11, 16) : '--:--'}" style="padding: 12px;">09:00</td>
-                        <td th:text="${a['out_time'] != null ? #strings.substring(a['out_time'], 11, 16) : '--:--'}" style="padding: 12px;">18:00</td>
-                        <td th:text="${a['work_hours'] != null ? #numbers.formatDecimal(a['work_hours'], 1, 2) : '0.00'}" style="padding: 12px;">8.00</td>
+                        <td th:text="${a['in_time'] != null ? #strings.substring(a['in_time'], 11, 16) : '--:--'}"
+                            style="padding: 12px;">09:00</td>
+                        <td th:text="${a['out_time'] != null ? #strings.substring(a['out_time'], 11, 16) : '--:--'}"
+                            style="padding: 12px;">18:00</td>
+                        <td th:text="${a['work_hours'] != null ? #numbers.formatDecimal(a['work_hours'], 1, 2) : '0.00'}"
+                            style="padding: 12px;">8.00</td>
                         <td style="padding: 12px;">
-                            <span th:if="${a['status'] == 'P' or a['status'] == 'Present'}" class="badge bg-success" style="background: #10B981; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px;">Present</span>
-                            <span th:if="${a['status'] == 'Late'}" class="badge bg-warning" style="background: #F59E0B; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px;">Late</span>
-                            <span th:if="${a['status'] == 'A' or a['status'] == null}" class="badge bg-danger" style="background: #EF4444; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px;">Absent</span>
+                            <span th:if="${a['status'] == 'P' or a['status'] == 'Present'}" class="badge bg-success"
+                                style="background: #10B981; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px;">Present</span>
+                            <span th:if="${a['status'] == 'Late'}" class="badge bg-warning"
+                                style="background: #F59E0B; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px;">Late</span>
+                            <span th:if="${a['status'] == 'A' or a['status'] == null}" class="badge bg-danger"
+                                style="background: #EF4444; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px;">Absent</span>
                         </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(attendance)}">
                         <td colspan="7" style="text-align: center; padding: 40px; color: #64748B;">
-                            <i class="fas fa-user-clock" style="font-size: 48px; margin-bottom: 20px; opacity: 0.3;"></i>
+                            <i class="fas fa-user-clock"
+                                style="font-size: 48px; margin-bottom: 20px; opacity: 0.3;"></i>
                             <p>No attendance records found for this date.</p>
                         </td>
                     </tr>
@@ -48,4 +57,5 @@
         </div>
     </section>
 </body>
+
 </html>

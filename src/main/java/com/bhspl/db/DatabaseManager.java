@@ -301,7 +301,7 @@ public class DatabaseManager {
             "  emp_id          VARCHAR(20)," +
             "  od_from         DATE NOT NULL," +
             "  od_to           DATE NOT NULL," +
-            "  od_days         INT  DEFAULT 1," +
+            "  od_days         DECIMAL(5,2) DEFAULT 1.0," +
             "  from_time       TIME," +
             "  to_time         TIME," +
             "  od_type         VARCHAR(30) DEFAULT 'Full Day'," +
@@ -410,7 +410,9 @@ public class DatabaseManager {
             {"attendance", "early_out_mins",     "INT DEFAULT 0"},
             {"devices",    "comm_password",      "INT DEFAULT 0"},
             {"devices",    "last_error",         "VARCHAR(255)"},
+            {"users",      "status",             "VARCHAR(10) DEFAULT 'Active'"},
             {"attendance", "in_time",             "DATETIME"}, // Placeholder to trigger migration logic if needed
+            {"od_requests", "od_days",            "DECIMAL(5,2) DEFAULT 1.0"},
         };
         
         // Custom migration to drop old attendance unique key if present
@@ -429,7 +431,13 @@ public class DatabaseManager {
                 execute("ALTER TABLE `" + m[0] + "` ADD COLUMN `" + m[1] + "` " + m[2]);
                 conn.commit();
             } catch (Exception ignored) {
-                // Column already exists
+                // Column may exist, try to MODIFY if it's a type change
+                if ("od_requests".equals(m[0]) && "od_days".equals(m[1])) {
+                    try {
+                        execute("ALTER TABLE od_requests MODIFY COLUMN od_days DECIMAL(5,2) DEFAULT 1.0");
+                        conn.commit();
+                    } catch (Exception e2) {}
+                }
                 try { conn.rollback(); } catch (Exception e2) {}
             }
         }

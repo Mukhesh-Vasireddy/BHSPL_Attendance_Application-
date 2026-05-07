@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Attendance Hub</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #BE185D;
+            --primary-dark: #9D174D;
+            --accent-pink: #F472B6;
+            --bg-dark: #0F172A;
+            --text-main: #1E293B;
+            --text-muted: #64748B;
+            --card-bg: #FFFFFF;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .login-container {
+            display: flex;
+            width: 1000px;
+            max-width: 95vw;
+            height: 650px;
+            background: var(--card-bg);
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Left Side: Branding */
+        .branding-side {
+            flex: 1;
+            background: linear-gradient(135deg, #BE185D 0%, #831843 100%);
+            padding: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .branding-side::before {
+            content: "";
+            position: absolute;
+            top: -10%;
+            right: -10%;
+            width: 300px;
+            height: 300px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            filter: blur(60px);
+        }
+
+        .branding-side h1 {
+            font-size: 42px;
+            font-weight: 800;
+            letter-spacing: -1px;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            animation: slideUp 0.8s ease-out;
+        }
+
+        .branding-side p {
+            font-size: 18px;
+            opacity: 0.8;
+            line-height: 1.6;
+            animation: slideUp 1s ease-out;
+        }
+
+        .branding-icon {
+            font-size: 120px;
+            margin-bottom: 40px;
+            opacity: 0.2;
+            position: absolute;
+            bottom: -20px;
+            right: -20px;
+        }
+
+        /* Right Side: Form */
+        .form-side {
+            width: 450px;
+            padding: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .logo-box {
+            margin-bottom: 40px;
+        }
+
+        .logo-box h2 {
+            color: var(--primary);
+            font-weight: 800;
+            font-size: 28px;
+        }
+
+        .welcome-text {
+            margin-bottom: 30px;
+        }
+
+        .welcome-text h3 {
+            font-size: 32px;
+            color: var(--text-main);
+            margin-bottom: 8px;
+        }
+
+        .welcome-text p {
+            color: var(--text-muted);
+            font-size: 16px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-wrapper i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 18px;
+        }
+
+        .input-wrapper input {
+            width: 100%;
+            padding: 14px 16px 14px 48px;
+            border: 2px solid #F1F5F9;
+            border-radius: 12px;
+            font-size: 16px;
+            outline: none;
+            transition: all 0.3s;
+            background: #F8FAFC;
+        }
+
+        .input-wrapper input:focus {
+            border-color: var(--primary);
+            background: #FFFFFF;
+            box-shadow: 0 0 0 4px rgba(190, 24, 93, 0.1);
+        }
+
+        .login-btn {
+            width: 100%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .login-btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(190, 24, 93, 0.4);
+        }
+
+        .error-msg {
+            background: #FEF2F2;
+            color: #DC2626;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            border-left: 4px solid #DC2626;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @media (max-width: 900px) {
+            .branding-side { display: none; }
+            .login-container { width: 450px; }
+            .form-side { width: 100%; padding: 40px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="branding-side">
+            <i class="fas fa-fingerprint branding-icon"></i>
+            <h1>ATTENDANCE<br>HUB</h1>
+            <p>Empowering organizations with smart biometric attendance tracking and real-time workforce analytics.</p>
+        </div>
+        <div class="form-side">
+            <div class="logo-box">
+                <h2>BAVYA</h2>
+            </div>
+            <div class="welcome-text">
+                <h3>Welcome Back</h3>
+                <p>Please enter your credentials to login.</p>
+            </div>
+
+            <div th:if="${error}" class="error-msg">
+                <i class="fas fa-exclamation-circle"></i>
+                <span th:text="${error}">Error message here</span>
+            </div>
+
+            <form action="/login" method="post">
+                <div class="input-group">
+                    <label>Username</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-user"></i>
+                        <input type="text" name="username" placeholder="Enter your username" required autofocus>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Password</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" name="password" placeholder="Enter your password" required>
+                    </div>
+                </div>
+                <button type="submit" class="login-btn">Sign In</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

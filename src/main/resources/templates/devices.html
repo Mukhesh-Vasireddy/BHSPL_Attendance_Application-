@@ -1,6 +1,7 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" 
-      th:replace="~{layout :: main-layout(~{::section}, 'Device Manager', 'devices')}">
+<html xmlns:th="http://www.thymeleaf.org"
+    th:replace="~{layout :: main-layout(~{::section}, 'Device Manager', 'devices')}">
+
 <body>
     <section>
         <div class="card">
@@ -10,14 +11,17 @@
             </div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
                 <div th:each="dev : ${devices}" class="card" style="border: 1px solid #E2E8F0; margin-bottom: 0;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
                         <div>
-                            <h4 th:text="${dev.device_name}" style="margin: 0; color: var(--accent-purple);">Office Entry</h4>
-                            <p th:text="${dev.serial_number}" style="margin: 4px 0; font-size: 12px; color: #64748B;">SN: JJA1253800527</p>
+                            <h4 th:text="${dev.device_name}" style="margin: 0; color: var(--accent-purple);">Office
+                                Entry</h4>
+                            <p th:text="${dev.serial_number}" style="margin: 4px 0; font-size: 12px; color: #64748B;">
+                                SN: JJA1253800527</p>
                         </div>
-                        <span th:text="${dev.status}" 
-                              th:style="${dev.status == 'Active' ? 'background: #DCFCE7; color: #166534' : 'background: #FEE2E2; color: #991B1B'}"
-                              style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;">Active</span>
+                        <span th:text="${dev.status}"
+                            th:style="${dev.status == 'Active' ? 'background: #DCFCE7; color: #166534' : 'background: #FEE2E2; color: #991B1B'}"
+                            style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;">Active</span>
                     </div>
                     <div style="font-size: 14px; color: #475569;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
@@ -31,8 +35,12 @@
                     </div>
                     <hr style="border: 0; border-top: 1px solid #F1F5F9; margin: 15px 0;">
                     <div style="display: flex; gap: 10px;">
-                        <button style="flex: 1; padding: 8px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; cursor: pointer;"><i class="fas fa-sync"></i> Sync</button>
-                        <button style="flex: 1; padding: 8px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; cursor: pointer;"><i class="fas fa-cog"></i> Config</button>
+                        <button
+                            style="flex: 1; padding: 8px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; cursor: pointer;"><i
+                                class="fas fa-sync"></i> Sync</button>
+                        <button
+                            style="flex: 1; padding: 8px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 6px; cursor: pointer;"><i
+                                class="fas fa-cog"></i> Config</button>
                     </div>
                 </div>
             </div>
@@ -43,4 +51,5 @@
         </div>
     </section>
 </body>
+
 </html>

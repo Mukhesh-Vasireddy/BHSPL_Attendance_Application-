@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.web.bind.annotation.ResponseBody;
+import jakarta.servlet.http.HttpSession;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
@@ -21,38 +22,133 @@ import java.util.LinkedHashMap;
 @Controller
 public class WebController {
 
-    @GetMapping("/")
-    public String index(Model model) {
+    @GetMapping("/login")
+    public String loginPage(HttpSession session) {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
+            if (db.queryLong("SELECT COUNT(*) FROM users") == 0) {
+                db.execute("INSERT INTO users (username, password_hash, role, status) VALUES (?,?,?,?)", 
+                           "admin", db.hashPw("admin123"), "Admin", "Active");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        if (session.getAttribute("user") != null) return "redirect:/dashboard";
+        return "login";
+    }
+
+    @PostMapping("/login")
+    public String loginAction(@RequestParam("username") String username, @RequestParam("password") String password, HttpSession session, Model model) {
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            String hash = db.hashPw(password);
+            Map<String, Object> user = db.queryOne("SELECT * FROM users WHERE username=? AND password_hash=? AND status='Active'", username, hash);
             
+            if (user != null) {
+                session.setAttribute("user", user.get("username"));
+                session.setAttribute("role", user.get("role"));
+                db.execute("UPDATE users SET last_login=NOW() WHERE id=?", user.get("id"));
+                return "redirect:/dashboard";
+            } else {
+                model.addAttribute("error", "Invalid username or password");
+                return "login";
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            model.addAttribute("error", "System Error: " + e.getMessage());
+            return "login";
+        }
+    }
+
+    @GetMapping("/logout")
+    public String logout(HttpSession session) {
+        session.invalidate();
+        return "redirect:/login";
+    }
+
+    @GetMapping({"/", "/dashboard"})
+    public String index(Model model, @RequestParam(name = "page", defaultValue = "1") int page, HttpSession session) {
+        if (session.getAttribute("user") == null) return "redirect:/login";
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            int pageSize = 10;
+            int offset = (page - 1) * pageSize;
+
             // Stats
             long totalEmps = db.queryLong("SELECT COUNT(*) FROM employees WHERE status='Active'");
-            long presentCount = db.queryLong("SELECT COUNT(DISTINCT emp_id) FROM raw_logs WHERE DATE(punch_time) = CURDATE()");
-            long leaveCount = db.queryLong("SELECT COUNT(*) FROM leaves WHERE status='Approved' AND CURDATE() BETWEEN from_date AND to_date");
+            long presentCount = db
+                    .queryLong("SELECT COUNT(DISTINCT emp_id) FROM raw_logs WHERE DATE(punch_time) = CURDATE()");
+            long leaveCount = db.queryLong(
+                    "SELECT COUNT(*) FROM leaves WHERE status='Approved' AND CURDATE() BETWEEN from_date AND to_date");
             long absentCount = totalEmps - presentCount - leaveCount;
-            if (absentCount < 0) absentCount = 0;
+            if (absentCount < 0)
+                absentCount = 0;
+
+            // Pagination info
+            long totalLogs = db.queryLong("SELECT COUNT(*) FROM (SELECT emp_id FROM raw_logs WHERE DATE(punch_time) = CURDATE() GROUP BY emp_id) as t");
+            int totalPages = (int) Math.ceil((double) totalLogs / pageSize);
+            if (totalPages == 0) totalPages = 1;
 
             // Recent Logs (Live Attendance Overview)
             List<Map<String, Object>> recentLogs = db.query(
-                "SELECT r.emp_id, " +
-                "CASE WHEN e.emp_name IS NOT NULL THEN e.emp_name " +
-                "     WHEN r.emp_id = '0' OR r.emp_id = '0000' THEN 'System/Admin' " +
-                "     ELSE 'Unknown User' END as emp_name, " +
-                "MIN(r.punch_time) as in_time, COUNT(*) as punches " +
-                "FROM raw_logs r " +
-                "LEFT JOIN employees e ON r.emp_id = e.emp_id " +
-                "WHERE DATE(r.punch_time) = CURDATE() " +
-                "GROUP BY r.emp_id, e.emp_name " +
-                "ORDER BY MAX(r.punch_time) DESC LIMIT 10"
-            );
+                    "SELECT r.emp_id, " +
+                            "CASE WHEN e.emp_name IS NOT NULL THEN e.emp_name " +
+                            "     WHEN r.emp_id = '0' OR r.emp_id = '0000' THEN 'System/Admin' " +
+                            "     ELSE 'Unknown User' END as emp_name, " +
+                            "MIN(r.punch_time) as in_time, COUNT(*) as punches " +
+                            "FROM raw_logs r " +
+                            "LEFT JOIN employees e ON r.emp_id = e.emp_id " +
+                            "WHERE DATE(r.punch_time) = CURDATE() " +
+                            "GROUP BY r.emp_id, e.emp_name " +
+                            "ORDER BY MAX(r.punch_time) DESC LIMIT " + pageSize + " OFFSET " + offset);
+
+            // Weekly Data mapping
+            Map<String, Map<String, String>> weeklyData = new java.util.HashMap<>();
+            List<String> weekDates = new java.util.ArrayList<>();
+            List<String> weekDays = new java.util.ArrayList<>();
+            java.time.format.DateTimeFormatter dayFormatter = java.time.format.DateTimeFormatter.ofPattern("EEE");
+            
+            for (int i = 6; i >= 0; i--) {
+                java.time.LocalDate d = java.time.LocalDate.now().minusDays(i);
+                weekDates.add(d.toString());
+                weekDays.add(d.format(dayFormatter));
+            }
+            
+            if (!recentLogs.isEmpty()) {
+                StringBuilder empIds = new StringBuilder();
+                for (Map<String, Object> log : recentLogs) {
+                    if (empIds.length() > 0) empIds.append(",");
+                    empIds.append("'").append(log.get("emp_id")).append("'");
+                }
+                
+                List<Map<String, Object>> weeklyLogs = db.query(
+                    "SELECT emp_id, DATE(punch_time) as pdate, COUNT(*) as punches " +
+                    "FROM raw_logs WHERE emp_id IN (" + empIds.toString() + ") " +
+                    "AND DATE(punch_time) >= CURDATE() - INTERVAL 6 DAY " +
+                    "GROUP BY emp_id, DATE(punch_time)"
+                );
+                
+                for (Map<String, Object> wl : weeklyLogs) {
+                    String eId = (String) wl.get("emp_id");
+                    String pDate = wl.get("pdate").toString();
+                    long punches = (Long) wl.get("punches");
+                    
+                    weeklyData.putIfAbsent(eId, new java.util.HashMap<>());
+                    weeklyData.get(eId).put(pDate, punches > 0 ? "P" : "A");
+                }
+            }
 
             model.addAttribute("totalEmps", totalEmps);
             model.addAttribute("presentCount", presentCount);
             model.addAttribute("absentCount", absentCount);
             model.addAttribute("leaveCount", leaveCount);
             model.addAttribute("recentLogs", recentLogs);
-            
+            model.addAttribute("currentPage", page);
+            model.addAttribute("totalPages", totalPages);
+            model.addAttribute("weekDates", weekDates);
+            model.addAttribute("weekDays", weekDays);
+            model.addAttribute("weeklyData", weeklyData);
+
         } catch (Exception e) {
             e.printStackTrace();
             model.addAttribute("error", e.getMessage());
@@ -61,7 +157,8 @@ public class WebController {
     }
 
     @GetMapping("/employees")
-    public String employees(Model model, @RequestParam(name="search", required=false) String search) {
+    public String employees(Model model, @RequestParam(name = "search", required = false) String search, HttpSession session) {
+        if (session.getAttribute("user") == null) return "redirect:/login";
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             String sql = "SELECT * FROM employees WHERE 1=1";
@@ -69,7 +166,7 @@ public class WebController {
                 sql += " AND (emp_name LIKE '%" + search + "%' OR emp_id LIKE '%" + search + "%')";
             }
             sql += " ORDER BY emp_name";
-            
+
             List<Map<String, Object>> employees = db.query(sql);
             model.addAttribute("employees", employees);
             model.addAttribute("selSearch", search);
@@ -93,13 +190,17 @@ public class WebController {
             String status = params.get("status");
 
             if ("false".equals(isEdit)) {
-                db.execute("INSERT INTO employees (emp_id, emp_name, department, designation, shift, status) VALUES (?,?,?,?,?,?)", 
-                    empId, name, dept, desig, shift, status);
+                db.execute(
+                        "INSERT INTO employees (emp_id, emp_name, department, designation, shift, status) VALUES (?,?,?,?,?,?)",
+                        empId, name, dept, desig, shift, status);
             } else {
-                db.execute("UPDATE employees SET emp_name=?, department=?, designation=?, shift=?, status=? WHERE emp_id=?", 
-                    name, dept, desig, shift, status, empId);
+                db.execute(
+                        "UPDATE employees SET emp_name=?, department=?, designation=?, shift=?, status=? WHERE emp_id=?",
+                        name, dept, desig, shift, status, empId);
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return "redirect:/employees";
     }
 
@@ -107,21 +208,24 @@ public class WebController {
     public String deleteEmployee(@PathVariable("id") String id) {
         try {
             DatabaseManager.getInstance().execute("DELETE FROM employees WHERE emp_id=?", id);
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return "redirect:/employees";
     }
 
     @GetMapping("/attendance")
-    public String attendance(Model model, @RequestParam(name="date", required=false) String date) {
+    public String attendance(Model model, @RequestParam(name = "date", required = false) String date, HttpSession session) {
+        if (session.getAttribute("user") == null) return "redirect:/login";
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             String filterDate = (date != null) ? date : java.time.LocalDate.now().toString();
-            
+
             String sql = "SELECT e.emp_id, e.emp_name, e.shift, a.in_time, a.out_time, a.work_hours, a.status " +
-                         "FROM employees e " +
-                         "LEFT JOIN attendance a ON e.emp_id = a.emp_id AND a.punch_date = ? " +
-                         "WHERE e.status='Active' ORDER BY a.in_time DESC, e.emp_name ASC";
-            
+                    "FROM employees e " +
+                    "LEFT JOIN attendance a ON e.emp_id = a.emp_id AND a.punch_date = ? " +
+                    "WHERE e.status='Active' ORDER BY a.in_time DESC, e.emp_name ASC";
+
             List<Map<String, Object>> data = db.query(sql, filterDate);
             model.addAttribute("attendance", data);
             model.addAttribute("selDate", filterDate);
@@ -137,46 +241,53 @@ public class WebController {
     }
 
     @GetMapping("/reports/daily")
-    public String reportsDaily(Model model, 
-                               @RequestParam(name="date", required=false) String date,
-                               @RequestParam(name="dept", required=false) String dept) {
+    public String reportsDaily(Model model,
+            @RequestParam(name = "date", required = false) String date,
+            @RequestParam(name = "dept", required = false) String dept) {
         List<Map<String, Object>> data = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             String filterDate = (date != null) ? date : java.time.LocalDate.now().toString();
-            String sql = "SELECT e.emp_id, e.emp_name, e.department, a.status, a.in_time as punch_in, a.out_time as punch_out, a.work_hours " +
-                         "FROM employees e LEFT JOIN attendance a ON e.emp_id = a.emp_id AND a.punch_date = ? WHERE 1=1 ";
-            if (dept != null && !"All".equals(dept)) sql += " AND e.department = '" + dept + "'";
+            String sql = "SELECT e.emp_id, e.emp_name, e.department, a.status, a.in_time as punch_in, a.out_time as punch_out, a.work_hours "
+                    +
+                    "FROM employees e LEFT JOIN attendance a ON e.emp_id = a.emp_id AND a.punch_date = ? WHERE 1=1 ";
+            if (dept != null && !"All".equals(dept))
+                sql += " AND e.department = '" + dept + "'";
             sql += " ORDER BY e.emp_name ASC";
             data = db.query(sql, filterDate);
             model.addAttribute("selDate", filterDate);
             model.addAttribute("selDept", (dept != null) ? dept : "All");
             model.addAttribute("depts", db.query("SELECT dept_name FROM departments ORDER BY dept_name"));
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         model.addAttribute("data", data);
         return "reports-daily";
     }
 
     @GetMapping("/reports/monthly")
-    public String reportsMonthly(Model model, 
-                                 @RequestParam(name="month", required=false) String month,
-                                 @RequestParam(name="year", required=false) String year,
-                                 @RequestParam(name="dept", required=false) String dept,
-                                 @RequestParam(name="type", required=false) String type) {
+    public String reportsMonthly(Model model,
+            @RequestParam(name = "month", required = false) String month,
+            @RequestParam(name = "year", required = false) String year,
+            @RequestParam(name = "dept", required = false) String dept,
+            @RequestParam(name = "type", required = false) String type) {
         List<Map<String, Object>> matrix = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             int curM = (month != null) ? Integer.parseInt(month) : 5;
             int curY = (year != null) ? Integer.parseInt(year) : 2026;
             String reportType = (type != null) ? type : "PA";
-            
+
             java.time.YearMonth yearMonth = java.time.YearMonth.of(curY, curM);
             int daysInMonth = yearMonth.lengthOfMonth();
             List<Integer> daysList = new java.util.ArrayList<>();
-            for (int i = 1; i <= daysInMonth; i++) daysList.add(i);
-            
+            for (int i = 1; i <= daysInMonth; i++)
+                daysList.add(i);
+
             // Fetch holidays
-            List<Map<String, Object>> holidays = db.query("SELECT holiday_date, holiday_name FROM holidays WHERE MONTH(holiday_date) = ? AND YEAR(holiday_date) = ?", curM, curY);
+            List<Map<String, Object>> holidays = db.query(
+                    "SELECT holiday_date, holiday_name FROM holidays WHERE MONTH(holiday_date) = ? AND YEAR(holiday_date) = ?",
+                    curM, curY);
             Map<Integer, String> holidayMap = new HashMap<>();
             for (Map<String, Object> h : holidays) {
                 java.sql.Date d = (java.sql.Date) h.get("holiday_date");
@@ -184,7 +295,8 @@ public class WebController {
             }
 
             String empSql = "SELECT emp_id, emp_name, designation, department FROM employees WHERE 1=1";
-            if (dept != null && !"All".equals(dept)) empSql += " AND department = '" + dept + "'";
+            if (dept != null && !"All".equals(dept))
+                empSql += " AND department = '" + dept + "'";
             empSql += " ORDER BY emp_name ASC";
             List<Map<String, Object>> employees = db.query(empSql);
 
@@ -192,8 +304,10 @@ public class WebController {
                 String eid = (String) emp.get("emp_id");
                 Map<String, Object> row = new HashMap<>(emp);
                 Map<Integer, Map<String, Object>> attendanceMap = new HashMap<>();
-                
-                List<Map<String, Object>> att = db.query("SELECT DAY(punch_date) as d, status, in_time, out_time, work_hours FROM attendance WHERE emp_id=? AND MONTH(punch_date)=? AND YEAR(punch_date)=?", eid, curM, curY);
+
+                List<Map<String, Object>> att = db.query(
+                        "SELECT DAY(punch_date) as d, status, in_time, out_time, work_hours FROM attendance WHERE emp_id=? AND MONTH(punch_date)=? AND YEAR(punch_date)=?",
+                        eid, curM, curY);
                 for (Map<String, Object> a : att) {
                     int dayNum = DatabaseManager.num(a, "d");
                     attendanceMap.put(dayNum, a);
@@ -215,17 +329,23 @@ public class WebController {
                                 String inStr = DatabaseManager.str(data, "in_time");
                                 String outStr = DatabaseManager.str(data, "out_time");
                                 double wh = DatabaseManager.dbl(data, "work_hours");
-                                
+
                                 String in = "";
-                                if (inStr.contains(" ")) in = inStr.split(" ")[1];
-                                else if (inStr.contains("T")) in = inStr.split("T")[1];
-                                if (in.length() > 5) in = in.substring(0, 5);
-                                
+                                if (inStr.contains(" "))
+                                    in = inStr.split(" ")[1];
+                                else if (inStr.contains("T"))
+                                    in = inStr.split("T")[1];
+                                if (in.length() > 5)
+                                    in = in.substring(0, 5);
+
                                 String out = "";
-                                if (outStr.contains(" ")) out = outStr.split(" ")[1];
-                                else if (outStr.contains("T")) out = outStr.split("T")[1];
-                                if (out.length() > 5) out = out.substring(0, 5);
-                                
+                                if (outStr.contains(" "))
+                                    out = outStr.split(" ")[1];
+                                else if (outStr.contains("T"))
+                                    out = outStr.split("T")[1];
+                                if (out.length() > 5)
+                                    out = out.substring(0, 5);
+
                                 if (in.isEmpty() || !in.contains(":")) {
                                     dayStatuses.add("P");
                                 } else {
@@ -237,7 +357,7 @@ public class WebController {
                             } else {
                                 String s = DatabaseManager.str(data, "status");
                                 String inTime = DatabaseManager.str(data, "in_time");
-                                
+
                                 if ("Present".equals(s) || "Late".equals(s) || "Early".equals(s) || !inTime.isEmpty()) {
                                     dayStatuses.add("P");
                                 } else if (s.isEmpty()) {
@@ -273,38 +393,42 @@ public class WebController {
     }
 
     @GetMapping("/reports/leave")
-    public String reportsLeave(Model model, 
-                               @RequestParam(name="from", required=false) String from,
-                               @RequestParam(name="to", required=false) String to,
-                               @RequestParam(name="dept", required=false) String dept) {
+    public String reportsLeave(Model model,
+            @RequestParam(name = "from", required = false) String from,
+            @RequestParam(name = "to", required = false) String to,
+            @RequestParam(name = "dept", required = false) String dept) {
         List<Map<String, Object>> data = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             String f = (from != null) ? from : java.time.LocalDate.now().withDayOfMonth(1).toString();
             String t = (to != null) ? to : java.time.LocalDate.now().toString();
-            
+
             String sql = "SELECT l.*, e.emp_name, e.department FROM leaves l " +
-                         "JOIN employees e ON l.emp_id = e.emp_id WHERE l.from_date BETWEEN ? AND ? ";
-            if (dept != null && !"All".equals(dept)) sql += " AND e.department = '" + dept + "'";
+                    "JOIN employees e ON l.emp_id = e.emp_id WHERE l.from_date BETWEEN ? AND ? ";
+            if (dept != null && !"All".equals(dept))
+                sql += " AND e.department = '" + dept + "'";
             sql += " ORDER BY e.emp_name ASC, l.from_date DESC";
-            
+
             data = db.query(sql, f, t);
             model.addAttribute("selFrom", f);
             model.addAttribute("selTo", t);
             model.addAttribute("selDept", (dept != null) ? dept : "All");
             model.addAttribute("depts", db.query("SELECT dept_name FROM departments ORDER BY dept_name"));
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         model.addAttribute("data", data);
         return "reports-leave";
     }
 
     @GetMapping("/raw-logs")
-    public String rawLogs(Model model, 
-                          @RequestParam(name="from", required=false) String from,
-                          @RequestParam(name="to", required=false) String to,
-                          @RequestParam(name="dept", required=false) String dept,
-                          @RequestParam(name="emp", required=false) String emp) {
-        System.err.println("[" + new java.util.Date() + "] CRITICAL DEBUG: rawLogs called with from=" + from + ", to=" + to);
+    public String rawLogs(Model model,
+            @RequestParam(name = "from", required = false) String from,
+            @RequestParam(name = "to", required = false) String to,
+            @RequestParam(name = "dept", required = false) String dept,
+            @RequestParam(name = "emp", required = false) String emp) {
+        System.err.println(
+                "[" + new java.util.Date() + "] CRITICAL DEBUG: rawLogs called with from=" + from + ", to=" + to);
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             String f = (from != null) ? from : java.time.LocalDate.now().toString();
@@ -317,25 +441,29 @@ public class WebController {
 
             // Fetch metadata for filters
             model.addAttribute("depts", db.query("SELECT dept_name FROM departments ORDER BY dept_name"));
-            model.addAttribute("employees", db.query("SELECT emp_id, emp_name FROM employees WHERE status='Active' ORDER BY emp_name"));
-            
+            model.addAttribute("employees",
+                    db.query("SELECT emp_id, emp_name FROM employees WHERE status='Active' ORDER BY emp_name"));
+
             // Fetch all active employees for "Absent" check - SORTED BY NAME
             String empBaseSql = "SELECT emp_id, emp_name, department, shift FROM employees WHERE status='Active'";
-            if (!"All".equals(d)) empBaseSql += " AND department = '" + d + "'";
-            if (!"All".equals(eId)) empBaseSql += " AND emp_id = '" + eId + "'";
+            if (!"All".equals(d))
+                empBaseSql += " AND department = '" + d + "'";
+            if (!"All".equals(eId))
+                empBaseSql += " AND emp_id = '" + eId + "'";
             empBaseSql += " ORDER BY emp_name ASC";
             List<Map<String, Object>> activeEmps = db.query(empBaseSql);
             System.err.println("[" + new java.util.Date() + "] DEBUG: Active employees found: " + activeEmps.size());
 
-            // Fetch all raw logs for the range (we will map them in Java for maximum robustness)
+            // Fetch all raw logs for the range (we will map them in Java for maximum
+            // robustness)
             StringBuilder logSql = new StringBuilder(
-                "SELECT * FROM raw_logs WHERE DATE(punch_time) BETWEEN ? AND ? "
-            );
+                    "SELECT * FROM raw_logs WHERE DATE(punch_time) BETWEEN ? AND ? ");
             logSql.append(" ORDER BY punch_time ASC");
-            
+
             List<Map<String, Object>> rawLogs = db.query(logSql.toString(), f, t);
-            System.err.println("[" + new java.util.Date() + "] DEBUG: Found " + rawLogs.size() + " raw logs in DB for range " + f + " to " + t);
-            
+            System.err.println("[" + new java.util.Date() + "] DEBUG: Found " + rawLogs.size()
+                    + " raw logs in DB for range " + f + " to " + t);
+
             List<Map<String, Object>> sessions = new ArrayList<>();
             java.time.format.DateTimeFormatter timeFmt = java.time.format.DateTimeFormatter.ofPattern("hh:mm a");
 
@@ -345,11 +473,14 @@ public class WebController {
                 String sid = DatabaseManager.str(e, "emp_id");
                 String eid = DatabaseManager.str(e, "device_enroll_id");
                 enrollMap.put(sid, sid);
-                if (!eid.isEmpty()) enrollMap.put(eid, sid);
+                if (!eid.isEmpty())
+                    enrollMap.put(eid, sid);
                 try {
                     enrollMap.put(String.valueOf(Long.parseLong(sid)), sid);
-                    if (!eid.isEmpty()) enrollMap.put(String.valueOf(Long.parseLong(eid)), sid);
-                } catch (Exception ignored) {}
+                    if (!eid.isEmpty())
+                        enrollMap.put(String.valueOf(Long.parseLong(eid)), sid);
+                } catch (Exception ignored) {
+                }
             }
 
             // Map logs by Matched Employee + Date
@@ -358,10 +489,13 @@ public class WebController {
                 String fullTime = log.get("punch_time").toString().replace("T", " ");
                 String date = fullTime.split(" ")[0];
                 String rawEid = log.get("emp_id").toString().trim();
-                
+
                 String matchedSid = enrollMap.get(rawEid);
                 if (matchedSid == null) {
-                    try { matchedSid = enrollMap.get(String.valueOf(Long.parseLong(rawEid))); } catch (Exception ignored) {}
+                    try {
+                        matchedSid = enrollMap.get(String.valueOf(Long.parseLong(rawEid)));
+                    } catch (Exception ignored) {
+                    }
                 }
 
                 if (matchedSid != null) {
@@ -370,7 +504,8 @@ public class WebController {
                 }
             }
 
-            // Iterate over every employee (Alphabetical) and then every day to build the full report
+            // Iterate over every employee (Alphabetical) and then every day to build the
+            // full report
             for (Map<String, Object> employee : activeEmps) {
                 String sid = (String) employee.get("emp_id");
                 for (java.time.LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
@@ -395,14 +530,16 @@ public class WebController {
                             session.put("date", dateStr);
                             session.put("punch_count", totalPunches);
                             session.put("status", "Present");
-                            
+
                             // IN Time
-                            java.time.LocalDateTime inDt = java.time.LocalDateTime.parse(dayLogs.get(i).get("punch_time").toString().replace(" ", "T"));
+                            java.time.LocalDateTime inDt = java.time.LocalDateTime
+                                    .parse(dayLogs.get(i).get("punch_time").toString().replace(" ", "T"));
                             session.put("in_time", inDt.format(timeFmt));
-                            
+
                             // OUT Time
                             if (i + 1 < dayLogs.size()) {
-                                java.time.LocalDateTime outDt = java.time.LocalDateTime.parse(dayLogs.get(i+1).get("punch_time").toString().replace(" ", "T"));
+                                java.time.LocalDateTime outDt = java.time.LocalDateTime
+                                        .parse(dayLogs.get(i + 1).get("punch_time").toString().replace(" ", "T"));
                                 session.put("out_time", outDt.format(timeFmt));
                             } else {
                                 session.put("out_time", "Wait...");
@@ -412,13 +549,13 @@ public class WebController {
                     }
                 }
             }
-            
+
             model.addAttribute("sessions", sessions);
             model.addAttribute("selFrom", f);
             model.addAttribute("selTo", t);
             model.addAttribute("selDept", d);
             model.addAttribute("selEmp", eId);
-            
+
         } catch (Exception ex) {
             ex.printStackTrace();
             model.addAttribute("error", ex.getMessage());
@@ -444,7 +581,8 @@ public class WebController {
         List<Map<String, Object>> types = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            leaves = db.query("SELECT l.*, e.emp_name FROM leaves l JOIN employees e ON l.emp_id=e.emp_id ORDER BY l.applied_on DESC");
+            leaves = db.query(
+                    "SELECT l.*, e.emp_name FROM leaves l JOIN employees e ON l.emp_id=e.emp_id ORDER BY l.applied_on DESC");
             types = db.query("SELECT leave_type FROM leave_policy WHERE status='Active'");
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
@@ -468,11 +606,13 @@ public class WebController {
             String status = params.get("status");
 
             if (id == null || id.isEmpty()) {
-                db.execute("INSERT INTO leaves (emp_id, leave_type, from_date, to_date, days, reason, status, applied_on) VALUES (?,?,?,?,?,?,?,NOW())", 
-                    empId, type, from, to, days, reason, status);
+                db.execute(
+                        "INSERT INTO leaves (emp_id, leave_type, from_date, to_date, days, reason, status, applied_on) VALUES (?,?,?,?,?,?,?,NOW())",
+                        empId, type, from, to, days, reason, status);
             } else {
-                db.execute("UPDATE leaves SET emp_id=?, leave_type=?, from_date=?, to_date=?, days=?, reason=?, status=? WHERE id=?", 
-                    empId, type, from, to, days, reason, status, id);
+                db.execute(
+                        "UPDATE leaves SET emp_id=?, leave_type=?, from_date=?, to_date=?, days=?, reason=?, status=? WHERE id=?",
+                        empId, type, from, to, days, reason, status, id);
             }
 
             // Desktop App Logic: Sync with attendance if approved
@@ -480,8 +620,9 @@ public class WebController {
                 java.time.LocalDate start = java.time.LocalDate.parse(from);
                 java.time.LocalDate end = java.time.LocalDate.parse(to);
                 for (java.time.LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
-                    db.execute("INSERT INTO attendance (emp_id, punch_date, status, remarks) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE status=?, remarks=?", 
-                        empId, d.toString(), type, "Leave Approved", type, "Leave Approved");
+                    db.execute(
+                            "INSERT INTO attendance (emp_id, punch_date, status, remarks) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE status=?, remarks=?",
+                            empId, d.toString(), type, "Leave Approved", type, "Leave Approved");
                 }
             }
         } catch (Exception e) {
@@ -495,7 +636,7 @@ public class WebController {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             db.execute("UPDATE leaves SET status=? WHERE id=?", status, id);
-            
+
             // Sync with attendance if approved
             if ("Approved".equals(status)) {
                 Map<String, Object> l = db.queryOne("SELECT * FROM leaves WHERE id=?", id);
@@ -505,31 +646,85 @@ public class WebController {
                     java.time.LocalDate start = java.time.LocalDate.parse(l.get("from_date").toString());
                     java.time.LocalDate end = java.time.LocalDate.parse(l.get("to_date").toString());
                     for (java.time.LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
-                        db.execute("INSERT INTO attendance (emp_id, punch_date, status, remarks) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE status=?, remarks=?", 
-                            empId, d.toString(), type, "Leave Approved", type, "Leave Approved");
+                        db.execute(
+                                "INSERT INTO attendance (emp_id, punch_date, status, remarks) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE status=?, remarks=?",
+                                empId, d.toString(), type, "Leave Approved", type, "Leave Approved");
                     }
                 }
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return "redirect:/leave";
     }
 
+    @PostMapping("/leave/delete")
+    public String deleteLeave(@RequestParam("id") String id) {
+        try {
+            System.out.println("Deleting leave request ID: " + id);
+            DatabaseManager db = DatabaseManager.getInstance();
+            db.execute("DELETE FROM leaves WHERE id=?", id);
+        } catch (Exception e) {
+            System.err.println("Error deleting leave: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return "redirect:/leave/manager";
+    }
+
     // Leave Sub-menus
-    @GetMapping("/leave/manager") public String leaveManager(Model model) { return leave(model); }
+    @GetMapping("/leave/manager")
+    public String leaveManager(Model model) {
+        return leave(model);
+    }
+
     @GetMapping("/leave/od")
     public String leaveOD(Model model) {
         List<Map<String, Object>> depts = new java.util.ArrayList<>();
         List<Map<String, Object>> ods = new java.util.ArrayList<>();
+        List<Map<String, Object>> employees = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             depts = db.query("SELECT dept_name FROM departments WHERE status='Active'");
-            ods = db.query("SELECT o.*, e.emp_name, e.department FROM od_requests o JOIN employees e ON o.emp_id = e.emp_id ORDER BY o.applied_on DESC");
+            employees = db.query("SELECT emp_id, emp_name FROM employees WHERE status='Active'");
+            ods = db.query(
+                    "SELECT o.*, e.emp_name, e.department FROM od_requests o JOIN employees e ON o.emp_id = e.emp_id ORDER BY o.applied_on DESC");
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
         }
         model.addAttribute("depts", depts);
         model.addAttribute("ods", ods);
+        model.addAttribute("employees", employees);
         return "leave-od";
+    }
+
+    @PostMapping("/leave/od/apply")
+    public String applyOD(
+            @RequestParam(required = false) String id,
+            @RequestParam("emp_id") String empId,
+            @RequestParam("od_from") String odFrom,
+            @RequestParam("od_to") String odTo,
+            @RequestParam("od_days") double odDays,
+            @RequestParam("od_type") String odType,
+            @RequestParam("location") String location) {
+        try {
+            System.out.println("Processing OD Application: emp=" + empId + ", from=" + odFrom + ", to=" + odTo + ", days=" + odDays + ", type=" + odType + ", loc=" + location + ", id=" + id);
+            DatabaseManager db = DatabaseManager.getInstance();
+            if (id != null && !id.trim().isEmpty()) {
+                db.execute(
+                        "UPDATE od_requests SET emp_id=?, od_from=?, od_to=?, od_days=?, od_type=?, location=? WHERE id=?",
+                        empId, odFrom, odTo, odDays, odType, location, id);
+                System.out.println("OD Request updated successfully: ID " + id);
+            } else {
+                db.execute(
+                        "INSERT INTO od_requests (emp_id, od_from, od_to, od_days, od_type, location, status, applied_on) VALUES (?, ?, ?, ?, ?, ?, 'Pending', CURDATE())",
+                        empId, odFrom, odTo, odDays, odType, location);
+                System.out.println("New OD Request inserted successfully for " + empId);
+            }
+        } catch (Exception e) {
+            System.err.println("Error processing OD application: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return "redirect:/leave/od";
     }
 
     @PostMapping("/leave/od/update-status")
@@ -537,27 +732,43 @@ public class WebController {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             db.execute("UPDATE od_requests SET status=? WHERE id=?", status, id);
-            
+
             if ("Approved".equals(status)) {
                 Map<String, Object> req = db.queryOne("SELECT * FROM od_requests WHERE id=?", id);
                 if (req != null) {
                     String eid = req.get("emp_id").toString();
                     java.time.LocalDate start = java.time.LocalDate.parse(req.get("od_from").toString());
                     java.time.LocalDate end = java.time.LocalDate.parse(req.get("od_to").toString());
-                    
+
                     // Fetch shift hours for attendance sync
                     Map<String, Object> emp = db.queryOne(
-                        "SELECT s.work_hours FROM employees e JOIN shifts s ON e.shift=s.shift_name WHERE e.emp_id=?", eid);
+                            "SELECT s.work_hours FROM employees e JOIN shifts s ON e.shift=s.shift_name WHERE e.emp_id=?",
+                            eid);
                     double wh = (emp != null) ? Double.parseDouble(emp.get("work_hours").toString()) : 8.0;
 
                     for (java.time.LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
                         db.execute("INSERT INTO attendance (emp_id, punch_date, status, work_hours, remarks) " +
-                            "VALUES (?,?,?,?,'OD Approved') ON DUPLICATE KEY UPDATE status=?, work_hours=?, remarks='OD Approved'", 
-                            eid, d.toString(), "OD", wh, "OD", wh);
+                                "VALUES (?,?,?,?,'OD Approved') ON DUPLICATE KEY UPDATE status=?, work_hours=?, remarks='OD Approved'",
+                                eid, d.toString(), "OD", wh, "OD", wh);
                     }
                 }
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "redirect:/leave/od";
+    }
+
+    @PostMapping("/leave/od/delete")
+    public String deleteOD(@RequestParam("id") String id) {
+        try {
+            System.out.println("Deleting OD request ID: " + id);
+            DatabaseManager db = DatabaseManager.getInstance();
+            db.execute("DELETE FROM od_requests WHERE id=?", id);
+        } catch (Exception e) {
+            System.err.println("Error deleting OD: " + e.getMessage());
+            e.printStackTrace();
+        }
         return "redirect:/leave/od";
     }
 
@@ -576,28 +787,31 @@ public class WebController {
     }
 
     @GetMapping("/leave/balance")
-    public String leaveBalance(Model model, @RequestParam(name="year", required = false) String year, 
-                               @RequestParam(name="dept", required = false) String dept, 
-                               @RequestParam(name="type", required = false) String type) {
+    public String leaveBalance(Model model, @RequestParam(name = "year", required = false) String year,
+            @RequestParam(name = "dept", required = false) String dept,
+            @RequestParam(name = "type", required = false) String type) {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             int curY = java.time.LocalDate.now().getYear();
             String filterYear = (year != null) ? year : String.valueOf(curY);
-            
-            List<Map<String, Object>> depts = db.query("SELECT dept_name FROM departments WHERE status='Active' ORDER BY dept_name");
-            List<Map<String, Object>> types = db.query("SELECT leave_type FROM leave_policy WHERE status='Active' ORDER BY leave_type");
-            
+
+            List<Map<String, Object>> depts = db
+                    .query("SELECT dept_name FROM departments WHERE status='Active' ORDER BY dept_name");
+            List<Map<String, Object>> types = db
+                    .query("SELECT leave_type FROM leave_policy WHERE status='Active' ORDER BY leave_type");
+
             StringBuilder sql = new StringBuilder(
-                "SELECT b.*, e.emp_name, e.department FROM leave_balance b " +
-                "JOIN employees e ON b.emp_id = e.emp_id WHERE b.year = ?"
-            );
-            
-            if (dept != null && !"All".equals(dept)) sql.append(" AND e.department = '").append(dept).append("'");
-            if (type != null && !"All".equals(type)) sql.append(" AND b.leave_type = '").append(type).append("'");
+                    "SELECT b.*, e.emp_name, e.department FROM leave_balance b " +
+                            "JOIN employees e ON b.emp_id = e.emp_id WHERE b.year = ?");
+
+            if (dept != null && !"All".equals(dept))
+                sql.append(" AND e.department = '").append(dept).append("'");
+            if (type != null && !"All".equals(type))
+                sql.append(" AND b.leave_type = '").append(type).append("'");
             sql.append(" ORDER BY e.department, e.emp_id, b.leave_type");
 
             List<Map<String, Object>> balances = db.query(sql.toString(), filterYear);
-            
+
             // Summary Stats
             double tBal = 0, tUsed = 0, tLapsed = 0;
             java.util.Set<String> uniqueEmps = new java.util.HashSet<>();
@@ -618,11 +832,10 @@ public class WebController {
             model.addAttribute("selDept", (dept != null) ? dept : "All");
             model.addAttribute("selType", (type != null) ? type : "All");
             model.addAttribute("stats", Map.of(
-                "empCount", uniqueEmps.size() + " / " + totalActive,
-                "totalBal", String.format("%.1f", tBal),
-                "totalUsed", String.format("%.1f", tUsed),
-                "totalLapsed", String.format("%.1f", tLapsed)
-            ));
+                    "empCount", uniqueEmps.size() + " / " + totalActive,
+                    "totalBal", String.format("%.1f", tBal),
+                    "totalUsed", String.format("%.1f", tUsed),
+                    "totalLapsed", String.format("%.1f", tLapsed)));
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
         }
@@ -630,15 +843,18 @@ public class WebController {
     }
 
     @GetMapping("/leave/holidays")
-    public String leaveHolidays(Model model, @RequestParam(name="type", required = false) String type) {
+    public String leaveHolidays(Model model, @RequestParam(name = "type", required = false) String type) {
         List<Map<String, Object>> holidays = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             String sql = "SELECT * FROM holidays ";
-            if (type != null && !"All".equals(type)) sql += " WHERE holiday_type = '" + type + "'";
-            sql += " ORDER BY holiday_date";
-            
-            holidays = db.query(sql);
+            if (type != null && !"All".equals(type)) {
+                sql += " WHERE holiday_type = ? ORDER BY holiday_date";
+                holidays = db.query(sql, type);
+            } else {
+                sql += " ORDER BY holiday_date";
+                holidays = db.query(sql);
+            }
             model.addAttribute("selType", (type != null) ? type : "All");
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
@@ -647,35 +863,77 @@ public class WebController {
         return "holiday";
     }
 
+    @PostMapping("/leave/holidays/save")
+    public String saveHoliday(@RequestParam(required=false) String id,
+                              @RequestParam String holiday_date,
+                              @RequestParam String holiday_name,
+                              @RequestParam String holiday_type) {
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            if (id != null && !id.trim().isEmpty()) {
+                db.execute("UPDATE holidays SET holiday_date=?, holiday_name=?, holiday_type=? WHERE id=?", 
+                    holiday_date, holiday_name, holiday_type, id);
+            } else {
+                db.execute("INSERT INTO holidays (holiday_date, holiday_name, holiday_type) VALUES (?,?,?)", 
+                    holiday_date, holiday_name, holiday_type);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "redirect:/leave/holidays";
+    }
+
+    @PostMapping("/leave/holidays/delete")
+    public String deleteHoliday(@RequestParam("id") String id) {
+        try {
+            System.out.println("Deleting holiday ID: " + id);
+            DatabaseManager db = DatabaseManager.getInstance();
+            db.execute("DELETE FROM holidays WHERE id=?", id);
+        } catch (Exception e) {
+            System.err.println("Error deleting holiday: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return "redirect:/leave/holidays";
+    }
+
     @PostMapping("/leave/holidays/load-defaults")
     public String loadDefaultHolidays() {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             Object[][] defaults = {
-                { "2026-01-01", "New Year's Day", "National Holiday" },
-                { "2026-01-26", "Republic Day", "National Holiday" },
-                { "2026-03-25", "Holi", "Festival Holiday" },
-                { "2026-04-14", "Dr. Ambedkar Jayanti", "National Holiday" },
-                { "2026-04-18", "Good Friday", "Festival Holiday" },
-                { "2026-05-01", "Labour Day", "National Holiday" },
-                { "2026-08-15", "Independence Day", "National Holiday" },
-                { "2026-08-27", "Janmashtami", "Festival Holiday" },
-                { "2026-10-02", "Gandhi Jayanti", "National Holiday" },
-                { "2026-10-24", "Dussehra", "Festival Holiday" },
-                { "2026-11-01", "Diwali", "Festival Holiday" },
-                { "2026-11-05", "Bhai Dooj", "Festival Holiday" },
-                { "2026-12-25", "Christmas Day", "Public Holiday" }
+                    { "2026-01-01", "New Year's Day", "National Holiday" },
+                    { "2026-01-26", "Republic Day", "National Holiday" },
+                    { "2026-03-25", "Holi", "Festival Holiday" },
+                    { "2026-04-14", "Dr. Ambedkar Jayanti", "National Holiday" },
+                    { "2026-04-18", "Good Friday", "Festival Holiday" },
+                    { "2026-05-01", "Labour Day", "National Holiday" },
+                    { "2026-08-15", "Independence Day", "National Holiday" },
+                    { "2026-08-27", "Janmashtami", "Festival Holiday" },
+                    { "2026-10-02", "Gandhi Jayanti", "National Holiday" },
+                    { "2026-10-24", "Dussehra", "Festival Holiday" },
+                    { "2026-11-01", "Diwali", "Festival Holiday" },
+                    { "2026-11-05", "Bhai Dooj", "Festival Holiday" },
+                    { "2026-12-25", "Christmas Day", "Public Holiday" }
             };
             for (Object[] h : defaults) {
-                db.execute("INSERT IGNORE INTO holidays (holiday_date, holiday_name, holiday_type) VALUES (?,?,?)", 
-                    h[0], h[1], h[2]);
+                db.execute("INSERT IGNORE INTO holidays (holiday_date, holiday_name, holiday_type) VALUES (?,?,?)",
+                        h[0], h[1], h[2]);
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return "redirect:/leave/holidays";
     }
 
-    @GetMapping("/masters") public String masters(Model model) { return "masters"; }
-    @GetMapping("/system") public String system(Model model) { return "system"; }
+    @GetMapping("/masters")
+    public String masters(Model model) {
+        return "masters";
+    }
+
+    @GetMapping("/system")
+    public String system(Model model) {
+        return "system";
+    }
 
     @GetMapping("/masters/departments")
     public String mastersDepts(Model model) {
@@ -701,23 +959,37 @@ public class WebController {
             String status = params.get("status");
 
             if (id == null || id.isEmpty()) {
-                db.execute("INSERT INTO departments (dept_name, dept_code, head_name, status) VALUES (?,?,?,?)", 
-                    name, code, head, status);
+                db.execute("INSERT INTO departments (dept_name, dept_code, head_name, status) VALUES (?,?,?,?)",
+                        name, code, head, status);
             } else {
-                db.execute("UPDATE departments SET dept_name=?, dept_code=?, head_name=?, status=? WHERE id=?", 
-                    name, code, head, status, id);
+                db.execute("UPDATE departments SET dept_name=?, dept_code=?, head_name=?, status=? WHERE id=?",
+                        name, code, head, status, id);
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "redirect:/masters/departments";
+    }
+
+    @PostMapping("/masters/departments/delete")
+    public String deleteDept(@RequestParam String id) {
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            db.execute("DELETE FROM departments WHERE id=?", id);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return "redirect:/masters/departments";
     }
 
     @GetMapping("/masters/designations")
-    public String mastersDesig(Model model, @RequestParam(name="search", required = false) String search) {
+    public String mastersDesig(Model model, @RequestParam(name = "search", required = false) String search) {
         List<Map<String, Object>> desigs = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             String sql = "SELECT * FROM designations";
-            if (search != null && !search.isEmpty()) sql += " WHERE desig_name LIKE '%" + search + "%'";
+            if (search != null && !search.isEmpty())
+                sql += " WHERE desig_name LIKE '%" + search + "%'";
             sql += " ORDER BY level_order ASC, desig_name ASC";
             desigs = db.query(sql);
         } catch (Exception e) {
@@ -739,13 +1011,26 @@ public class WebController {
             String status = params.get("status");
 
             if (id == null || id.isEmpty()) {
-                db.execute("INSERT INTO designations (desig_name, level_order, description, status) VALUES (?,?,?,?)", 
-                    name, level, desc, status);
+                db.execute("INSERT INTO designations (desig_name, level_order, description, status) VALUES (?,?,?,?)",
+                        name, level, desc, status);
             } else {
-                db.execute("UPDATE designations SET desig_name=?, level_order=?, description=?, status=? WHERE id=?", 
-                    name, level, desc, status, id);
+                db.execute("UPDATE designations SET desig_name=?, level_order=?, description=?, status=? WHERE id=?",
+                        name, level, desc, status, id);
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "redirect:/masters/designations";
+    }
+
+    @PostMapping("/masters/designations/delete")
+    public String deleteDesig(@RequestParam String id) {
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            db.execute("DELETE FROM designations WHERE id=?", id);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return "redirect:/masters/designations";
     }
 
@@ -776,33 +1061,49 @@ public class WebController {
             String off2 = params.get("off2");
 
             if (id == null || id.isEmpty()) {
-                db.execute("INSERT INTO shifts (shift_name, start_time, end_time, break_mins, grace_mins, weekly_off1, weekly_off2) VALUES (?,?,?,?,?,?,?)", 
-                    name, start, end, breakM, grace, off1, off2);
+                db.execute(
+                        "INSERT INTO shifts (shift_name, start_time, end_time, break_mins, grace_mins, weekly_off1, weekly_off2) VALUES (?,?,?,?,?,?,?)",
+                        name, start, end, breakM, grace, off1, off2);
             } else {
-                db.execute("UPDATE shifts SET shift_name=?, start_time=?, end_time=?, break_mins=?, grace_mins=?, weekly_off1=?, weekly_off2=? WHERE id=?", 
-                    name, start, end, breakM, grace, off1, off2, id);
+                db.execute(
+                        "UPDATE shifts SET shift_name=?, start_time=?, end_time=?, break_mins=?, grace_mins=?, weekly_off1=?, weekly_off2=? WHERE id=?",
+                        name, start, end, breakM, grace, off1, off2, id);
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "redirect:/masters/shifts";
+    }
+
+    @PostMapping("/masters/shifts/delete")
+    public String deleteShift(@RequestParam String id) {
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            db.execute("DELETE FROM shifts WHERE id=?", id);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return "redirect:/masters/shifts";
     }
 
     @GetMapping("/masters/weekly-off")
-    public String mastersWeeklyOff(Model model, @RequestParam(name="dept", required = false) String dept) {
+    public String mastersWeeklyOff(Model model, @RequestParam(name = "dept", required = false) String dept) {
         List<Map<String, Object>> depts = new java.util.ArrayList<>();
         List<Map<String, Object>> offs = new java.util.ArrayList<>();
         List<Map<String, Object>> employees = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             depts = db.query("SELECT dept_name FROM departments ORDER BY dept_name");
-            
+
             String sql = "SELECT w.*, e.emp_name, e.department as dept_name " +
-                         "FROM weekly_offs w " +
-                         "JOIN employees e ON w.emp_id = e.emp_id";
-            if (dept != null && !"All".equals(dept)) sql += " WHERE e.department = '" + dept + "'";
-            
+                    "FROM weekly_offs w " +
+                    "JOIN employees e ON w.emp_id = e.emp_id";
+            if (dept != null && !"All".equals(dept))
+                sql += " WHERE e.department = '" + dept + "'";
+
             offs = db.query(sql);
             employees = db.query("SELECT emp_id, emp_name FROM employees ORDER BY emp_name");
-            
+
             model.addAttribute("selDept", (dept != null) ? dept : "All");
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
@@ -817,9 +1118,24 @@ public class WebController {
     public String saveWeeklyOff(@RequestParam Map<String, String> params) {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            db.execute("INSERT INTO weekly_offs (emp_id, off_day1, off_day2, effective_from, effective_to, remarks) VALUES (?,?,?,?,?,?)", 
-                params.get("empId"), params.get("day1"), params.get("day2"), params.get("from"), params.get("to"), params.get("remarks"));
-        } catch (Exception e) { e.printStackTrace(); }
+            db.execute(
+                    "INSERT INTO weekly_offs (emp_id, off_day1, off_day2, effective_from, effective_to, remarks) VALUES (?,?,?,?,?,?)",
+                    params.get("empId"), params.get("day1"), params.get("day2"), params.get("from"), params.get("to"),
+                    params.get("remarks"));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "redirect:/masters/weekly-off";
+    }
+
+    @PostMapping("/masters/weekly-off/delete")
+    public String deleteOff(@RequestParam String id) {
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            db.execute("DELETE FROM weekly_offs WHERE id=?", id);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return "redirect:/masters/weekly-off";
     }
 
@@ -845,23 +1161,27 @@ public class WebController {
             String p = params.get("password");
             String r = params.get("role");
             String e = params.get("empId");
-            
-            // Note: In a real app we'd hash the password here. 
+
+            // Note: In a real app we'd hash the password here.
             // For now matching desktop logic which calls db.hashPw
             String ph = db.hashPw(p);
-            db.execute("INSERT INTO users (username, password_hash, role, emp_id) VALUES(?,?,?,?)", 
-                u, ph, r, e.isEmpty() ? null : e);
-        } catch (Exception e) { e.printStackTrace(); }
+            db.execute("INSERT INTO users (username, password_hash, role, emp_id) VALUES(?,?,?,?)",
+                    u, ph, r, e.isEmpty() ? null : e);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return "redirect:/system/users";
     }
 
     @PostMapping("/system/users/reset-password")
-    public String resetUserPassword(@RequestParam String id, @RequestParam String password) {
+    public String resetUserPassword(@RequestParam("id") String id, @RequestParam("password") String password) {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             String ph = db.hashPw(password);
             db.execute("UPDATE users SET password_hash=? WHERE id=?", ph, id);
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return "redirect:/system/users";
     }
 
@@ -871,7 +1191,20 @@ public class WebController {
             DatabaseManager db = DatabaseManager.getInstance();
             String newStatus = "Active".equals(status) ? "Inactive" : "Active";
             db.execute("UPDATE users SET status=? WHERE id=?", newStatus, id);
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "redirect:/system/users";
+    }
+
+    @PostMapping("/system/users/delete")
+    public String deleteUser(@RequestParam String id) {
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            db.execute("DELETE FROM users WHERE id=?", id);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return "redirect:/system/users";
     }
 
@@ -913,9 +1246,10 @@ public class WebController {
             DatabaseManager db = DatabaseManager.getInstance();
             // Ensure unique constraint for daily records
             // Trigger a live poll of devices first to get today's latest punches
-            try { 
-                com.bhspl.service.SyncService.performSync(); 
-            } catch (Exception ignored) {}
+            try {
+                com.bhspl.service.SyncService.performSync();
+            } catch (Exception ignored) {
+            }
 
             // Force total re-calculation for the last 60 days
             try {
@@ -925,10 +1259,10 @@ public class WebController {
             } catch (Exception ex) {
                 return "Database Error during Reset: " + ex.getMessage();
             }
-            
+
             // Run processing for all un-synced logs
             com.bhspl.service.SyncService.processRawLogs(msg -> System.out.println("Repair: " + msg));
-            
+
             return "Repair Complete: All records for the last 60 days have been re-processed with FIRST-IN/LAST-OUT logic.";
         } catch (Exception e) {
             e.printStackTrace();
@@ -943,7 +1277,7 @@ public class WebController {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             Map<String, String> cfg = com.bhspl.core.Config.loadDbConfig();
-            
+
             sb.append("--- DATABASE CONFIG ---\n");
             if (cfg != null) {
                 sb.append("Host: ").append(cfg.get("host")).append("\n");
@@ -957,17 +1291,23 @@ public class WebController {
             sb.append("Employees: ").append(db.queryLong("SELECT COUNT(*) FROM employees")).append("\n");
             sb.append("Raw Logs: ").append(db.queryLong("SELECT COUNT(*) FROM raw_logs")).append("\n");
             sb.append("Attendance (Total): ").append(db.queryLong("SELECT COUNT(*) FROM attendance")).append("\n");
-            sb.append("Attendance (May 2026): ").append(db.queryLong("SELECT COUNT(*) FROM attendance WHERE MONTH(punch_date)=5 AND YEAR(punch_date)=2026")).append("\n");
-            
+            sb.append("Attendance (May 2026): ")
+                    .append(db.queryLong(
+                            "SELECT COUNT(*) FROM attendance WHERE MONTH(punch_date)=5 AND YEAR(punch_date)=2026"))
+                    .append("\n");
+
             sb.append("\n--- RAW LOGS ID SAMPLE ---\n");
-            List<Map<String, Object>> idSample = db.query("SELECT DISTINCT emp_id FROM raw_logs WHERE emp_id != '0' LIMIT 5");
+            List<Map<String, Object>> idSample = db
+                    .query("SELECT DISTINCT emp_id FROM raw_logs WHERE emp_id != '0' LIMIT 5");
             for (Map<String, Object> id : idSample) {
                 String val = id.get("emp_id").toString();
                 long count = db.queryLong("SELECT COUNT(*) FROM employees WHERE emp_id = ?", val);
-                long numericCount = db.queryLong("SELECT COUNT(*) FROM employees WHERE CAST(emp_id AS UNSIGNED) = CAST(? AS UNSIGNED)", val);
-                sb.append("Log ID: [").append(val).append("] | Matches in Master: ").append(count).append(" | Numeric Match: ").append(numericCount).append("\n");
+                long numericCount = db.queryLong(
+                        "SELECT COUNT(*) FROM employees WHERE CAST(emp_id AS UNSIGNED) = CAST(? AS UNSIGNED)", val);
+                sb.append("Log ID: [").append(val).append("] | Matches in Master: ").append(count)
+                        .append(" | Numeric Match: ").append(numericCount).append("\n");
             }
-            
+
             sb.append("\n--- REPORT QUERY DEBUG ---\n");
             String debugSql = "SELECT emp_id, emp_name, designation, department FROM employees WHERE 1=1";
             List<Map<String, Object>> debugEmps = db.query(debugSql);
@@ -978,20 +1318,24 @@ public class WebController {
             }
 
             sb.append("\n--- ATTENDANCE SAMPLE (May 2026) ---\n");
-            List<Map<String, Object>> attSample = db.query("SELECT emp_id, punch_date, status, in_time, out_time, work_hours FROM attendance WHERE MONTH(punch_date)=5 AND YEAR(punch_date)=2026 LIMIT 5");
+            List<Map<String, Object>> attSample = db.query(
+                    "SELECT emp_id, punch_date, status, in_time, out_time, work_hours FROM attendance WHERE MONTH(punch_date)=5 AND YEAR(punch_date)=2026 LIMIT 5");
             if (attSample.isEmpty()) {
                 sb.append("NO RECORDS FOUND FOR MAY 2026!\n");
             } else {
                 for (Map<String, Object> a : attSample) {
-                    sb.append(a.get("emp_id")).append(" | ").append(a.get("punch_date")).append(" | ").append(a.get("status"))
-                      .append(" | IN: [").append(a.get("in_time")).append("] | OUT: [").append(a.get("out_time")).append("]\n");
+                    sb.append(a.get("emp_id")).append(" | ").append(a.get("punch_date")).append(" | ")
+                            .append(a.get("status"))
+                            .append(" | IN: [").append(a.get("in_time")).append("] | OUT: [").append(a.get("out_time"))
+                            .append("]\n");
                 }
             }
 
             sb.append("\n--- SAMPLE DATA (Employees) ---\n");
             List<Map<String, Object>> emps = db.query("SELECT * FROM employees LIMIT 5");
             for (Map<String, Object> e : emps) {
-                sb.append(e.get("emp_id")).append(" | ").append(e.get("emp_name")).append(" | ").append(e.get("status")).append("\n");
+                sb.append(e.get("emp_id")).append(" | ").append(e.get("emp_name")).append(" | ").append(e.get("status"))
+                        .append("\n");
             }
 
         } catch (Exception e) {
@@ -1002,56 +1346,62 @@ public class WebController {
         }
         return "<pre>" + sb.toString() + "</pre>";
     }
+
     @GetMapping("/reports/monthly/export")
     public void exportMonthly(
-            @RequestParam int month,
-            @RequestParam int year,
-            @RequestParam String dept,
-            @RequestParam String type,
-            @RequestParam String format,
+            @RequestParam("month") int month,
+            @RequestParam("year") int year,
+            @RequestParam("dept") String dept,
+            @RequestParam("type") String type,
+            @RequestParam("format") String format,
             jakarta.servlet.http.HttpServletResponse response) throws Exception {
-        
+
         DatabaseManager db = DatabaseManager.getInstance();
         java.time.YearMonth ym = java.time.YearMonth.of(year, month);
         int daysCount = ym.lengthOfMonth();
-        
+
         String filename = "Attendance_" + month + "_" + year + ".csv";
         response.setContentType("text/csv");
         response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
-        
+
         java.io.PrintWriter writer = response.getWriter();
-        
+
         // Header
         writer.print("ID,Name,Designation");
         for (int i = 1; i <= daysCount; i++) {
             writer.print("," + i + "/" + month + "/" + year);
         }
         writer.println();
-        
+
         // Data
         String sql = "SELECT emp_id, emp_name, designation FROM employees WHERE status='Active'";
-        if (dept != null && !"All".equals(dept)) sql += " AND department = '" + dept + "'";
+        if (dept != null && !"All".equals(dept))
+            sql += " AND department = '" + dept + "'";
         sql += " ORDER BY emp_name";
-        
+
         List<Map<String, Object>> emps = db.query(sql);
         for (Map<String, Object> e : emps) {
             String eid = DatabaseManager.str(e, "emp_id");
             writer.print(eid + "," + DatabaseManager.str(e, "emp_name") + "," + DatabaseManager.str(e, "designation"));
-            
+
             Map<Integer, String> attMap = new HashMap<>();
-            List<Map<String, Object>> att = db.query("SELECT DAY(punch_date) as d, status, in_time, out_time, work_hours FROM attendance WHERE emp_id=? AND MONTH(punch_date)=? AND YEAR(punch_date)=?", eid, month, year);
+            List<Map<String, Object>> att = db.query(
+                    "SELECT DAY(punch_date) as d, status, in_time, out_time, work_hours FROM attendance WHERE emp_id=? AND MONTH(punch_date)=? AND YEAR(punch_date)=?",
+                    eid, month, year);
             for (Map<String, Object> a : att) {
                 if (type.equals("WH")) {
                     String inStr = DatabaseManager.str(a, "in_time");
-                    String in = inStr.contains(" ") ? inStr.split(" ")[1] : (inStr.contains("T") ? inStr.split("T")[1] : "");
-                    if (in.length() > 5) in = in.substring(0, 5);
+                    String in = inStr.contains(" ") ? inStr.split(" ")[1]
+                            : (inStr.contains("T") ? inStr.split("T")[1] : "");
+                    if (in.length() > 5)
+                        in = in.substring(0, 5);
                     double wh = DatabaseManager.dbl(a, "work_hours");
                     attMap.put(DatabaseManager.num(a, "d"), in.isEmpty() ? "P" : in + " (" + wh + ")");
                 } else {
                     attMap.put(DatabaseManager.num(a, "d"), DatabaseManager.str(a, "status"));
                 }
             }
-            
+
             for (int i = 1; i <= daysCount; i++) {
                 writer.print("," + attMap.getOrDefault(i, "A"));
             }
@@ -1062,10 +1412,12 @@ public class WebController {
     }
 
     @GetMapping("/system/sync")
-    public String systemSync(@RequestParam(name="redirect", required=false) String redirect) {
+    public String systemSync(@RequestParam(name = "redirect", required = false) String redirect) {
         try {
             SyncService.performSync();
-        } catch (Exception e) { e.printStackTrace(); }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return "redirect:" + (redirect != null ? redirect : "/");
     }
 }

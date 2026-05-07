@@ -1,15 +1,17 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:fragment="main-layout(content, title, activeLink)">
+
 <head>
     <title th:text="${title}">BHSPL Attendance</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         :root {
             --sidebar-width: 260px;
             --primary-bg: #F0F4F8;
-            --sidebar-bg: #FFFFFF;
+            --sidebar-bg: #0F172A;
+            /* Dark sidebar */
             --accent-purple: #8E0E6C;
             --accent-blue: #7C8CFB;
             --text-dark: #334155;
@@ -29,7 +31,7 @@
         .sidebar {
             width: var(--sidebar-width);
             background: var(--sidebar-bg);
-            border-right: 1px solid #E2E8F0;
+            border-right: 1px solid #1E293B;
             display: flex;
             flex-direction: column;
             padding: 20px 0;
@@ -37,12 +39,23 @@
         }
 
         .logo-container {
-            padding: 0 30px 30px;
-            text-align: center;
+            margin: 20px;
+            padding: 0;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .logo-container img {
+            max-width: 180px;
+            height: auto;
+            filter: url(#remove-white);
         }
 
         .logo-container h1 {
-            color: var(--accent-purple);
+            color: #F8FAFC;
             font-size: 24px;
             margin: 0;
             font-weight: 800;
@@ -60,7 +73,7 @@
             padding: 12px 30px;
             display: flex;
             align-items: center;
-            color: #64748B;
+            color: #94A3B8;
             text-decoration: none;
             font-size: 14px;
             font-weight: 500;
@@ -74,34 +87,58 @@
         }
 
         .nav-item.active {
-            background: #E0E7FF;
-            color: var(--accent-purple);
-            border-left: 4px solid var(--accent-purple);
+            background: #1E293B;
+            color: #38BDF8;
+            border-left: 4px solid #38BDF8;
         }
 
         .nav-item:hover:not(.active) {
-            background: #F8FAFC;
-            color: var(--text-dark);
+            background: #1E293B;
+            color: #F8FAFC;
         }
 
         /* Sub-menu Styling */
         .sub-menu {
-            background: #F8FAFC;
-            padding: 5px 0 10px 45px;
+            background: rgba(15, 23, 42, 0.8);
+            padding: 8px 0 8px 15px;
+            border-left: 2px solid rgba(56, 189, 248, 0.2);
+            margin: 5px 20px;
+            border-radius: 0 8px 8px 0;
+            backdrop-filter: blur(4px);
         }
 
         .sub-item {
-            display: block;
-            padding: 8px 15px;
-            color: #64748B;
+            display: flex;
+            align-items: center;
+            padding: 10px 15px;
+            color: #94A3B8;
             text-decoration: none;
             font-size: 13px;
             font-weight: 500;
-            transition: color 0.2s;
+            transition: all 0.3s ease;
+            border-radius: 6px;
+            margin-bottom: 2px;
+        }
+
+        .sub-item i {
+            margin-right: 10px;
+            font-size: 14px;
+            opacity: 0.7;
+            transition: all 0.3s ease;
         }
 
         .sub-item:hover {
-            color: var(--accent-purple);
+            color: #38BDF8;
+            background: rgba(56, 189, 248, 0.1);
+            transform: translateX(5px);
+            box-shadow: -2px 0 10px rgba(56, 189, 248, 0.2);
+        }
+
+        .sub-item:hover i {
+            opacity: 1;
+            color: #38BDF8;
+            transform: scale(1.1);
+            text-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
         }
 
         /* Modal / Popup Styling (Matching JDialog) */
@@ -113,7 +150,7 @@
             top: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0,0,0,0.5);
+            background-color: rgba(0, 0, 0, 0.5);
             align-items: center;
             justify-content: center;
             backdrop-filter: blur(4px);
@@ -130,13 +167,20 @@
         }
 
         @keyframes modalIn {
-            from { transform: translateY(-20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
         }
 
         .modal-header {
             padding: 20px;
-            background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+            background: linear-gradient(135deg, var(--accent-purple), #BE123C);
             color: white;
             display: flex;
             justify-content: space-between;
@@ -160,7 +204,9 @@
             opacity: 0.8;
         }
 
-        .close:hover { opacity: 1; }
+        .close:hover {
+            opacity: 1;
+        }
 
         .form-group {
             margin-bottom: 15px;
@@ -251,6 +297,13 @@
             border: 1px solid #E2E8F0;
             border-radius: 12px;
             box-shadow: var(--card-shadow);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.15);
         }
 
         .stat-card::before {
@@ -299,12 +352,19 @@
             mask: center / contain no-repeat;
         }
 
-        .stat-card.present::before {
-            background: #16A34A;
+        .stat-card.present {
+            background: #EAB308;
+            border: none;
         }
 
+        .stat-card.present::before {
+            display: none;
+        }
+
+        .stat-card.present .stat-info h3,
+        .stat-card.present .stat-info p,
         .stat-card.present .stat-icon {
-            color: #16A34A;
+            color: #FFFFFF !important;
         }
 
         .stat-card.present .stat-icon::before {
@@ -312,12 +372,19 @@
             mask-image: url("/icons/present.svg");
         }
 
-        .stat-card.absent::before {
-            background: #DC2626;
+        .stat-card.absent {
+            background: #F97316;
+            border: none;
         }
 
+        .stat-card.absent::before {
+            display: none;
+        }
+
+        .stat-card.absent .stat-info h3,
+        .stat-card.absent .stat-info p,
         .stat-card.absent .stat-icon {
-            color: #DC2626;
+            color: #FFFFFF !important;
         }
 
         .stat-card.absent .stat-icon::before {
@@ -325,12 +392,19 @@
             mask-image: url("/icons/absent.svg");
         }
 
-        .stat-card.total::before {
-            background: #2563EB;
+        .stat-card.total {
+            background: #800020;
+            border: none;
         }
 
+        .stat-card.total::before {
+            display: none;
+        }
+
+        .stat-card.total .stat-info h3,
+        .stat-card.total .stat-info p,
         .stat-card.total .stat-icon {
-            color: #2563EB;
+            color: #FFFFFF !important;
         }
 
         .stat-card.total .stat-icon::before {
@@ -338,17 +412,70 @@
             mask-image: url("/icons/total.svg");
         }
 
-        .stat-card.leave::before {
-            background: #D97706;
+        .stat-card.leave {
+            background: #8B5CF6;
+            border: none;
         }
 
+        .stat-card.leave::before {
+            display: none;
+        }
+
+        .stat-card.leave .stat-info h3,
+        .stat-card.leave .stat-info p,
         .stat-card.leave .stat-icon {
-            color: #D97706;
+            color: #FFFFFF !important;
         }
 
         .stat-card.leave .stat-icon::before {
             -webkit-mask-image: url("/icons/leaves_card.svg");
             mask-image: url("/icons/leaves_card.svg");
+        }
+
+        /* Action Buttons styling */
+        .action-col {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .action-btn i {
+            font-size: 14px;
+        }
+
+        .action-btn.edit {
+            color: #6366F1;
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .action-btn.edit:hover {
+            background: #6366F1;
+            color: #ffffff;
+            transform: translateY(-1px);
+        }
+
+        .action-btn.delete {
+            color: #EF4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .action-btn.delete:hover {
+            background: #EF4444;
+            color: #ffffff;
+            transform: translateY(-1px);
         }
 
         .table-container {
@@ -453,65 +580,136 @@
                 grid-template-columns: 1fr;
             }
         }
+        .logo-container {
+            margin: 20px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: transparent;
+        }
+
+        .logo-icon {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px;
+            width: 32px;
+            height: 32px;
+        }
+
+        .logo-box {
+            border-radius: 4px;
+        }
+
+        .logo-box.orange { background: #F59E0B; }
+        .logo-box.yellow { background: #FBBF24; }
+        .logo-box.pink { background: #BE123C; }
+        .logo-box.purple { background: #6D28D9; }
+
+        .logo-text {
+            color: white;
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: 2px;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .logo-text span {
+            color: #F59E0B;
+        }
     </style>
 </head>
+
 <body>
     <div class="sidebar">
-        <div class="logo-container">
-            <img src="data:image/png;base64,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" alt="Company Logo" style="max-width: 100%; height: auto; max-height: 80px;" />
-        </div>
-        <nav class="nav-menu">
-            <a href="/" th:classappend="${activeLink == 'dashboard' ? 'active' : ''}" class="nav-item"><i class="fas fa-th-large"></i> Dashboard</a>
-            <a href="/employees" th:classappend="${activeLink == 'employees' ? 'active' : ''}" class="nav-item"><i class="fas fa-users"></i> Employee Master</a>
-            <a href="/attendance" th:classappend="${activeLink == 'attendance' ? 'active' : ''}" class="nav-item"><i class="fas fa-user-clock"></i> Attendance</a>
-            <!-- Reports Menu -->
-            <a href="/reports" th:classappend="${activeLink == 'reports' ? 'active' : ''}" class="nav-item"><i class="fas fa-chart-bar"></i> Reports</a>
-            <div class="sub-menu" th:if="${activeLink == 'reports'}">
-                <a href="/reports/daily" class="sub-item">Daily Attendance</a>
-                <a href="/reports/monthly" class="sub-item">Monthly Summary</a>
-                <a href="/reports/leave" class="sub-item">Leave Report</a>
+        <a href="/" style="text-decoration: none;">
+            <div class="logo-container">
+                <div class="logo-icon">
+                    <div class="logo-box yellow"></div>
+                    <div class="logo-box orange"></div>
+                    <div class="logo-box pink"></div>
+                    <div class="logo-box purple"></div>
+                </div>
+                <div class="logo-text">BAVY<span>A</span></div>
             </div>
-            <a href="/raw-logs" th:classappend="${activeLink == 'raw-logs' ? 'active' : ''}" class="nav-item"><i class="fas fa-history"></i> Raw Punch Log</a>
-            <a href="/devices" th:classappend="${activeLink == 'devices' ? 'active' : ''}" class="nav-item"><i class="fas fa-microchip"></i> Device Manager</a>
-            
+        </a>
+        <nav class="nav-menu">
+            <a href="/" th:classappend="${activeLink == 'dashboard' ? 'active' : ''}" class="nav-item"><i
+                    class="fas fa-th-large"></i> Dashboard</a>
+            <a href="/employees" th:classappend="${activeLink == 'employees' ? 'active' : ''}" class="nav-item"><i
+                    class="fas fa-users"></i> Employee Master</a>
+            <a href="/attendance" th:classappend="${activeLink == 'attendance' ? 'active' : ''}" class="nav-item"><i
+                    class="fas fa-user-clock"></i> Attendance</a>
+            <!-- Reports Menu -->
+            <a href="/reports" th:classappend="${activeLink == 'reports' ? 'active' : ''}" class="nav-item"><i
+                    class="fas fa-chart-bar"></i> Reports</a>
+            <div class="sub-menu" th:if="${activeLink == 'reports'}">
+                <a href="/reports/daily" class="sub-item"><i class="fas fa-calendar-day"></i> Daily Attendance</a>
+                <a href="/reports/monthly" class="sub-item"><i class="fas fa-calendar-alt"></i> Monthly Summary</a>
+                <a href="/reports/leave" class="sub-item"><i class="fas fa-file-invoice"></i> Leave Report</a>
+            </div>
+            <a href="/raw-logs" th:classappend="${activeLink == 'raw-logs' ? 'active' : ''}" class="nav-item"><i
+                    class="fas fa-history"></i> Raw Punch Log</a>
+            <a href="/devices" th:classappend="${activeLink == 'devices' ? 'active' : ''}" class="nav-item"><i
+                    class="fas fa-microchip"></i> Device Manager</a>
+
             <!-- Leave Menu -->
-            <a href="/leave" th:classappend="${activeLink == 'leave' ? 'active' : ''}" class="nav-item"><i class="fas fa-calendar-alt"></i> Leave</a>
+            <a href="/leave" th:classappend="${activeLink == 'leave' ? 'active' : ''}" class="nav-item"><i
+                    class="fas fa-calendar-alt"></i> Leave</a>
             <div class="sub-menu" th:if="${activeLink == 'leave'}">
-                <a href="/leave/manager" class="sub-item">Leave Manager</a>
-                <a href="/leave/od" class="sub-item">OD Requests</a>
-                <a href="/leave/policy" class="sub-item">Leave Policy</a>
-                <a href="/leave/balance" class="sub-item">Leave Balance</a>
-                <a href="/leave/holidays" class="sub-item">Holidays</a>
+                <a href="/leave/manager" class="sub-item"><i class="fas fa-tasks"></i> Leave Manager</a>
+                <a href="/leave/od" class="sub-item"><i class="fas fa-briefcase"></i> OD Requests</a>
+                <a href="/leave/policy" class="sub-item"><i class="fas fa-book"></i> Leave Policy</a>
+                <a href="/leave/balance" class="sub-item"><i class="fas fa-balance-scale"></i> Leave Balance</a>
+                <a href="/leave/holidays" class="sub-item"><i class="fas fa-umbrella-beach"></i> Holidays</a>
             </div>
 
             <!-- Masters Menu -->
-            <a href="/masters" th:classappend="${activeLink == 'masters' ? 'active' : ''}" class="nav-item"><i class="fas fa-database"></i> Masters</a>
+            <a href="/masters" th:classappend="${activeLink == 'masters' ? 'active' : ''}" class="nav-item"><i
+                    class="fas fa-database"></i> Masters</a>
             <div class="sub-menu" th:if="${activeLink == 'masters'}">
-                <a href="/masters/departments" class="sub-item">Departments</a>
-                <a href="/masters/designations" class="sub-item">Designations</a>
-                <a href="/masters/shifts" class="sub-item">Shifts</a>
-                <a href="/masters/weekly-off" class="sub-item">Weekly Off</a>
+                <a href="/masters/departments" class="sub-item"><i class="fas fa-building"></i> Departments</a>
+                <a href="/masters/designations" class="sub-item"><i class="fas fa-id-badge"></i> Designations</a>
+                <a href="/masters/shifts" class="sub-item"><i class="fas fa-clock"></i> Shifts</a>
+                <a href="/masters/weekly-off" class="sub-item"><i class="fas fa-calendar-minus"></i> Weekly Off</a>
             </div>
 
             <!-- System Menu -->
-            <a href="/system" th:classappend="${activeLink == 'system' ? 'active' : ''}" class="nav-item"><i class="fas fa-cog"></i> System</a>
+            <a href="/system" th:classappend="${activeLink == 'system' ? 'active' : ''}" class="nav-item"><i
+                    class="fas fa-cog"></i> System</a>
             <div class="sub-menu" th:if="${activeLink == 'system'}">
-                <a href="/system/users" class="sub-item">User Management</a>
-                <a href="/system/settings" class="sub-item">Settings</a>
-                <a href="/system/backup" class="sub-item">DB Backup</a>
-                <a href="/system/about" class="sub-item">About</a>
+                <a href="/system/users" class="sub-item"><i class="fas fa-users-cog"></i> User Management</a>
+                <a href="/system/settings" class="sub-item"><i class="fas fa-sliders-h"></i> Settings</a>
+                <a href="/system/backup" class="sub-item"><i class="fas fa-download"></i> DB Backup</a>
+                <a href="/system/about" class="sub-item"><i class="fas fa-info-circle"></i> About</a>
             </div>
         </nav>
+
+        <div class="user-profile" th:if="${session.user != null}"
+            style="padding: 20px; border-top: 1px solid #1E293B; margin-top: auto; display: flex; align-items: center; gap: 15px;">
+            <div
+                style="width: 44px; height: 44px; background: var(--accent-purple); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; font-weight: 800; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);">
+                <span th:text="${session.user.substring(0,1).toUpperCase()}">A</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 2px;">
+                <span style="color: #F8FAFC; font-weight: 600; font-size: 15px; letter-spacing: 0.3px;" th:text="${session.user}">Admin</span>
+                <span style="color: #94A3B8; font-size: 13px; font-weight: 500;" th:text="${session.role}">Administrator</span>
+            </div>
+        </div>
     </div>
 
     <div class="main-content">
         <div class="top-bar">
             <h2 th:text="${title}">Page Title</h2>
-            <div style="display: flex; gap: 15px; align-items: center;">
-                <span id="date-time" style="font-size: 13px; color: #64748B;">Tue, 05 May 17:58:00</span>
-                <div style="display: flex; align-items: center; gap: 8px; color: var(--accent-purple); font-weight: 600;">
-                    <i class="fas fa-user-circle"></i> admin
-                </div>
+            <div style="display: flex; gap: 20px; align-items: center;">
+                <span id="date-time" style="font-size: 13px; color: #64748B; font-weight: 500;">Tue, 05 May 17:58:00</span>
+                <div style="width: 1px; height: 24px; background: #E2E8F0;"></div>
+                <a href="/logout"
+                    style="display: flex; align-items: center; gap: 8px; color: #EF4444; text-decoration: none; font-size: 14px; font-weight: 600; padding: 8px 16px; border-radius: 8px; background: rgba(239, 68, 68, 0.05); transition: all 0.2s;"
+                    onmouseover="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.transform='translateY(-1px)';"
+                    onmouseout="this.style.background='rgba(239, 68, 68, 0.05)'; this.style.transform='translateY(0)';">
+                    <i class="fas fa-sign-out-alt"></i> Sign Out
+                </a>
             </div>
         </div>
 
@@ -527,6 +725,60 @@
         }
         setInterval(updateDateTime, 1000);
         updateDateTime();
+
+        function exportTableToCSV(filename) {
+            let csv = [];
+            let rows = document.querySelectorAll("table tr");
+            if(rows.length === 0) {
+                alert("No data available to export.");
+                return;
+            }
+            for (let i = 0; i < rows.length; i++) {
+                let row = [], cols = rows[i].querySelectorAll("td, th");
+                for (let j = 0; j < cols.length; j++) {
+                    let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").trim();
+                    data = data.replace(/"/g, '""');
+                    row.push('"' + data + '"');
+                }
+                csv.push(row.join(","));
+            }
+            let csvFile = new Blob([csv.join("\n")], {type: "text/csv"});
+            let downloadLink = document.createElement("a");
+            downloadLink.download = filename;
+            downloadLink.href = window.URL.createObjectURL(csvFile);
+            downloadLink.style.display = "none";
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+        }
+
+        function exportTableToExcel(filename) {
+            let html = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:x='urn:schemas-microsoft-com:office:excel' xmlns='http://www.w3.org/TR/REC-html40'><head><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Sheet1</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table>";
+            let rows = document.querySelectorAll("table tr");
+            if(rows.length === 0) {
+                alert("No data available to export.");
+                return;
+            }
+            for (let i = 0; i < rows.length; i++) {
+                html += rows[i].outerHTML;
+            }
+            html += "</table></body></html>";
+            let blob = new Blob([html], {type: "application/vnd.ms-excel"});
+            let a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+        }
     </script>
+    <!-- SVG Filter for removing white background from logo -->
+    <svg style="position: absolute; width: 0; height: 0;">
+        <filter id="remove-white">
+            <feColorMatrix type="matrix" values="1 0 0 0 0
+                                                 0 1 0 0 0
+                                                 0 0 1 0 0
+                                                 -1.5 -1.5 -1.5 4.5 0" />
+        </filter>
+    </svg>
 </body>
+
 </html>

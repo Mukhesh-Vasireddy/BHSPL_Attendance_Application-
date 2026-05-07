@@ -1,31 +1,31 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" 
-      th:replace="~{layout :: main-layout(~{::section}, 'Dashboard', 'dashboard')}">
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: main-layout(~{::section}, 'Dashboard', 'dashboard')}">
+
 <body>
     <section>
         <div class="stats-grid">
-            <div class="stat-card present">
+            <div class="stat-card present" onclick="window.location.href='/attendance'">
                 <div class="stat-info">
                     <h3 th:text="${presentCount}">28</h3>
                     <p>Today Present</p>
                 </div>
                 <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
             </div>
-            <div class="stat-card absent">
+            <div class="stat-card absent" onclick="window.location.href='/attendance'">
                 <div class="stat-info">
                     <h3 th:text="${absentCount}">19</h3>
                     <p>Today Absents</p>
                 </div>
                 <div class="stat-icon"><i class="fas fa-user-slash"></i></div>
             </div>
-            <div class="stat-card total">
+            <div class="stat-card total" onclick="window.location.href='/employees'">
                 <div class="stat-info">
                     <h3 th:text="${totalEmps}">47</h3>
                     <p>Total Employees</p>
                 </div>
                 <div class="stat-icon"><i class="fas fa-users"></i></div>
             </div>
-            <div class="stat-card leave">
+            <div class="stat-card leave" onclick="window.location.href='/leave/manager'">
                 <div class="stat-info">
                     <h3 th:text="${leaveCount}">0</h3>
                     <p>On Leave Today</p>
@@ -34,35 +34,229 @@
             </div>
         </div>
 
-        <div class="table-container">
-            <div class="table-header">
-                <h3>Live Attendance Overview</h3>
-                <button class="refresh-btn"><i class="fas fa-redo"></i> Refresh Data</button>
+        <style>
+            .weekly-table {
+                width: 100%;
+                border-collapse: separate;
+                border-spacing: 0;
+            }
+            .weekly-table th {
+                background: #F8FAFC;
+                color: #64748B;
+                font-weight: 600;
+                font-size: 13px;
+                padding: 16px 20px;
+                text-align: left;
+                border-bottom: 1px solid #E2E8F0;
+            }
+            .weekly-table td {
+                padding: 16px 20px;
+                border-bottom: 1px solid #E2E8F0;
+                color: #1E293B;
+                font-size: 14px;
+                vertical-align: middle;
+                background: #FFFFFF;
+                transition: background 0.2s;
+            }
+            .weekly-table tbody tr:hover td {
+                background: #F8FAFC;
+            }
+            .table-container {
+                background: #FFFFFF;
+                border: 1px solid #E2E8F0;
+                border-radius: 12px;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+                overflow: hidden;
+            }
+            .table-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 20px;
+                border-bottom: 1px solid #E2E8F0;
+                background: #FFFFFF;
+            }
+            .table-header h3 {
+                margin: 0;
+                color: #0F172A;
+                font-size: 18px;
+                font-weight: 700;
+            }
+            .emp-info {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+            .emp-avatar {
+                width: 40px;
+                height: 40px;
+                border-radius: 10px;
+                background: #EEF2FF;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: 700;
+                color: #4F46E5;
+                font-size: 16px;
+            }
+            .emp-details {
+                display: flex;
+                flex-direction: column;
+            }
+            .emp-name {
+                font-weight: 600;
+                color: #1E293B;
+            }
+            .emp-dept {
+                font-size: 12px;
+                color: #64748B;
+                margin-top: 2px;
+            }
+            .day-number {
+                font-size: 13px;
+                color: #475569;
+                font-weight: 500;
+                margin-bottom: 0;
+                display: block;
+            }
+            .status-pill {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 4px 10px;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+            .status-pill i {
+                font-size: 10px;
+            }
+            /* Colors based on variance */
+            .pill-green { background: rgba(5, 150, 105, 0.1); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.2); }
+            .pill-orange { background: rgba(217, 119, 6, 0.1); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.2); }
+            .pill-purple { background: rgba(124, 58, 237, 0.1); color: #8B5CF6; border: 1px solid rgba(139, 92, 246, 0.2); }
+            .pill-red { background: rgba(220, 38, 38, 0.1); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+        </style>
+
+        <div class="table-container" style="background:#FFFFFF; border:none; margin-top:20px;">
+            <div class="table-header" style="background:#FFFFFF; border-bottom:1px solid #E2E8F0;">
+                <h3 style="color:#0F172A;">Attendance Dashboard</h3>
+                <div style="display:flex; gap:10px;">
+                    <select id="view-toggle" style="background:#F8FAFC; color:#1E293B; border:1px solid #CBD5E1; border-radius:6px; padding:8px 12px; outline:none; cursor:pointer; font-weight:500; font-size:13px;">
+                        <option value="today">Today's Detailed View</option>
+                        <option value="weekly">Weekly Variance Grid</option>
+                    </select>
+                    <button class="refresh-btn" style="background:#EEF2FF; color:#4F46E5; border:1px solid #C7D2FE; font-weight:600;"><i class="fas fa-filter"></i> Filter</button>
+                </div>
             </div>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Emp ID</th>
-                        <th>Name</th>
-                        <th>In Time</th>
-                        <th>Punches</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="log : ${recentLogs}">
-                        <td th:text="${log.emp_id}">0001</td>
-                        <td th:text="${log.emp_name}">NaveenA</td>
-                        <td th:text="${#temporals.format(log.in_time, 'HH:mm')}">16:58</td>
-                        <td th:text="${log.punches}">1</td>
-                        <td><span class="status-late">Late</span></td>
-                    </tr>
-                    <tr th:if="${recentLogs == null or recentLogs.empty}">
-                        <td colspan="5" style="text-align: center; padding: 20px;">No attendance records for today.</td>
-                    </tr>
-                </tbody>
-            </table>
+            <div style="overflow-x:auto;">
+                <table class="weekly-table" id="variance-table" style="background:#FFFFFF;">
+                    <thead>
+                        <tr>
+                            <th style="background:#F8FAFC; border-bottom:1px solid #E2E8F0; color:#475569;">Employee</th>
+                            
+                            <!-- Today Mode Headers -->
+                            <th class="col-today" style="background:#F8FAFC; border-bottom:1px solid #E2E8F0; color:#475569;">In Time</th>
+                            <th class="col-today" style="background:#F8FAFC; border-bottom:1px solid #E2E8F0; color:#475569;">Punches</th>
+                            <th class="col-today" style="background:#F8FAFC; border-bottom:1px solid #E2E8F0; color:#475569;">Status</th>
+
+                            <!-- Weekly Mode Headers -->
+                            <th class="col-weekly" style="background:#F8FAFC; border-bottom:1px solid #E2E8F0; color:#475569; display:none;" 
+                                th:each="day : ${weekDays}" th:text="${day}">Day</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="log : ${recentLogs}">
+                            <td style="background:#FFFFFF; border-bottom:1px solid #E2E8F0;">
+                                <div class="emp-info">
+                                    <div class="emp-avatar" th:text="${#strings.substring(log.emp_name,0,1)}">E</div>
+                                    <div class="emp-details">
+                                        <span class="emp-name" style="color:#1E293B;" th:text="${log.emp_name}">Name</span>
+                                        <span class="emp-dept" style="color:#64748B;" th:text="${log.emp_id}">ID</span>
+                                    </div>
+                                </div>
+                            </td>
+                            
+                            <!-- Today Mode Data -->
+                            <td class="col-today" style="background:#FFFFFF; border-bottom:1px solid #E2E8F0;">
+                                <span class="day-number" style="margin:0;" th:text="${#temporals.format(log.in_time, 'hh:mm a')}">09:00 AM</span>
+                            </td>
+                            <td class="col-today" style="background:#FFFFFF; border-bottom:1px solid #E2E8F0;">
+                                <span class="day-number" style="margin:0; font-weight:700;" th:text="${log.punches}">1</span>
+                            </td>
+                            <td class="col-today" style="background:#FFFFFF; border-bottom:1px solid #E2E8F0;">
+                                <span th:if="${#temporals.hour(log.in_time) < 10}" class="status-pill pill-green">
+                                    <i class="fas fa-check-circle"></i> On Time
+                                </span>
+                                <span th:if="${#temporals.hour(log.in_time) >= 10}" class="status-pill pill-orange">
+                                    <i class="far fa-clock"></i> Late Entry
+                                </span>
+                            </td>
+
+                            <!-- Weekly Mode Data -->
+                            <td class="col-weekly" style="background:#FFFFFF; border-bottom:1px solid #E2E8F0; display:none;" 
+                                th:each="dateStr : ${weekDates}">
+                                <span th:if="${weeklyData.get(log.emp_id)?.get(dateStr) == 'P'}" class="status-pill pill-green">
+                                    <i class="fas fa-check"></i> P
+                                </span>
+                                <span th:unless="${weeklyData.get(log.emp_id)?.get(dateStr) == 'P'}" class="status-pill pill-red" style="opacity: 0.5;">
+                                    -
+                                </span>
+                            </td>
+                        </tr>
+                        <tr th:if="${recentLogs == null or recentLogs.empty}">
+                            <td colspan="8" style="text-align: center; padding: 40px; color: #64748B; background:#FFFFFF;">
+                                No attendance records found.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination Section -->
+            <div class="pagination-container" style="display: flex; align-items: center; justify-content: space-between; padding: 20px; border-top: 1px solid #E2E8F0; background: #FFFFFF;">
+                <div style="color: #64748B; font-size: 13px;">
+                    Showing page <span th:text="${currentPage}" style="color: #0F172A; font-weight: 700;">1</span> of <span th:text="${totalPages}" style="color: #0F172A; font-weight: 700;">1</span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <a th:if="${currentPage > 1}" th:href="@{/(page=${currentPage - 1})}" class="page-link" style="display: flex; align-items: center; gap: 6px; background: #FFFFFF; color: #475569; border: 1px solid #E2E8F0; border-radius: 6px; padding: 8px 14px; text-decoration: none; font-size: 13px; font-weight: 600; transition: all 0.2s;">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </a>
+                    <a th:if="${currentPage < totalPages}" th:href="@{/(page=${currentPage + 1})}" class="page-link" style="display: flex; align-items: center; gap: 6px; background: #FFFFFF; color: #475569; border: 1px solid #E2E8F0; border-radius: 6px; padding: 8px 14px; text-decoration: none; font-size: 13px; font-weight: 600; transition: all 0.2s;">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </a>
+                </div>
+            </div>
         </div>
+
+        <script>
+            const viewToggle = document.getElementById('view-toggle');
+            const varianceTable = document.getElementById('variance-table');
+
+            function updateView(view) {
+                const weeklyCols = document.querySelectorAll('.col-weekly');
+                const todayCols = document.querySelectorAll('.col-today');
+                
+                if(view === 'weekly') {
+                    weeklyCols.forEach(col => col.style.display = 'table-cell');
+                    todayCols.forEach(col => col.style.display = 'none');
+                } else {
+                    weeklyCols.forEach(col => col.style.display = 'none');
+                    todayCols.forEach(col => col.style.display = 'table-cell');
+                }
+                localStorage.setItem('dashboard-view-mode', view);
+            }
+
+            viewToggle.addEventListener('change', function(e) {
+                updateView(e.target.value);
+            });
+
+            // Restore view mode from localStorage
+            const savedView = localStorage.getItem('dashboard-view-mode') || 'today';
+            viewToggle.value = savedView;
+            updateView(savedView);
+        </script>
     </section>
 </body>
+
 </html>

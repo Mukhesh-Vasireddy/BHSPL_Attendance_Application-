@@ -9,9 +9,6 @@
                 <h3 style="margin: 0; color: var(--accent-purple);"><i class="fas fa-calendar-week"></i> Weekly Off Master</h3>
                 <div style="display: flex; gap: 10px;">
                     <button class="btn-primary" style="background: #10B981;" onclick="openOffModal()"><i class="fas fa-plus"></i> Assign Off</button>
-                    <button class="btn-primary" style="background: #6366F1;"><i class="fas fa-edit"></i> Edit</button>
-                    <button class="btn-primary" style="background: #EF4444;"><i class="fas fa-trash"></i> Delete</button>
-                    <button class="btn-primary" style="background: #F59E0B;"><i class="fas fa-users"></i> Bulk Assign</button>
                     <button class="btn-primary" style="background: #334155;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
                 </div>
             </div>
@@ -34,7 +31,6 @@
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 40px;"><input type="checkbox"></th>
                         <th>ID</th>
                         <th>Emp ID</th>
                         <th>Name</th>
@@ -43,11 +39,11 @@
                         <th>Off Day 2</th>
                         <th>From</th>
                         <th>To</th>
+                        <th style="text-align: center;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr th:each="o : ${offs}">
-                        <td><input type="checkbox" class="row-check" th:value="${o.id}"></td>
+                    <tr th:each="o : ${offs}" th:data-id="${o.id}" th:data-empid="${o.emp_id}" th:data-day1="${o.off_day1}" th:data-day2="${o.off_day2}" th:data-from="${o.effective_from}" th:data-to="${o.effective_to}">
                         <td th:text="${o.id}">1</td>
                         <td th:text="${o.emp_id}">101</td>
                         <td th:text="${o.emp_name}" style="font-weight: 600;">John Doe</td>
@@ -56,6 +52,12 @@
                         <td th:text="${o.off_day2}">None</td>
                         <td th:text="${o.effective_from}">2026-05-01</td>
                         <td th:text="${o.effective_to}">2099-12-31</td>
+                        <td>
+                            <div class="action-col">
+                                <button class="action-btn edit" title="Edit" onclick="editOff(this)"><i class="fas fa-pen"></i></button>
+                                <button class="action-btn delete" title="Delete" onclick="deleteOff(this)"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -69,6 +71,7 @@
                     <span class="close" onclick="closeOffModal()">&times;</span>
                 </div>
                 <form action="/masters/weekly-off/save" method="post" id="offForm">
+                    <input type="hidden" name="id" id="fieldId">
                     <div style="padding: 20px;">
                         <div class="form-group">
                             <label>Select Employee *</label>
@@ -117,10 +120,34 @@
 
         <script>
             function openOffModal() {
+                document.getElementById('offForm').reset();
+                document.getElementById('modalTitle').innerText = 'Assign Weekly Off';
                 document.getElementById('offModal').style.display = 'flex';
             }
             function closeOffModal() {
                 document.getElementById('offModal').style.display = 'none';
+            }
+            function editOff(btn) {
+                const tr = btn.closest('tr');
+                document.querySelector('[name="empId"]').value = tr.dataset.empid;
+                document.querySelector('[name="day1"]').value = tr.dataset.day1;
+                document.querySelector('[name="day2"]').value = tr.dataset.day2;
+                document.querySelector('[name="from"]').value = tr.dataset.from;
+                document.querySelector('[name="to"]').value = tr.dataset.to;
+                
+                document.getElementById('modalTitle').innerText = 'Edit Weekly Off';
+                document.getElementById('offModal').style.display = 'flex';
+            }
+            function deleteOff(btn) {
+                const tr = btn.closest('tr');
+                if (confirm('Delete weekly off for ID ' + tr.dataset.empid + '?')) {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '/masters/weekly-off/delete';
+                    const idInput = document.createElement('input'); idInput.name = 'id'; idInput.value = tr.dataset.id;
+                    form.appendChild(idInput);
+                    document.body.appendChild(form); form.submit();
+                }
             }
         </script>
     </section>

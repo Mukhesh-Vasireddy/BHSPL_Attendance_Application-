@@ -1,66 +1,161 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" 
-      th:replace="~{layout :: main-layout(~{::section}, 'Holiday Master', 'leave')}">
+<html xmlns:th="http://www.thymeleaf.org"
+    th:replace="~{layout :: main-layout(~{::section}, 'Holiday Master', 'leave')}">
+
 <body>
     <section>
         <!-- Toolbar -->
         <div class="card" style="margin-bottom: 15px; padding: 15px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; color: var(--accent-purple);"><i class="fas fa-umbrella-beach"></i> Holiday Master</h3>
+                <h3 style="margin: 0; color: var(--accent-purple);"><i class="fas fa-umbrella-beach"></i> Holiday Master
+                </h3>
                 <div style="display: flex; gap: 10px;">
-                    <button class="btn-primary" style="background: #10B981;"><i class="fas fa-plus"></i> Add Holiday</button>
-                    <button class="btn-primary" style="background: #6366F1;"><i class="fas fa-edit"></i> Edit</button>
-                    <button class="btn-primary" style="background: #EF4444;"><i class="fas fa-trash"></i> Delete</button>
+                    <button class="btn-primary" style="background: #10B981;" onclick="openHolidayModal()"><i
+                            class="fas fa-plus"></i> Add Holiday</button>
                     <form action="/leave/holidays/load-defaults" method="post" style="display: inline;">
-                        <button type="submit" class="btn-primary" style="background: #F59E0B;"><i class="fas fa-download"></i> Load Defaults</button>
+                        <button type="submit" class="btn-primary" style="background: #F59E0B;"><i
+                                class="fas fa-download"></i> Load Defaults</button>
                     </form>
-                    <button class="btn-primary" style="background: #4B5563;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+                    <button class="btn-primary" style="background: #4B5563;" onclick="location.reload()"><i
+                            class="fas fa-sync"></i> Refresh</button>
                 </div>
             </div>
         </div>
 
         <!-- Category Filters -->
         <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
-            <a href="/leave/holidays?type=All" class="btn-primary" style="background: #64748b; font-size: 11px; padding: 6px 12px;">All Holidays</a>
-            <a href="/leave/holidays?type=National Holiday" class="btn-primary" style="background: #991B1B; font-size: 11px; padding: 6px 12px;">National Holiday</a>
-            <a href="/leave/holidays?type=Public Holiday" class="btn-primary" style="background: #1D4ED8; font-size: 11px; padding: 6px 12px;">Public Holiday</a>
-            <a href="/leave/holidays?type=Festival Holiday" class="btn-primary" style="background: #EA580C; font-size: 11px; padding: 6px 12px;">Festival Holiday</a>
-            <a href="/leave/holidays?type=Optional Holiday" class="btn-primary" style="background: #CA8A04; font-size: 11px; padding: 6px 12px;">Optional Holiday</a>
-            <a href="/leave/holidays?type=Company Holiday" class="btn-primary" style="background: #059669; font-size: 11px; padding: 6px 12px;">Company Holiday</a>
-            <a href="/leave/holidays?type=Regional Holiday" class="btn-primary" style="background: #4F46E5; font-size: 11px; padding: 6px 12px;">Regional Holiday</a>
+            <a href="/leave/holidays?type=All" class="btn-primary"
+                style="background: #64748b; font-size: 11px; padding: 6px 12px;">All Holidays</a>
+            <a href="/leave/holidays?type=National Holiday" class="btn-primary"
+                style="background: #991B1B; font-size: 11px; padding: 6px 12px;">National Holiday</a>
+            <a href="/leave/holidays?type=Public Holiday" class="btn-primary"
+                style="background: #1D4ED8; font-size: 11px; padding: 6px 12px;">Public Holiday</a>
+            <a href="/leave/holidays?type=Festival Holiday" class="btn-primary"
+                style="background: #EA580C; font-size: 11px; padding: 6px 12px;">Festival Holiday</a>
+            <a href="/leave/holidays?type=Optional Holiday" class="btn-primary"
+                style="background: #CA8A04; font-size: 11px; padding: 6px 12px;">Optional Holiday</a>
+            <a href="/leave/holidays?type=Company Holiday" class="btn-primary"
+                style="background: #059669; font-size: 11px; padding: 6px 12px;">Company Holiday</a>
+            <a href="/leave/holidays?type=Regional Holiday" class="btn-primary"
+                style="background: #4F46E5; font-size: 11px; padding: 6px 12px;">Regional Holiday</a>
         </div>
 
         <!-- Data Table -->
         <div class="card">
             <table>
                 <thead>
-                    <tr>
-                        <th style="width: 40px;"><input type="checkbox"></th>
+                    <tr style="background: #800080; color: white;">
                         <th>ID</th>
                         <th>Date</th>
                         <th>Holiday Name</th>
                         <th>Type</th>
+                        <th style="text-align: center;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr th:each="h : ${holidays}" 
+                    <tr th:each="h : ${holidays}" th:data-id="${h['id']}" th:data-date="${h['holiday_date']}"
+                        th:data-name="${h['holiday_name']}" th:data-type="${h['holiday_type']}"
                         th:style="${h['holiday_type'] == 'National Holiday' ? 'background: #FFF1F2;' : (h['holiday_type'] == 'Festival Holiday' ? 'background: #FFFBEB;' : (h['holiday_type'] == 'Public Holiday' ? 'background: #EFF6FF;' : ''))}">
-                        <td><input type="checkbox" class="row-check" th:value="${h['id']}"></td>
                         <td th:text="${h['id']}">1</td>
                         <td th:text="${h['holiday_date']}" style="font-weight: 600;">01-01-2026</td>
                         <td th:text="${h['holiday_name']}">New Year's Day</td>
                         <td>
-                            <span th:text="${h['holiday_type']}" 
-                                  th:style="${'background: none; border: 1px solid #E2E8F0; color: #475569;'}"
-                                  class="badge">National Holiday</span>
+                            <span th:text="${h['holiday_type']}"
+                                th:style="${'background: none; border: 1px solid #E2E8F0; color: #475569;'}"
+                                class="badge">National Holiday</span>
+                        </td>
+                        <td>
+                            <div class="action-col">
+                                <button class="action-btn edit" title="Edit" onclick="editHoliday(this)"><i
+                                        class="fas fa-pen"></i></button>
+                                <button class="action-btn delete" title="Delete" onclick="deleteHoliday(this)"><i
+                                        class="fas fa-trash"></i></button>
+                            </div>
                         </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(holidays)}">
-                        <td colspan="5" style="text-align: center; padding: 40px; color: #94A3B8;">No holidays found. Click 'Load Defaults' to populate common holidays.</td>
+                        <td colspan="6" style="text-align: center; padding: 40px; color: #94A3B8;">No holidays found.
+                            Click 'Load Defaults' to populate common holidays.</td>
                     </tr>
                 </tbody>
             </table>
         </div>
+
+        <!-- Add/Edit Holiday Modal -->
+        <div id="holidayModal" class="modal">
+            <div class="modal-content" style="max-width: 450px;">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Add Holiday</h3>
+                    <span class="close"
+                        onclick="document.getElementById('holidayModal').style.display='none'">&times;</span>
+                </div>
+                <form action="/leave/holidays/save" method="POST" id="holidayForm">
+                    <input type="hidden" name="id" id="h_id">
+                    <div style="padding: 20px;">
+                        <div class="form-group">
+                            <label>Holiday Name *</label>
+                            <input type="text" name="holiday_name" id="h_name" class="form-control"
+                                placeholder="e.g. Christmas" required>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div class="form-group">
+                                <label>Date *</label>
+                                <input type="date" name="holiday_date" id="h_date" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Type *</label>
+                                <select name="holiday_type" id="h_type" class="form-control" required>
+                                    <option value="National Holiday">National Holiday</option>
+                                    <option value="Festival Holiday">Festival Holiday</option>
+                                    <option value="Public Holiday">Public Holiday</option>
+                                    <option value="Company Holiday">Company Holiday</option>
+                                    <option value="Regional Holiday">Regional Holiday</option>
+                                    <option value="Optional Holiday">Optional Holiday</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-primary" style="background: #64748B;"
+                            onclick="document.getElementById('holidayModal').style.display='none'">Cancel</button>
+                        <button type="submit" class="btn-primary" style="background: #10B981;">Save Holiday</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script>
+            function openHolidayModal() {
+                document.getElementById('holidayForm').reset();
+                document.getElementById('h_id').value = '';
+                document.getElementById('modalTitle').innerText = 'Add Holiday';
+                document.getElementById('holidayModal').style.display = 'flex';
+            }
+
+            function editHoliday(btn) {
+                const tr = btn.closest('tr');
+                document.getElementById('h_id').value = tr.dataset.id;
+                document.getElementById('h_name').value = tr.dataset.name;
+                document.getElementById('h_date').value = tr.dataset.date;
+                document.getElementById('h_type').value = tr.dataset.type;
+
+                document.getElementById('modalTitle').innerText = 'Edit Holiday';
+                document.getElementById('holidayModal').style.display = 'flex';
+            }
+
+            function deleteHoliday(btn) {
+                const tr = btn.closest('tr');
+                if (confirm('Are you sure you want to delete this holiday?')) {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '/leave/holidays/delete';
+                    const idInput = document.createElement('input'); idInput.name = 'id'; idInput.value = tr.dataset.id;
+                    form.appendChild(idInput);
+                    document.body.appendChild(form); form.submit();
+                }
+            }
+        </script>
     </section>
 </body>
+
 </html>

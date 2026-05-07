@@ -14,49 +14,21 @@
         <!-- Action Toolbar -->
         <div class="card" style="margin-bottom: 15px; padding: 15px;">
             <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-                <button class="btn-primary" style="background: #10B981;"><i class="fas fa-plus"></i> Apply OD</button>
-                <button class="btn-primary" style="background: #6366F1;"><i class="fas fa-edit"></i> Edit</button>
-                <button class="btn-primary" style="background: #EF4444;"><i class="fas fa-trash"></i> Delete</button>
+                <button class="btn-primary" style="background: #10B981;" onclick="openODModal()"><i class="fas fa-plus"></i> Apply OD</button>
                 <button class="btn-primary" style="background: #15803D;" onclick="updateStatus('Approved')"><i class="fas fa-check"></i> Approve</button>
                 <button class="btn-primary" style="background: #B91C1C;" onclick="updateStatus('Rejected')"><i class="fas fa-times"></i> Reject</button>
-                <button class="btn-primary" style="background: #334155;"><i class="fas fa-info-circle"></i> Details</button>
                 <button class="btn-primary" style="background: #475569;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
             </div>
         </div>
 
         <!-- Filter Toolbar -->
-        <div class="card" style="margin-bottom: 15px; padding: 15px;">
-            <div style="display: flex; gap: 20px; align-items: center;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 13px; font-weight: 600; color: #64748B;">Status:</span>
-                    <select id="statusFilter" class="form-control" style="width: 120px;" onchange="filterOD()">
-                        <option>All</option>
-                        <option>Pending</option>
-                        <option>Approved</option>
-                        <option>Rejected</option>
-                    </select>
-                </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 13px; font-weight: 600; color: #64748B;">Dept:</span>
-                    <select id="deptFilter" class="form-control" style="width: 160px;" onchange="filterOD()">
-                        <option>All</option>
-                        <option th:each="d : ${depts}" th:value="${d.dept_name}" th:text="${d.dept_name}"></option>
-                    </select>
-                </div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="font-size: 13px; font-weight: 600; color: #64748B;">Month:</span>
-                    <input type="text" id="monthFilter" class="form-control" style="width: 110px;" placeholder="MM-YYYY">
-                </div>
-                <button class="btn-primary" onclick="filterOD()"><i class="fas fa-search"></i> Filter</button>
-            </div>
-        </div>
+        <!-- ... -->
 
         <!-- Data Table -->
         <div class="card" style="overflow-x: auto;">
             <table id="odTable">
                 <thead>
                     <tr>
-                        <th style="width: 40px;"><input type="checkbox"></th>
                         <th>ID</th>
                         <th>Emp ID</th>
                         <th>Name</th>
@@ -68,11 +40,13 @@
                         <th>Location</th>
                         <th>Status</th>
                         <th>Applied On</th>
+                        <th style="text-align: center;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr th:each="o : ${ods}" th:data-status="${o.status}" th:data-dept="${o.department}">
-                        <td><input type="checkbox" class="row-check" th:value="${o.id}"></td>
+                    <tr th:each="o : ${ods}" th:data-status="${o.status}" th:data-dept="${o.department}" th:data-id="${o.id}"
+                        th:data-empid="${o.emp_id}" th:data-from="${o.od_from}" th:data-to="${o.od_to}" th:data-days="${o.od_days}"
+                        th:data-type="${o.od_type}" th:data-location="${o.location}">
                         <td th:text="${o.id}">1</td>
                         <td th:text="${o.emp_id}">101</td>
                         <td th:text="${o.emp_name}">John Doe</td>
@@ -88,12 +62,110 @@
                                   class="badge">Pending</span>
                         </td>
                         <td th:text="${o.applied_on}">2026-05-05</td>
+                        <td>
+                            <div class="action-col">
+                                <button class="action-btn" style="color: #10B981;" title="Approve" onclick="updateRowStatus(this, 'Approved')"><i class="fas fa-check"></i></button>
+                                <button class="action-btn" style="color: #EF4444;" title="Reject" onclick="updateRowStatus(this, 'Rejected')"><i class="fas fa-times"></i></button>
+                                <button class="action-btn edit" title="Edit" onclick="editOD(this)"><i class="fas fa-pen"></i></button>
+                                <button class="action-btn delete" title="Delete" onclick="deleteOD(this)"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
+        <!-- Apply OD Modal -->
+        <div id="applyODModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="odModalTitle" style="margin: 0; font-size: 18px;">Apply On Duty (OD)</h3>
+                    <span class="close" onclick="document.getElementById('applyODModal').style.display='none'">&times;</span>
+                </div>
+                <form action="/leave/od/apply" method="POST" id="odForm">
+                    <input type="hidden" name="id" id="od_id">
+                    <div style="padding: 20px;">
+                        <div class="form-group">
+                            <label>Employee <span style="color:red;">*</span></label>
+                            <select name="emp_id" id="od_emp_id" class="form-control" required>
+                                <option value="">Select Employee</option>
+                                <option th:each="e : ${employees}" th:value="${e.emp_id}" th:text="${e.emp_id + ' - ' + e.emp_name}"></option>
+                            </select>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                            <div class="form-group">
+                                <label>From Date *</label>
+                                <input type="date" name="od_from" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label>To Date *</label>
+                                <input type="date" name="od_to" class="form-control" required>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                            <div class="form-group">
+                                <label>Total Days *</label>
+                                <input type="number" step="0.5" name="od_days" class="form-control" value="1.0" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Request Type *</label>
+                                <select name="od_type" class="form-control" required>
+                                    <option>Full Day</option>
+                                    <option>Half Day (First Half)</option>
+                                    <option>Half Day (Second Half)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top: 15px;">
+                            <label>Client Location / Site Name *</label>
+                            <input type="text" name="location" class="form-control" placeholder="e.g. Bangalore Site Office" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-primary" style="background: #64748B;" onclick="document.getElementById('applyODModal').style.display='none'">Cancel</button>
+                        <button type="submit" class="btn-primary" style="background: #10B981;">Submit OD Request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <script>
+            function openODModal() {
+                document.getElementById('odForm').reset();
+                document.getElementById('od_id').value = '';
+                document.getElementById('odModalTitle').innerText = 'Apply On Duty (OD)';
+                document.getElementById('applyODModal').style.display = 'flex';
+            }
+
+            function editOD(btn) {
+                const tr = btn.closest('tr');
+                document.getElementById('od_id').value = tr.dataset.id;
+                document.getElementById('od_emp_id').value = tr.dataset.empid;
+                document.querySelector('[name="od_from"]').value = tr.dataset.from;
+                document.querySelector('[name="od_to"]').value = tr.dataset.to;
+                document.querySelector('[name="od_days"]').value = tr.dataset.days;
+                document.querySelector('[name="od_type"]').value = tr.dataset.type;
+                document.querySelector('[name="location"]').value = tr.dataset.location;
+                
+                document.getElementById('odModalTitle').innerText = 'Edit OD Request';
+                document.getElementById('applyODModal').style.display = 'flex';
+            }
+
+            function deleteOD(btn) {
+                const tr = btn.closest('tr');
+                if (confirm('Are you sure you want to delete OD request #' + tr.dataset.id + '?')) {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '/leave/od/delete';
+                    const idInput = document.createElement('input');
+                    idInput.name = 'id';
+                    idInput.value = tr.dataset.id;
+                    form.appendChild(idInput);
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            }
+
             function filterOD() {
                 const status = document.getElementById('statusFilter').value;
                 const dept = document.getElementById('deptFilter').value;
@@ -111,20 +183,17 @@
                 });
             }
 
-            function updateStatus(newStatus) {
-                const selected = document.querySelector('.row-check:checked');
-                if (!selected) {
-                    alert('Please select a request first.');
-                    return;
-                }
-                if (confirm('Mark OD request #' + selected.value + ' as ' + newStatus + '?')) {
+            function updateRowStatus(btn, newStatus) {
+                const tr = btn.closest('tr');
+                const id = tr.dataset.id;
+                if (confirm('Mark OD request #' + id + ' as ' + newStatus + '?')) {
                     const form = document.createElement('form');
                     form.method = 'POST';
                     form.action = '/leave/od/update-status';
                     
                     const idInput = document.createElement('input');
                     idInput.name = 'id';
-                    idInput.value = selected.value;
+                    idInput.value = id;
                     form.appendChild(idInput);
                     
                     const statusInput = document.createElement('input');
@@ -135,6 +204,10 @@
                     document.body.appendChild(form);
                     form.submit();
                 }
+            }
+
+            function updateStatus(newStatus) {
+                alert('Please use the Approve/Reject icons in the Action column for individual requests.');
             }
         </script>
     </section>
