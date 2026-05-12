@@ -413,14 +413,4 @@ public class SyncService {
         }
     }
 
-    private static class AttendanceSession {
-        LocalDateTime in;
-        LocalDateTime out;
-        double duration = 0;
-
-        AttendanceSession(LocalDateTime in, LocalDateTime out) {
-            this.in = in;
-            this.out = out;
-        }
-    }
 }

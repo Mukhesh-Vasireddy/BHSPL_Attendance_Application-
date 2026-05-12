@@ -47,7 +47,7 @@
                 <tbody>
                     <tr th:each="h : ${holidays}" th:data-id="${h['id']}" th:data-date="${h['holiday_date']}" th:data-name="${h['holiday_name']}" th:data-type="${h['holiday_type']}">
                         <td th:text="${h['id']}">1</td>
-                        <td th:text="${h['holiday_date']}" style="font-weight: 600; color: white;">01-01-2026</td>
+                        <td th:text="${h['holiday_date']}" style="font-weight: 600; color: var(--text-main);">01-01-2026</td>
                         <td th:text="${h['holiday_name']}">New Year's Day</td>
                         <td>
                             <span th:text="${h['holiday_type']}" 
@@ -101,7 +101,7 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn-primary" style="background: rgba(255,255,255,0.05); color: white;" onclick="closeModal()">Cancel</button>
+                        <button type="button" class="btn-primary" style="background: #f1f5f9; color: var(--text-main);" onclick="closeModal()">Cancel</button>
                         <button type="submit" class="btn-primary">Save Holiday</button>
                     </div>
                 </form>

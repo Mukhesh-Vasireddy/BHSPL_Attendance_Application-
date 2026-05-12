@@ -8,7 +8,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <button class="btn-primary" style="background: #10B981;" onclick="openDesigModal()"><i class="fas fa-plus"></i> Add New Designation</button>
-                    <button class="btn-primary" style="background: #64748B;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+                    <button class="btn-primary" style="background: #f1f5f9; color: var(--text-main); border: 1px solid var(--glass-border);" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
                 </div>
                 <!-- ... -->
             </div>
@@ -18,22 +18,22 @@
         <div class="card">
             <table>
                 <thead>
-                    <tr>
-                        <th style="width: 60px;">ID</th>
-                        <th>Designation Name</th>
-                        <th style="width: 100px;">Level</th>
-                        <th>Description</th>
-                        <th style="width: 120px;">Status</th>
-                        <th style="width: 100px; text-align: center;">Action</th>
+                    <tr style="background: #f8fafc;">
+                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; width: 60px;">ID</th>
+                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Designation Name</th>
+                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; width: 100px;">Level</th>
+                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Description</th>
+                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; width: 120px;">Status</th>
+                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; width: 100px; text-align: center;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr th:each="d : ${designations}" th:data-id="${d.id}" th:data-name="${d.desig_name}" th:data-level="${d.level_order}" th:data-desc="${d.description}" th:data-status="${d.status}">
-                        <td th:text="${d.id}">1</td>
-                        <td th:text="${d.desig_name}" style="font-weight: 600;">Software Engineer</td>
-                        <td th:text="${d.level_order}" style="text-align: center;">1</td>
-                        <td th:text="${d.description}">Core development role</td>
-                        <td>
+                        <td th:text="${d.id}" style="padding: 15px 20px;">1</td>
+                        <td th:text="${d.desig_name}" style="padding: 15px 20px; font-weight: 600; color: var(--text-main);">Software Engineer</td>
+                        <td th:text="${d.level_order}" style="padding: 15px 20px; text-align: center;">1</td>
+                        <td th:text="${d.description}" style="padding: 15px 20px;">Core development role</td>
+                        <td style="padding: 15px 20px;">
                             <span th:text="${d.status}" 
                                   th:classappend="${d.status == 'Active' ? 'badge-success' : 'badge-danger'}"
                                   class="badge">Active</span>
@@ -80,7 +80,7 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn-primary" style="background: #64748B;" onclick="closeDesigModal()">Cancel</button>
+                        <button type="button" class="btn-primary" style="background: #f1f5f9; color: var(--text-main); border: 1px solid var(--glass-border);" onclick="closeDesigModal()">Cancel</button>
                         <button type="submit" class="btn-primary" style="background: #10B981;">Save Designation</button>
                     </div>
                 </form>

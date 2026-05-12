@@ -10,7 +10,7 @@
                     <i class="fas fa-clock"></i>
                 </div>
                 <div>
-                    <h3 style="margin: 0; font-size: 24px; color: white;" th:text="${pendingCount}">0</h3>
+                    <h3 style="margin: 0; font-size: 24px; color: var(--text-main);" th:text="${pendingCount}">0</h3>
                     <p style="margin: 0; color: var(--text-muted); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Pending Requests</p>
                 </div>
             </div>
@@ -19,7 +19,7 @@
                     <i class="fas fa-check-double"></i>
                 </div>
                 <div>
-                    <h3 style="margin: 0; font-size: 24px; color: white;" th:text="${approvedToday}">0</h3>
+                    <h3 style="margin: 0; font-size: 24px; color: var(--text-main);" th:text="${approvedToday}">0</h3>
                     <p style="margin: 0; color: var(--text-muted); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Approved Today</p>
                 </div>
             </div>
@@ -27,8 +27,8 @@
 
         <div class="card">
             <div style="padding: 25px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; color: white; font-size: 18px;">Pending Approval Queue</h3>
-                <button class="btn-primary" onclick="location.reload()" style="background: rgba(255,255,255,0.05); color: white;">
+                <h3 style="margin: 0; color: var(--text-main); font-size: 18px;">Pending Approval Queue</h3>
+                <button class="btn-primary" onclick="location.reload()" style="background: #f1f5f9; color: var(--text-main);">
                     <i class="fas fa-sync-alt"></i> Refresh
                 </button>
             </div>
@@ -48,7 +48,7 @@
                         <tr th:each="l : ${leaves}" th:if="${l['status'] == 'Pending'}" th:data-id="${l['id']}" style="border-bottom: 1px solid var(--glass-border); transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='none'">
                             <td style="padding: 18px 25px;">
                                 <div style="display: flex; flex-direction: column; gap: 4px;">
-                                    <span style="color: white; font-weight: 600; font-size: 14px;" th:text="${l['emp_name']}">Employee Name</span>
+                                    <span style="color: var(--text-main); font-weight: 600; font-size: 14px;" th:text="${l['emp_name']}">Employee Name</span>
                                     <span style="color: var(--accent-primary); font-size: 12px;" th:text="${'ID: ' + l['emp_id']}">ID: 101</span>
                                 </div>
                             </td>
@@ -57,7 +57,7 @@
                             </td>
                             <td style="padding: 18px 25px;">
                                 <div style="display: flex; flex-direction: column; gap: 4px;">
-                                    <span style="color: white; font-size: 13px;" th:text="${l['from_date'] + ' to ' + l['to_date']}">2026-05-01 to 2026-05-02</span>
+                                    <span style="color: var(--text-main); font-size: 13px;" th:text="${l['from_date'] + ' to ' + l['to_date']}">2026-05-01 to 2026-05-02</span>
                                     <span style="color: var(--text-muted); font-size: 11px;" th:text="${l['days'] + ' Days'}">2 Days</span>
                                 </div>
                             </td>
@@ -77,18 +77,18 @@
                                     </div>
 
                                     <!-- Approval Box -->
-                                    <div class="decision-box approve-box" style="display: none; background: rgba(16, 185, 129, 0.05); padding: 12px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">
+                                    <div class="decision-box approve-box" style="display: none; background: #f0fdf4; padding: 12px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">
                                         <div style="display: flex; gap: 8px;">
-                                            <input type="text" class="approve-comment" placeholder="Approval note (optional)..." style="flex: 1; background: rgba(0,0,0,0.2); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 8px; color: white; font-size: 12px; outline: none;">
+                                            <input type="text" class="approve-comment" placeholder="Approval note (optional)..." style="flex: 1; background: #ffffff; border: 1px solid #10b981; border-radius: 8px; padding: 8px; color: var(--text-main); font-size: 12px; outline: none;">
                                             <button onclick="submitDecision(this, 'Approved')" style="background: #10b981; border: none; border-radius: 8px; width: 36px; color: white; cursor: pointer;"><i class="fas fa-paper-plane"></i></button>
                                         </div>
                                         <p style="margin: 5px 0 0; font-size: 10px; color: #10b981; opacity: 0.8;">Confirming Approval</p>
                                     </div>
 
                                     <!-- Rejection Box -->
-                                    <div class="decision-box reject-box" style="display: none; background: rgba(239, 68, 68, 0.05); padding: 12px; border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.2);">
+                                    <div class="decision-box reject-box" style="display: none; background: #fef2f2; padding: 12px; border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.2);">
                                         <div style="display: flex; gap: 8px;">
-                                            <input type="text" class="reject-comment" placeholder="Reason for rejection..." style="flex: 1; background: rgba(0,0,0,0.2); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 8px; color: white; font-size: 12px; outline: none;">
+                                            <input type="text" class="reject-comment" placeholder="Reason for rejection..." style="flex: 1; background: #ffffff; border: 1px solid #ef4444; border-radius: 8px; padding: 8px; color: var(--text-main); font-size: 12px; outline: none;">
                                             <button onclick="submitDecision(this, 'Rejected')" style="background: #ef4444; border: none; border-radius: 8px; width: 36px; color: white; cursor: pointer;"><i class="fas fa-paper-plane"></i></button>
                                         </div>
                                         <p style="margin: 5px 0 0; font-size: 10px; color: #ef4444; opacity: 0.8;">Confirming Rejection</p>

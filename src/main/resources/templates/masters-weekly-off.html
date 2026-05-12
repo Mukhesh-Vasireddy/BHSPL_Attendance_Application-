@@ -9,7 +9,7 @@
                 <h3 style="margin: 0; color: var(--accent-purple);"><i class="fas fa-calendar-week"></i> Weekly Off Master</h3>
                 <div style="display: flex; gap: 10px;">
                     <button class="btn-primary" style="background: #10B981;" onclick="openOffModal()"><i class="fas fa-plus"></i> Assign Off</button>
-                    <button class="btn-primary" style="background: #334155;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+                    <button class="btn-primary" style="background: #f1f5f9; color: var(--text-main); border: 1px solid var(--glass-border);" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
                 </div>
             </div>
         </div>
@@ -30,29 +30,29 @@
         <div class="card">
             <table>
                 <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Emp ID</th>
-                        <th>Name</th>
-                        <th>Dept</th>
-                        <th>Off Day 1</th>
-                        <th>Off Day 2</th>
-                        <th>From</th>
-                        <th>To</th>
-                        <th style="text-align: center;">Action</th>
+                    <tr style="background: #f8fafc;">
+                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">ID</th>
+                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Emp ID</th>
+                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Name</th>
+                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Dept</th>
+                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Off Day 1</th>
+                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Off Day 2</th>
+                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">From</th>
+                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">To</th>
+                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; text-align: center;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr th:each="o : ${offs}" th:data-id="${o.id}" th:data-empid="${o.emp_id}" th:data-day1="${o.off_day1}" th:data-day2="${o.off_day2}" th:data-from="${o.effective_from}" th:data-to="${o.effective_to}">
-                        <td th:text="${o.id}">1</td>
-                        <td th:text="${o.emp_id}">101</td>
-                        <td th:text="${o.emp_name}" style="font-weight: 600;">John Doe</td>
-                        <td th:text="${o.dept_name}">Sales</td>
-                        <td th:text="${o.off_day1}">Sunday</td>
-                        <td th:text="${o.off_day2}">None</td>
-                        <td th:text="${o.effective_from}">2026-05-01</td>
-                        <td th:text="${o.effective_to}">2099-12-31</td>
-                        <td>
+                        <td th:text="${o.id}" style="padding: 12px 15px;">1</td>
+                        <td th:text="${o.emp_id}" style="padding: 12px 15px;">101</td>
+                        <td th:text="${o.emp_name}" style="padding: 12px 15px; font-weight: 600; color: var(--text-main);">John Doe</td>
+                        <td th:text="${o.dept_name}" style="padding: 12px 15px;">Sales</td>
+                        <td th:text="${o.off_day1}" style="padding: 12px 15px;">Sunday</td>
+                        <td th:text="${o.off_day2}" style="padding: 12px 15px;">None</td>
+                        <td th:text="${o.effective_from}" style="padding: 12px 15px;">2026-05-01</td>
+                        <td th:text="${o.effective_to}" style="padding: 12px 15px;">2099-12-31</td>
+                        <td style="padding: 12px 15px;">
                             <div class="action-col">
                                 <button class="action-btn edit" title="Edit" onclick="editOff(this)"><i class="fas fa-pen"></i></button>
                                 <button class="action-btn delete" title="Delete" onclick="deleteOff(this)"><i class="fas fa-trash"></i></button>
@@ -111,7 +111,7 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn-primary" style="background: #64748B;" onclick="closeOffModal()">Cancel</button>
+                        <button type="button" class="btn-primary" style="background: #f1f5f9; color: var(--text-main); border: 1px solid var(--glass-border);" onclick="closeOffModal()">Cancel</button>
                         <button type="submit" class="btn-primary" style="background: #10B981;">Save Assignment</button>
                     </div>
                 </form>

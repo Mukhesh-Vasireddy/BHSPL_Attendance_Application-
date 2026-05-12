@@ -9,7 +9,7 @@
                     <h3 th:text="${presentCount}">28</h3>
                     <p>Today Present</p>
                 </div>
-                <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="stat-icon"><i class="fas fa-user-check"></i></div>
             </div>
             <div class="stat-card absent" onclick="window.location.href='/attendance?status=Absent'">
                 <div class="stat-info">
@@ -85,7 +85,7 @@
             }
             .emp-name {
                 font-weight: 600;
-                color: white;
+                color: var(--text-main);
             }
             .emp-dept {
                 font-size: 12px;
@@ -98,9 +98,9 @@
                 font-weight: 500;
             }
             .view-select {
-                background: rgba(255, 255, 255, 0.05);
-                color: white;
-                border: 1px solid var(--glass-border);
+                background: #ffffff;
+                color: var(--text-main);
+                border: 1px solid #e2e8f0;
                 border-radius: 12px;
                 padding: 10px 15px;
                 outline: none;
@@ -191,9 +191,9 @@
             </div>
             
             <!-- Pagination Section -->
-            <div class="pagination-container" style="display: flex; align-items: center; justify-content: space-between; padding: 25px; border-top: 1px solid var(--glass-border); background: rgba(0,0,0,0.1);">
+            <div class="pagination-container" style="display: flex; align-items: center; justify-content: space-between; padding: 25px; border-top: 1px solid var(--glass-border); background: #f8fafc;">
                 <div style="color: var(--text-muted); font-size: 13px;">
-                    Showing page <span th:text="${currentPage}" style="color: white; font-weight: 700;">1</span> of <span th:text="${totalPages}" style="color: white; font-weight: 700;">1</span>
+                    Showing page <span th:text="${currentPage}" style="color: var(--text-main); font-weight: 700;">1</span> of <span th:text="${totalPages}" style="color: var(--text-main); font-weight: 700;">1</span>
                 </div>
                 <div style="display: flex; gap: 12px;">
                     <a th:if="${currentPage > 1}" th:href="@{/(page=${currentPage - 1})}" class="btn-primary" style="padding: 8px 16px; font-size: 13px; text-decoration: none;">

@@ -17,8 +17,7 @@
                 </div>
                 <div style="display: flex; gap: 12px;">
                     <button class="btn-primary" onclick="openLeaveModal()"><i class="fas fa-plus"></i> Apply Leave</button>
-                    <button class="btn-primary" style="background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981;" onclick="updateStatus('Approved')"><i class="fas fa-check"></i> Bulk Approve</button>
-                    <button class="btn-primary" style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border);" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+                    <button class="btn-primary" style="background: #f1f5f9; border: 1px solid var(--glass-border); color: var(--text-main);" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
                 </div>
             </div>
         </div>
@@ -44,16 +43,16 @@
                         th:data-empid="${l['emp_id']}" th:data-type="${l['leave_type']}" th:data-from="${l['from_date']}" 
                         th:data-to="${l['to_date']}" th:data-days="${l['days']}" th:data-reason="${l['reason']}"
                         style="border-bottom: 1px solid var(--glass-border); transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='none'">
-                        <td style="padding: 18px 25px; color: white; font-weight: 500;" th:text="${l['id']}">1</td>
+                        <td style="padding: 18px 25px; color: var(--text-main); font-weight: 500;" th:text="${l['id']}">1</td>
                         <td style="padding: 18px 25px;">
                             <div style="display: flex; flex-direction: column; gap: 4px;">
-                                <span style="color: white; font-weight: 600; font-size: 14px;" th:text="${l['emp_name']}">Employee Name</span>
+                                <span style="color: var(--text-main); font-weight: 600; font-size: 14px;" th:text="${l['emp_name']}">Employee Name</span>
                                 <span style="color: var(--accent-primary); font-size: 12px;" th:text="${'ID: ' + l['emp_id']}">ID: 101</span>
                             </div>
                         </td>
-                        <td style="padding: 18px 25px; color: #f8fafc; font-size: 13px;" th:text="${l['leave_type']}">Casual</td>
-                        <td style="padding: 18px 25px; color: #f8fafc; font-size: 13px;" th:text="${l['from_date'] + ' to ' + l['to_date']}">2026-05-01</td>
-                        <td style="padding: 18px 25px; color: #f8fafc; font-size: 13px; font-weight: 600;" th:text="${l['days']}">1</td>
+                        <td style="padding: 18px 25px; color: var(--text-main); font-size: 13px;" th:text="${l['leave_type']}">Casual</td>
+                        <td style="padding: 18px 25px; color: var(--text-main); font-size: 13px;" th:text="${l['from_date'] + ' to ' + l['to_date']}">2026-05-01</td>
+                        <td style="padding: 18px 25px; color: var(--text-main); font-size: 13px; font-weight: 600;" th:text="${l['days']}">1</td>
                         <td style="padding: 18px 25px;">
                             <span th:class="'badge ' + ${l['status'] == 'Approved' ? 'badge-success' : (l['status'] == 'Rejected' ? 'badge-danger' : 'badge-warning')}" 
                                   th:text="${l['status']}">Pending</span>
@@ -104,15 +103,15 @@
                         <div style="display: grid; grid-template-columns: 1fr 1fr 80px; gap: 20px;">
                             <div class="form-group">
                                 <label>From Date</label>
-                                <input type="date" name="from" id="fieldFrom" class="form-control" required onchange="calcDays()" style="color-scheme: dark;">
+                                <input type="date" name="from" id="fieldFrom" class="form-control" required onchange="calcDays()" style="color-scheme: light;">
                             </div>
                             <div class="form-group">
                                 <label>To Date</label>
-                                <input type="date" name="to" id="fieldTo" class="form-control" required onchange="calcDays()" style="color-scheme: dark;">
+                                <input type="date" name="to" id="fieldTo" class="form-control" required onchange="calcDays()" style="color-scheme: light;">
                             </div>
                             <div class="form-group">
                                 <label>Days</label>
-                                <input type="number" name="days" id="fieldDays" class="form-control" readonly style="color: var(--accent-primary); font-weight: 700; background: rgba(0,0,0,0.1);">
+                                <input type="number" name="days" id="fieldDays" class="form-control" readonly style="color: var(--accent-primary); font-weight: 700; background: #f8fafc;">
                             </div>
                         </div>
                         
@@ -123,7 +122,7 @@
                     </div>
                     
                     <div class="modal-footer">
-                        <button type="button" onclick="closeLeaveModal()" class="btn-primary" style="background: rgba(255,255,255,0.05); color: white;">Cancel</button>
+                        <button type="button" onclick="closeLeaveModal()" class="btn-primary" style="background: #f1f5f9; color: var(--text-main);">Cancel</button>
                         <button type="submit" class="btn-primary">Submit Application</button>
                     </div>
                 </form>
@@ -224,9 +223,6 @@
                 });
             }
 
-            function updateStatus(newStatus) {
-                showAlert('Status Update', 'Please use the Edit icon in the Action column to change individual leave statuses.');
-            }
         </script>
     </section>
 </body>

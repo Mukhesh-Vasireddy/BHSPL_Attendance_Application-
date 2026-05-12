@@ -84,13 +84,13 @@
                 <tbody>
                     <tr th:each="row : ${sessions}">
                         <td th:text="${row.emp_id}" style="color: var(--text-muted);">123</td>
-                        <td th:text="${row.emp_name}" style="font-weight: 600; color: white;">Anand</td>
+                        <td th:text="${row.emp_name}" style="font-weight: 600; color: var(--text-main);">Anand</td>
                         <td th:text="${row.department}" style="color: var(--text-muted);">IT</td>
                         <td th:text="${row.shift}" style="color: var(--text-muted);">General</td>
                         <td th:text="${row.date}" style="color: var(--text-muted);">2026-05-11</td>
-                        <td th:text="${row.in_time}" style="color: white; font-weight: 500;">09:21 am</td>
-                        <td th:text="${row.out_time}" style="color: white; font-weight: 500;">09:51 am</td>
-                        <td th:text="${row.punch_count}" style="text-align: center; color: white;">7</td>
+                        <td th:text="${row.in_time}" style="color: var(--text-main); font-weight: 500;">09:21 am</td>
+                        <td th:text="${row.out_time}" style="color: var(--text-main); font-weight: 500;">09:51 am</td>
+                        <td th:text="${row.punch_count}" style="text-align: center; color: var(--text-main);">7</td>
                         <td>
                             <span th:text="${row.status}" 
                                   th:style="${row.status == 'Present' ? 'color: #10B981;' : 'color: #EF4444;'}"

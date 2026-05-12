@@ -9,7 +9,7 @@
                 <h3 style="margin: 0; color: var(--accent-purple);"><i class="fas fa-sitemap"></i> Department Structure</h3>
                 <div style="display: flex; gap: 10px;">
                     <button class="btn-primary" style="background: #10B981;" onclick="openDeptModal()"><i class="fas fa-plus"></i> Add Dept</button>
-                    <button class="btn-primary" style="background: #64748B;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+                    <button class="btn-primary" style="background: #f1f5f9; color: var(--text-main); border: 1px solid var(--glass-border);" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
                 </div>
             </div>
         </div>
@@ -18,27 +18,26 @@
         <div class="card">
             <table>
                 <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Dept Name</th>
-                        <th>Dept Code</th>
-                        <th>Head</th>
-                        <th>Status</th>
-                        <th style="text-align: center;">Action</th>
+                    <tr style="background: #f8fafc;">
+                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">ID</th>
+                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Dept Name</th>
+                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Dept Code</th>
+                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Head</th>
+                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Status</th>
+                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; text-align: center;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr th:each="d : ${depts}" th:data-id="${d.id}" th:data-name="${d.dept_name}" th:data-code="${d.dept_code}" th:data-head="${d.head_name}" th:data-status="${d.status}">
-                        <td th:text="${d.id}">1</td>
-                        <td th:text="${d.dept_name}" style="font-weight: 600;">Sales</td>
-                        <td th:text="${d.dept_code}">SLS</td>
-                        <td th:text="${d.head_name}">John Manager</td>
-                        <td>
+                        <td th:text="${d.id}" style="padding: 15px 20px;">1</td>
+                        <td th:text="${d.dept_name}" style="padding: 15px 20px; font-weight: 600; color: var(--text-main);">Sales</td>
+                        <td th:text="${d.dept_code}" style="padding: 15px 20px;">SLS</td>
+                        <td th:text="${d.head_name}" style="padding: 15px 20px;">John Manager</td>
+                        <td style="padding: 15px 20px;">
                             <span th:text="${d.status}" 
                                   th:classappend="${d.status == 'Active' ? 'badge-success' : 'badge-danger'}"
                                   class="badge">Active</span>
                         </td>
-                        <td th:text="${d.created_at}">2026-05-01</td>
                         <td>
                             <div class="action-col">
                                 <button class="action-btn edit" title="Edit" onclick="editDept(this)"><i class="fas fa-pen"></i></button>
@@ -81,7 +80,7 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn-primary" style="background: #64748B;" onclick="closeDeptModal()">Cancel</button>
+                        <button type="button" class="btn-primary" style="background: #f1f5f9; color: var(--text-main); border: 1px solid var(--glass-border);" onclick="closeDeptModal()">Cancel</button>
                         <button type="submit" class="btn-primary" style="background: #10B981;">Save Department</button>
                     </div>
                 </form>

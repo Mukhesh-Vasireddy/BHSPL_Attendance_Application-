@@ -8,16 +8,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.web.bind.annotation.ResponseBody;
 import jakarta.servlet.http.HttpSession;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.LinkedHashMap;
 
 @Controller
 public class WebController {
@@ -69,6 +65,12 @@ public class WebController {
     @GetMapping({"/", "/dashboard"})
     public String index(Model model, @RequestParam(name = "page", defaultValue = "1") int page, HttpSession session) {
         if (session.getAttribute("user") == null) return "redirect:/login";
+        
+        // Ensure ADMS/Push Service is running (Self-Healing)
+        if (!com.bhspl.service.PushService.isRunning()) {
+            com.bhspl.service.PushService.start();
+        }
+
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             int pageSize = 10;
@@ -1363,6 +1365,11 @@ public class WebController {
 
     @GetMapping("/system/settings")
     public String systemSettings(Model model) {
+        // Ensure ADMS/Push Service is running
+        if (!com.bhspl.service.PushService.isRunning()) {
+            com.bhspl.service.PushService.start();
+        }
+
         model.addAttribute("appName", "BHSPL Attendance Management System");
         model.addAttribute("version", "2.0.42 (Enterprise)");
         model.addAttribute("runtime", "Java 17 (OpenJDK)");
@@ -1371,6 +1378,28 @@ public class WebController {
         model.addAttribute("admsStatus", com.bhspl.service.PushService.isRunning() ? "Active (Listening)" : "Inactive");
         model.addAttribute("admsPort", com.bhspl.service.PushService.getPort());
         return "system-settings";
+    }
+
+    @PostMapping("/system/settings/start-adms")
+    @GetMapping("/system/settings/start-adms")
+    public String startAdms(Model model) {
+        try {
+            com.bhspl.service.PushService.start();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "redirect:/system/settings";
+    }
+
+    @PostMapping("/system/settings/stop-adms")
+    @GetMapping("/system/settings/stop-adms")
+    public String stopAdms() {
+        try {
+            com.bhspl.service.PushService.stop();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "redirect:/system/settings";
     }
 
     @GetMapping("/system/backup")

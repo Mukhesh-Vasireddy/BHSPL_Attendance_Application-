@@ -1,8 +1,6 @@
 package com.bhspl;
 
 import com.bhspl.core.Config;
-import com.bhspl.ui.DBSetupWindow;
-import com.bhspl.ui.LoginWindow;
 
 import javax.swing.*;
 import java.util.Map;

@@ -27,7 +27,10 @@ public class PushService {
 
     public static void start(int port) {
         try {
-            if (running) return;
+            if (running) {
+                System.out.println("PushService (ADMS) is already running.");
+                return;
+            }
             PORT = port;
             server = HttpServer.create(new InetSocketAddress(PORT), 0);
             server.createContext("/iclock/cdata", new CDataHandler());
@@ -37,9 +40,12 @@ public class PushService {
             server.setExecutor(Executors.newCachedThreadPool());
             server.start();
             running = true;
-            System.out.println("PushService (ADMS) started on port " + PORT);
+            System.out.println("PushService (ADMS) started successfully on port " + PORT);
         } catch (IOException e) {
-            System.err.println("Failed to start PushService: " + e.getMessage());
+            System.err.println("CRITICAL: Failed to start PushService (ADMS) on port " + PORT + ". Reason: " + e.getMessage());
+            if (e.getMessage().contains("Address already in use")) {
+                System.err.println("Suggestion: Check if another application or another instance of this app is already using port " + PORT);
+            }
             running = false;
         }
     }

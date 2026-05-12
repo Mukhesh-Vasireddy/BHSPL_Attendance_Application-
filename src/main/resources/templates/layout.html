@@ -11,24 +11,25 @@
 
         :root {
             --sidebar-width: 280px;
-            --primary-bg: #0f172a;
-            --sidebar-bg: rgba(15, 23, 42, 0.8);
+            --primary-bg: #f4f7fa;
+            --sidebar-bg: #ffffff;
             --accent-primary: #6366f1;
             --accent-secondary: #a855f7;
             --accent-vibrant: #ec4899;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --glass-bg: rgba(255, 255, 255, 0.03);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            --accent-purple: #8b5cf6;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --glass-bg: rgba(255, 255, 255, 0.95);
+            --glass-border: rgba(0, 0, 0, 0.08);
+            --card-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.04), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
         }
 
         body {
             font-family: 'Outfit', sans-serif;
             background-color: var(--primary-bg);
             background-image: 
-                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.15) 0px, transparent 50%);
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.05) 0px, transparent 50%);
             color: var(--text-main);
             margin: 0;
             display: flex;
@@ -51,11 +52,11 @@
             appearance: none;
             -webkit-appearance: none;
             -moz-appearance: none;
-            background-color: rgba(255, 255, 255, 0.05);
+            background-color: #ffffff;
             border: 1px solid var(--glass-border);
             border-radius: 14px;
             padding: 12px 45px 12px 18px;
-            color: #f8fafc;
+            color: var(--text-main);
             font-family: 'Outfit', sans-serif;
             font-size: 14px;
             font-weight: 500;
@@ -82,8 +83,8 @@
         }
 
         select option {
-            background-color: #1a1f2e;
-            color: #f8fafc;
+            background-color: #ffffff;
+            color: var(--text-main);
             padding: 15px;
             font-size: 14px;
         }
@@ -114,12 +115,13 @@
         .logo-container {
             margin: 0 25px 40px;
             padding: 15px;
-            background: var(--glass-bg);
+            background: #ffffff;
             border: 1px solid var(--glass-border);
             border-radius: 20px;
             display: flex;
             align-items: center;
             gap: 15px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
             transition: all 0.3s ease;
         }
 
@@ -134,7 +136,6 @@
             gap: 3px;
             width: 36px;
             height: 36px;
-            transform: rotate(-10deg);
         }
 
         .logo-box {
@@ -148,16 +149,19 @@
         .logo-box.purple { background: linear-gradient(135deg, #a855f7, #7c3aed); }
 
         .logo-text {
-            color: white;
+            color: var(--text-main);
             font-size: 26px;
             font-weight: 800;
             letter-spacing: 1px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+            display: flex;
+            align-items: center;
         }
 
         .logo-text span {
             color: var(--accent-primary);
             position: relative;
+            text-shadow: 0 0 20px rgba(99, 102, 241, 0.4), 0 4px 8px rgba(0, 0, 0, 0.08);
         }
 
         .nav-menu {
@@ -190,30 +194,30 @@
         }
 
         .nav-item.active {
-            background: linear-gradient(90deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.05));
-            color: white;
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            background: linear-gradient(90deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.02));
+            color: var(--accent-primary);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            box-shadow: 0 4px 10px rgba(99, 102, 241, 0.05);
         }
 
         .nav-item.active i {
             color: var(--accent-primary);
-            filter: drop-shadow(0 0 5px rgba(99, 102, 241, 0.5));
         }
 
         .nav-item:hover:not(.active) {
-            background: var(--glass-bg);
-            color: white;
+            background: #f1f5f9;
+            color: var(--text-main);
             transform: translateX(5px);
         }
 
         /* Sub-menu Styling */
         .sub-menu {
-            background: rgba(255, 255, 255, 0.02);
+            background: #f1f5f9;
             padding: 8px;
             border-radius: 14px;
-            margin: 5px 0 15px 30px;
-            border-left: 1px solid var(--glass-border);
+            margin: 5px 0 15px 15px;
+            border: 1px solid var(--glass-border);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
         }
 
         .sub-item {
@@ -265,15 +269,12 @@
             margin: 0;
             font-size: 26px;
             font-weight: 700;
-            background: linear-gradient(to right, #fff, var(--text-muted));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            color: var(--text-main);
         }
 
         /* Cards & Containers */
         .card, .table-container {
-            background: var(--glass-bg);
-            backdrop-filter: blur(12px);
+            background: #ffffff;
             border: 1px solid var(--glass-border);
             border-radius: 24px;
             box-shadow: var(--card-shadow);
@@ -298,7 +299,7 @@
         .table-header h3 {
             margin: 0;
             font-size: 20px;
-            color: white;
+            color: var(--text-main);
         }
 
         /* Stats Grid */
@@ -311,7 +312,7 @@
 
         .stat-card {
             position: relative;
-            background: var(--glass-bg);
+            background: #ffffff;
             border: 1px solid var(--glass-border);
             border-radius: 24px;
             padding: 25px;
@@ -320,6 +321,7 @@
             align-items: center;
             overflow: hidden;
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
             cursor: pointer;
         }
 
@@ -349,7 +351,7 @@
             margin: 0;
             font-size: 36px;
             font-weight: 800;
-            color: white;
+            color: var(--text-main);
         }
 
         .stat-info p {
@@ -357,6 +359,7 @@
             color: var(--text-muted);
             font-weight: 500;
             font-size: 15px;
+            transition: color 0.3s;
         }
 
         .stat-icon {
@@ -373,16 +376,50 @@
         }
 
         .stat-card:hover .stat-icon {
-            background: var(--accent-primary);
-            color: white;
             transform: scale(1.1) rotate(10deg);
         }
 
-        /* Specific Stat Card Colors */
-        .stat-card.present { border-left: 4px solid #10b981; }
-        .stat-card.absent { border-left: 4px solid #ef4444; }
-        .stat-card.total { border-left: 4px solid var(--accent-primary); }
-        .stat-card.leave { border-left: 4px solid var(--accent-secondary); }
+        .stat-card .stat-info h3 {
+            transition: color 0.3s;
+        }
+
+        .stat-card:hover .stat-info h3,
+        .stat-card:hover .stat-info p {
+            color: white;
+        }
+
+        /* Specific Stat Card Colors (Bavya Branding - Full Card) */
+        .stat-card.total { 
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.05), rgba(124, 58, 237, 0.1));
+            border: 1px solid rgba(168, 85, 247, 0.2);
+        }
+        .stat-card.total .stat-icon { color: #a855f7; background: rgba(168, 85, 247, 0.1); }
+        .stat-card.total:hover { background: linear-gradient(135deg, #a855f7, #7c3aed); }
+        .stat-card.total:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
+
+        .stat-card.present { 
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.05), rgba(245, 158, 11, 0.1));
+            border: 1px solid rgba(251, 191, 36, 0.2);
+        }
+        .stat-card.present .stat-icon { color: #f59e0b; background: rgba(251, 191, 36, 0.1); }
+        .stat-card.present:hover { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+        .stat-card.present:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
+
+        .stat-card.absent { 
+            background: linear-gradient(135deg, rgba(236, 72, 153, 0.05), rgba(190, 18, 60, 0.1));
+            border: 1px solid rgba(236, 72, 153, 0.2);
+        }
+        .stat-card.absent .stat-icon { color: #ec4899; background: rgba(236, 72, 153, 0.1); }
+        .stat-card.absent:hover { background: linear-gradient(135deg, #ec4899, #be123c); }
+        .stat-card.absent:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
+
+        .stat-card.leave { 
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(217, 119, 6, 0.1));
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+        .stat-card.leave .stat-icon { color: #d97706; background: rgba(245, 158, 11, 0.1); }
+        .stat-card.leave:hover { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .stat-card.leave:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
 
         /* Table Styling */
         table {
@@ -390,16 +427,16 @@
             border-collapse: collapse;
         }
 
-        thead th {
-            background: rgba(255, 255, 255, 0.02);
-            color: var(--text-muted);
+        th {
             text-align: left;
-            padding: 18px 25px;
-            font-size: 14px;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            padding: 15px 20px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-main);
             border-bottom: 1px solid var(--glass-border);
+            background: #f8fafc;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         tbody td {
@@ -410,7 +447,7 @@
         }
 
         tbody tr:hover td {
-            background: rgba(255, 255, 255, 0.02);
+            background: #f8fafc;
         }
 
         /* Buttons */
@@ -450,6 +487,41 @@
         .pill-orange { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); }
         .pill-red { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
 
+        /* Badges */
+        .badge {
+            padding: 5px 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .badge-success {
+            background: #f0fdf4;
+            color: #16a34a;
+            border: 1px solid #bbf7d0;
+        }
+
+        .badge-danger {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        .badge-warning {
+            background: #fffbeb;
+            color: #d97706;
+            border: 1px solid #fef3c7;
+        }
+
+        .badge i {
+            font-size: 10px;
+        }
+
         /* Scrollbar */
         ::-webkit-scrollbar {
             width: 8px;
@@ -482,7 +554,7 @@
             cursor: pointer;
             transition: all 0.3s ease;
             border: 1px solid var(--glass-border);
-            background: rgba(255, 255, 255, 0.03);
+            background: #ffffff;
             font-size: 14px;
         }
 
@@ -534,13 +606,13 @@
         }
 
         .modal-content {
-            background: #1a1f2e;
+            background: #ffffff;
             border: 1px solid var(--glass-border);
             border-radius: 28px;
             width: 550px;
             max-width: 95%;
             overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2);
             animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
@@ -550,12 +622,12 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: rgba(255,255,255,0.02);
+            background: #f8fafc;
         }
 
         .modal-header h3 {
             margin: 0;
-            color: white;
+            color: var(--text-main);
             font-size: 20px;
         }
 
@@ -567,7 +639,7 @@
         }
 
         .close:hover {
-            color: white;
+            color: var(--accent-primary);
         }
 
         .modal-footer {
@@ -576,7 +648,7 @@
             display: flex;
             justify-content: flex-end;
             gap: 15px;
-            background: rgba(255,255,255,0.02);
+            background: #f8fafc;
         }
 
         /* Form Controls */
@@ -596,11 +668,11 @@
 
         .form-control {
             width: 100%;
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid var(--glass-border);
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
             border-radius: 12px;
             padding: 12px 15px;
-            color: white;
+            color: var(--text-main);
             font-size: 14px;
             transition: all 0.3s ease;
             outline: none;
@@ -608,7 +680,6 @@
 
         .form-control:focus {
             border-color: var(--accent-primary);
-            background: rgba(0, 0, 0, 0.3);
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
         }
 
@@ -716,12 +787,13 @@
         <div class="user-profile" th:if="${session.user != null}"
             style="padding: 20px; border-top: 1px solid #1E293B; margin-top: auto; display: flex; align-items: center; gap: 15px;">
             <div
-                style="width: 44px; height: 44px; background: var(--accent-purple); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; font-weight: 800; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);">
-                <span th:text="${session.user.substring(0,1).toUpperCase()}">A</span>
+                style="width: 44px; height: 44px; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; font-weight: 800; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);">
+                <i class="fas fa-user-shield" th:if="${session.role == 'Administrator'}" style="font-size: 16px;"></i>
+                <span th:unless="${session.role == 'Administrator'}" th:text="${session.user.substring(0,1).toUpperCase()}">A</span>
             </div>
             <div style="display: flex; flex-direction: column; gap: 2px;">
-                <span style="color: #F8FAFC; font-weight: 600; font-size: 15px; letter-spacing: 0.3px;" th:text="${session.user}">Admin</span>
-                <span style="color: #94A3B8; font-size: 13px; font-weight: 500;" th:text="${session.role}">Administrator</span>
+                <span style="color: var(--text-main); font-weight: 600; font-size: 15px; letter-spacing: 0.3px;" th:text="${session.user}">Admin</span>
+                <span style="color: var(--text-muted); font-size: 13px; font-weight: 500;" th:text="${session.role}">Administrator</span>
             </div>
         </div>
     </div>
@@ -731,7 +803,6 @@
             <h2 th:text="${title}">Page Title</h2>
             <div style="display: flex; gap: 20px; align-items: center;">
                 <span id="date-time" style="font-size: 13px; color: #64748B; font-weight: 500;">Tue, 05 May 17:58:00</span>
-                <div style="width: 1px; height: 24px; background: #E2E8F0;"></div>
                 <a href="/logout"
                     style="display: flex; align-items: center; gap: 8px; color: #EF4444; text-decoration: none; font-size: 14px; font-weight: 600; padding: 8px 16px; border-radius: 8px; background: rgba(239, 68, 68, 0.05); transition: all 0.2s;"
                     onmouseover="this.style.background='rgba(239, 68, 68, 0.1)'; this.style.transform='translateY(-1px)';"
@@ -745,16 +816,17 @@
     </div>
 
     <!-- Global Confirm Modal -->
-    <div id="confirmModal" style="display:none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); align-items: center; justify-content: center;">
-        <div class="card" style="width: 400px; padding: 35px; background: #1a1f2e; border: 1px solid var(--glass-border); border-radius: 24px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
-            <div id="confirmIcon" style="width: 64px; height: 64px; background: rgba(239, 68, 68, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; color: #ef4444; font-size: 24px;">
+    <!-- Global Confirm Modal -->
+    <div id="confirmModal" style="display:none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); align-items: center; justify-content: center;">
+        <div class="card" style="width: 400px; padding: 35px; background: #ffffff; border: 1px solid var(--glass-border); border-radius: 28px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15);">
+            <div id="confirmIcon" style="width: 64px; height: 64px; background: rgba(239, 68, 68, 0.1); border-radius: 20%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; color: #ef4444; font-size: 24px;">
                 <i class="fas fa-exclamation-triangle"></i>
             </div>
-            <h3 id="confirmTitle" style="color: white; margin: 0 0 10px; font-size: 20px;">Confirm Action</h3>
-            <p id="confirmMessage" style="color: var(--text-muted); font-size: 14px; line-height: 1.6; margin-bottom: 30px;">Are you sure you want to proceed with this action?</p>
+            <h3 id="confirmTitle" style="color: var(--text-main); margin: 0 0 10px; font-size: 22px; font-weight: 700;">Confirm Action</h3>
+            <p id="confirmMessage" style="color: var(--text-muted); font-size: 15px; line-height: 1.6; margin-bottom: 30px;">Are you sure you want to proceed with this action?</p>
             <div style="display: flex; gap: 15px;">
-                <button id="confirmCancelBtn" onclick="closeConfirm()" style="flex: 1; padding: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 12px; color: white; cursor: pointer; font-weight: 600;">Cancel</button>
-                <button id="confirmYesBtn" style="flex: 1; padding: 12px; background: #ef4444; border: none; border-radius: 12px; color: white; cursor: pointer; font-weight: 600; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">Yes, Delete</button>
+                <button id="confirmCancelBtn" onclick="closeConfirm()" style="flex: 1; padding: 14px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 14px; color: #64748b; cursor: pointer; font-weight: 600; transition: all 0.2s;">Cancel</button>
+                <button id="confirmYesBtn" style="flex: 1; padding: 14px; background: #ef4444; border: none; border-radius: 14px; color: white; cursor: pointer; font-weight: 700; box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3); transition: all 0.2s;">Yes, Proceed</button>
             </div>
         </div>
     </div>

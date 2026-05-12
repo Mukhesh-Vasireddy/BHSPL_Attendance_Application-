@@ -61,24 +61,22 @@
                 <table class="matrix-table" style="width: 100%; border-collapse: collapse; min-width: 1200px;">
                     <thead style="position: sticky; top: 0; z-index: 10;">
                         <tr>
-                            <th class="sticky-col" style="padding: 18px 15px; text-align: left; font-size: 10px; color: var(--text-muted); border-bottom: 2px solid var(--glass-border); width: 60px;">ID</th>
-                            <th class="sticky-col" style="padding: 18px 15px; text-align: left; font-size: 10px; color: var(--text-muted); border-bottom: 2px solid var(--glass-border); left: 60px; min-width: 180px;">Employee Name</th>
-                            <th class="sticky-col" style="padding: 18px 15px; text-align: left; font-size: 10px; color: var(--text-muted); border-bottom: 2px solid var(--glass-border); left: 240px; min-width: 140px;">Designation</th>
+                            <th class="sticky-col" style="width: 60px;">ID</th>
+                            <th class="sticky-col" style="left: 60px; min-width: 180px;">Employee Name</th>
+                            <th class="sticky-col" style="left: 240px; min-width: 140px;">Designation</th>
                             <th th:each="d : ${days}" th:text="${d + '/' + (selMonth.startsWith('0') ? selMonth.substring(1) : selMonth) + '/' + selYear}" 
-                                style="padding: 18px 5px; text-align: center; font-size: 10px; color: var(--text-muted); border-bottom: 2px solid var(--glass-border); min-width: 90px; text-transform: uppercase; letter-spacing: 1px;">1/5/2026</th>
+                                style="min-width: 90px;">1/5/2026</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr th:each="r : ${data}" style="border-bottom: 1px solid var(--glass-border);">
-                            <td class="sticky-col" th:text="${r['emp_id']}" style="padding: 15px 15px; font-size: 11px; font-weight: 500; color: var(--text-muted);">101</td>
-                            <td class="sticky-col" th:text="${r['emp_name']}" style="padding: 15px 15px; font-size: 13px; font-weight: 600; color: white; left: 60px;">John Doe</td>
-                            <td class="sticky-col" th:text="${r['designation'] ?: '--'}" style="padding: 15px 15px; font-size: 11px; color: var(--text-muted); left: 240px;">Developer</td>
+                        <tr th:each="r : ${data}">
+                            <td class="sticky-col" th:text="${r['emp_id']}">101</td>
+                            <td class="sticky-col" th:text="${r['emp_name']}" style="left: 60px; font-weight: 600; color: var(--text-main);">John Doe</td>
+                            <td class="sticky-col" th:text="${r['designation'] ?: '--'}" style="left: 240px;">Developer</td>
                             
                             <td th:each="status : ${r['days']}" 
                                 th:text="${status}"
-                                th:class="${status == 'P' ? 'cell-p' : (status == 'A' ? 'cell-a' : (status == 'SUN' ? 'cell-sun' : 'cell-holiday'))}"
-                                th:style="${selType == 'Working Hours Summary' ? 'font-size: 9px !important; padding: 12px 2px;' : 'padding: 12px 5px;'}"
-                                style="text-align: center; font-weight: 700; border-left: 1px solid var(--glass-border);">
+                                th:class="${status == 'P' ? 'cell-p' : (status == 'A' ? 'cell-a' : (status == 'SUN' ? 'cell-sun' : 'cell-holiday'))}">
                                 P
                             </td>
                         </tr>
@@ -89,44 +87,45 @@
 
         <style>
             .matrix-table th { 
-                background: #1a1f2e !important; 
-                color: var(--text-muted) !important; 
-                font-size: 10px; 
-                padding: 18px 5px !important;
+                background: #f8fafc !important; 
+                color: var(--text-main) !important; 
+                font-size: 11px; 
+                font-weight: 700;
+                padding: 15px 10px !important;
                 border: 1px solid var(--glass-border);
-                min-width: 90px;
                 white-space: nowrap;
                 text-transform: uppercase;
-                letter-spacing: 1px;
+                letter-spacing: 0.5px;
+                text-align: center;
+                vertical-align: middle;
             }
             .matrix-table td { 
                 font-size: 11px; 
-                padding: 12px 5px !important; 
+                padding: 12px 10px !important; 
                 border: 1px solid var(--glass-border);
                 text-align: center;
                 vertical-align: middle;
-                color: white;
+                color: var(--text-main);
             }
             .matrix-table .sticky-col {
                 position: sticky;
                 left: 0;
-                background: #1a1f2e;
+                background: #ffffff;
                 z-index: 5;
-                border-right: 1px solid var(--glass-border);
-                color: white;
-                font-weight: 500;
+                border-right: 1px solid var(--glass-border) !important;
+                text-align: left !important;
             }
             .matrix-table thead .sticky-col {
                 z-index: 15;
-                background: #1a1f2e !important;
-                color: var(--text-muted) !important;
+                background: #f8fafc !important;
+                color: var(--text-main) !important;
             }
-            .cell-p { color: #10B981 !important; background: rgba(16, 185, 129, 0.05); }
-            .cell-a { color: #EF4444 !important; background: rgba(239, 68, 68, 0.05); }
-            .cell-sun { color: #3B82F6 !important; background: rgba(59, 130, 246, 0.05); }
+            .cell-p { color: #10B981 !important; background: #f0fdf4 !important; }
+            .cell-a { color: #EF4444 !important; background: #fef2f2 !important; }
+            .cell-sun { color: #3B82F6 !important; background: #eff6ff !important; }
             .cell-holiday { 
                 color: #A855F7 !important; 
-                background: rgba(168, 85, 247, 0.05); 
+                background: rgba(168, 85, 247, 0.05) !important; 
                 font-size: 9px !important; 
                 line-height: 1.1;
                 font-weight: 700;

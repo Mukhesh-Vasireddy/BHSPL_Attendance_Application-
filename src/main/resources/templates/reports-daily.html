@@ -37,28 +37,29 @@
         <div class="card" style="padding: 0; overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
-                    <tr>
-                        <th style="padding: 18px 20px; text-align: left; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--glass-border);">Emp ID</th>
-                        <th style="padding: 18px 20px; text-align: left; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--glass-border);">Employee Name</th>
-                        <th style="padding: 18px 20px; text-align: left; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--glass-border);">Department</th>
-                        <th style="padding: 18px 20px; text-align: left; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--glass-border);">In Time</th>
-                        <th style="padding: 18px 20px; text-align: left; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--glass-border);">Out Time</th>
-                        <th style="padding: 18px 20px; text-align: left; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--glass-border);">Work Hrs</th>
-                        <th style="padding: 18px 20px; text-align: left; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--glass-border);">Status</th>
+                    <tr style="background: #f8fafc;">
+                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Emp ID</th>
+                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Employee Name</th>
+                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Department</th>
+                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">In Time</th>
+                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Out Time</th>
+                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Work Hrs</th>
+                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Status</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr th:each="r : ${data}" style="border-bottom: 1px solid var(--glass-border);">
                         <td th:text="${r['emp_id']}" style="padding: 15px 20px; font-weight: 500; color: var(--text-muted);">101</td>
-                        <td th:text="${r['emp_name']}" style="padding: 15px 20px; font-weight: 600; color: white;">John Doe</td>
+                        <td th:text="${r['emp_name']}" style="padding: 15px 20px; font-weight: 600; color: var(--text-main);">John Doe</td>
                         <td th:text="${r['department']}" style="padding: 15px 20px; color: var(--text-muted);">Development</td>
                         <td th:text="${r['punch_in'] ?: '--'}" style="padding: 15px 20px; color: #10B981; font-weight: 600;">09:00 AM</td>
                         <td th:text="${r['punch_out'] ?: '--'}" style="padding: 15px 20px; color: #60A5FA; font-weight: 600;">06:00 PM</td>
-                        <td th:text="${r['work_hours'] ?: '0.0'}" style="padding: 15px 20px; font-weight: 600; color: white;">8.5</td>
+                        <td th:text="${r['work_hours'] ?: '0.0'}" style="padding: 15px 20px; font-weight: 600; color: var(--text-main);">8.5</td>
                         <td style="padding: 15px 20px;">
-                            <span th:text="${r['status'] ?: 'Absent'}" 
-                                  th:style="${(r['status'] == 'Present' || r['status'] == 'OD') ? 'color: #10B981;' : 'color: #EF4444;'}"
-                                  style="font-weight: 700;">Present</span>
+                            <span class="badge" th:classappend="${r['status'] == 'Present' || r['status'] == 'OD' ? 'badge-success' : 'badge-danger'}">
+                                <i th:class="${r['status'] == 'Present' || r['status'] == 'OD' ? 'fas fa-check-circle' : 'fas fa-user-slash'}"></i>
+                                <span th:text="${r['status'] ?: 'Absent'}">Present</span>
+                            </span>
                         </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(data)}">
