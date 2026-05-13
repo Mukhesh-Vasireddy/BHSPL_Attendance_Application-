@@ -67,7 +67,7 @@ public class WebController {
         if (session.getAttribute("user") == null) return "redirect:/login";
         
         // Ensure ADMS/Push Service is running (Self-Healing) - Only if not manually stopped
-        if (!com.bhspl.service.PushService.isRunning() && !com.bhspl.service.PushService.isUserStopped()) {
+        if (!com.bhspl.service.PushService.isInternalRunning() && !com.bhspl.service.PushService.isUserStopped()) {
             com.bhspl.service.PushService.start();
         }
 
@@ -1373,7 +1373,7 @@ public class WebController {
     @GetMapping("/system/settings")
     public String systemSettings(Model model) {
         // Ensure ADMS/Push Service is running - Only if not manually stopped
-        if (!com.bhspl.service.PushService.isRunning() && !com.bhspl.service.PushService.isUserStopped()) {
+        if (!com.bhspl.service.PushService.isInternalRunning() && !com.bhspl.service.PushService.isUserStopped()) {
             com.bhspl.service.PushService.start();
         }
 
@@ -1382,9 +1382,9 @@ public class WebController {
         model.addAttribute("runtime", "Java 17 (OpenJDK)");
         model.addAttribute("framework", "Spring Boot 3.x / Web Interface");
         model.addAttribute("db", "MySQL 8.0 (Connector/J)");
-        boolean isRunning = com.bhspl.service.PushService.isRunning();
         boolean isInternal = com.bhspl.service.PushService.isInternalRunning();
-        String statusText = isInternal ? "Active (Listening)" : (isRunning ? "Active (Handled by Worker)" : "Inactive");
+        boolean isExternal = com.bhspl.service.PushService.isRunning();
+        String statusText = isInternal ? "Active (Listening)" : (isExternal ? "Occupied (External)" : "Inactive");
         
         model.addAttribute("admsStatus", statusText);
         model.addAttribute("admsPort", com.bhspl.service.PushService.getPort());
