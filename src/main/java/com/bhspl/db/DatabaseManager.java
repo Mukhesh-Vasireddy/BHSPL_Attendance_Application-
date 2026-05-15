@@ -264,17 +264,17 @@ public class DatabaseManager {
             "CREATE TABLE IF NOT EXISTS leave_policy (" +
             "  id              INT AUTO_INCREMENT PRIMARY KEY," +
             "  leave_type      VARCHAR(30) UNIQUE NOT NULL," +
-            "  days_per_year   DECIMAL(5,1) DEFAULT 0," +
-            "  credit_method   VARCHAR(20)  DEFAULT 'Yearly'," +
+            "  days_per_year   DOUBLE       NOT NULL," +
+            "  credit_method   VARCHAR(20)  NOT NULL," +
             "  carry_forward   TINYINT      DEFAULT 0," +
-            "  max_carry       DECIMAL(5,1) DEFAULT 0," +
+            "  max_carry       DOUBLE       DEFAULT 0," +
             "  expire_months   INT          DEFAULT 0," +
             "  encashable      TINYINT      DEFAULT 0," +
-            "  applicable_gender VARCHAR(10) DEFAULT 'All'," +
-            "  min_service_days INT         DEFAULT 0," +
-            "  description     VARCHAR(200)," +
-            "  status          VARCHAR(10)  DEFAULT 'Active'," +
             "  pro_rata        TINYINT      DEFAULT 1," +
+            "  status          VARCHAR(15)  DEFAULT 'Active'," +
+            "  applicable_gender VARCHAR(15) DEFAULT 'All'," +
+            "  min_service_days  INT         DEFAULT 0," +
+            "  description       VARCHAR(255)," +
             "  created_at      TIMESTAMP    DEFAULT CURRENT_TIMESTAMP" +
             ")",
 
@@ -413,6 +413,10 @@ public class DatabaseManager {
             {"users",      "status",             "VARCHAR(10) DEFAULT 'Active'"},
             {"attendance", "in_time",             "DATETIME"}, // Placeholder to trigger migration logic if needed
             {"od_requests", "od_days",            "DECIMAL(5,2) DEFAULT 1.0"},
+            {"leave_policy", "min_service_days", "INT DEFAULT 0"},
+            {"leave_policy", "description",      "VARCHAR(255)"},
+            {"leave_policy", "pro_rata",         "TINYINT DEFAULT 1"},
+            {"leave_policy", "applicable_gender","VARCHAR(15) DEFAULT 'All'"},
         };
         
         // Custom migration to drop old attendance unique key if present
@@ -572,6 +576,18 @@ public class DatabaseManager {
             return val == null ? 0 : ((Number) val).longValue();
         } catch (Exception e) {
             return 0;
+        }
+    }
+
+    /** Execute and return single string value. */
+    public String queryString(String sql, Object... params) {
+        try {
+            Map<String, Object> row = queryOne(sql, params);
+            if (row == null) return null;
+            Object val = row.values().iterator().next();
+            return val == null ? null : val.toString();
+        } catch (Exception e) {
+            return null;
         }
     }
 

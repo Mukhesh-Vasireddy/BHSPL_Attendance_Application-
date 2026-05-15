@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+    <!-- Reusable Pagination Fragment Definition -->
+    <th:block th:fragment="pagination(current, total, url)" 
+              th:with="curr=${current != null ? current : (currentPage != null ? currentPage : 1)}, 
+                       tot=${total != null ? total : (totalPages != null ? totalPages : 1)}">
+        <div class="pagination-container" style="display: flex; align-items: center; justify-content: space-between; padding: 25px; border-top: 1px solid var(--glass-border); background: #f8fafc; margin-top: 20px;">
+            <div style="color: var(--text-muted); font-size: 13px;">
+                Showing page <span th:text="${curr}" style="color: var(--text-main); font-weight: 700;">1</span> of <span th:text="${tot}" style="color: var(--text-main); font-weight: 700;">1</span>
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <a th:if="${curr > 1}" th:href="@{${url}(page=${curr - 1})}" class="btn-primary" style="padding: 8px 16px; font-size: 13px; text-decoration: none; background: #f1f5f9; color: var(--text-main); border: 1px solid var(--glass-border); box-shadow: none;">
+                    <i class="fas fa-chevron-left"></i> Previous
+                </a>
+                <a th:if="${curr < tot}" th:href="@{${url}(page=${curr + 1})}" class="btn-primary" style="padding: 8px 16px; font-size: 13px; text-decoration: none;">
+                    Next <i class="fas fa-chevron-right"></i>
+                </a>
+            </div>
+        </div>
+    </th:block>
+</body>
+</html>

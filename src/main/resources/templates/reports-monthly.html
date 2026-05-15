@@ -83,6 +83,7 @@
                     </tbody>
                 </table>
             </div>
+            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/reports/monthly')}"></div>
         </div>
 
         <style>

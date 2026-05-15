@@ -1,18 +1,21 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" 
-      th:replace="~{layout :: main-layout(~{::section}, 'Leave Policy', 'leave')}">
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: main-layout(~{::section}, 'Leave Policy', 'leave')}">
+
 <body>
     <section>
         <!-- Toolbar -->
         <div class="card" style="margin-bottom: 15px; padding: 15px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div style="display: flex; gap: 10px; align-items: center;">
-                    <input type="text" id="policySearch" class="form-control" style="width: 250px;" placeholder="Search leave type..." onkeyup="searchPolicy()">
+                    <input type="text" id="policySearch" class="form-control" style="width: 250px;"
+                        placeholder="Search leave type..." onkeyup="searchPolicy()">
                     <button class="btn-primary" onclick="searchPolicy()"><i class="fas fa-search"></i> Search</button>
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <button class="btn-primary" style="background: #10B981;" onclick="openPolicyModal()"><i class="fas fa-plus"></i> Add Policy</button>
-                    <button class="btn-primary" style="background: #64748B;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+                    <button class="btn-primary" style="background: #10B981;" onclick="openPolicyModal()"><i
+                            class="fas fa-plus"></i> Add Policy</button>
+                    <button class="btn-primary" style="background: #64748B;" onclick="location.reload()"><i
+                            class="fas fa-sync"></i> Refresh</button>
                 </div>
             </div>
         </div>
@@ -31,7 +34,7 @@
                         <th>Expire (mo)</th>
                         <th>Encash</th>
                         <th>Pro-rata</th>
-                        <th>Gender</th>
+                        <th>Min Svc</th>
                         <th>Status</th>
                         <th style="text-align: center;">Action</th>
                     </tr>
@@ -42,29 +45,46 @@
                         <td th:text="${p['leave_type']}" style="font-weight: 600; color: var(--accent-purple);">Casual Leave</td>
                         <td th:text="${p['days_per_year']}">12</td>
                         <td th:text="${p['credit_method']}">Monthly</td>
-                        <td th:text="${#strings.toString(p['carry_forward']) == '1' ? 'Yes' : 'No'}">Yes</td>
+                        <td>
+                            <span th:if="${p['carry_forward'] == 1 or p['carry_forward'] == true}" class="badge badge-success"><i class="fas fa-check"></i> Yes</span>
+                            <span th:unless="${p['carry_forward'] == 1 or p['carry_forward'] == true}" style="color: #94A3B8;">No</span>
+                        </td>
                         <td th:text="${p['max_carry']}">10</td>
                         <td th:text="${p['expire_months']}">0</td>
-                        <td th:text="${#strings.toString(p['encashable']) == '1' ? 'Yes' : 'No'}">No</td>
-                        <td th:text="${#strings.toString(p['pro_rata']) == '1' ? 'Yes' : 'No'}">Yes</td>
-                        <td th:text="${p['applicable_gender']}">All</td>
                         <td>
-                            <span th:text="${p['status']}" 
-                                  th:classappend="${p['status'] == 'Active' ? 'badge-success' : 'badge-danger'}"
-                                  class="badge">Active</span>
+                            <span th:if="${p['encashable'] == 1 or p['encashable'] == true}" class="badge badge-success"><i class="fas fa-check"></i> Yes</span>
+                            <span th:unless="${p['encashable'] == 1 or p['encashable'] == true}" style="color: #94A3B8;">No</span>
+                        </td>
+                        <td>
+                            <span th:if="${p['pro_rata'] == 1 or p['pro_rata'] == true}" class="badge badge-success"><i class="fas fa-check"></i> Yes</span>
+                            <span th:unless="${p['pro_rata'] == 1 or p['pro_rata'] == true}" style="color: #94A3B8;">No</span>
+                        </td>
+                        <td th:text="${p['min_service_days']}">0</td>
+                        <td>
+                            <span th:text="${p['status']}"
+                                th:classappend="${p['status'] == 'Active' ? 'badge-success' : 'badge-danger'}"
+                                class="badge">Active</span>
                         </td>
                         <td>
                             <div class="action-col">
-                                <button class="action-btn edit" title="Edit" onclick="editPolicy(this)"><i class="fas fa-pen"></i></button>
-                                <button class="action-btn delete" title="Delete" onclick="deletePolicy(this)"><i class="fas fa-trash"></i></button>
+                                <button class="action-btn edit" title="Edit" onclick="editPolicy(this)"><i
+                                        class="fas fa-pen"></i></button>
+                                <button class="action-btn delete" title="Delete" onclick="deletePolicy(this)"><i
+                                        class="fas fa-trash"></i></button>
                             </div>
                         </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(policies)}">
-                        <td colspan="12" style="text-align: center; padding: 40px; color: #94A3B8;">No leave policies defined.</td>
+                        <td colspan="12" style="text-align: center; padding: 40px; color: #94A3B8;">
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                                <i class="fas fa-folder-open" style="font-size: 32px; opacity: 0.3;"></i>
+                                <span>No leave policies defined.</span>
+                            </div>
+                        </td>
                     </tr>
                 </tbody>
             </table>
+            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/leave/policy')}"></div>
         </div>
 
         <!-- Policy Modal -->
@@ -74,79 +94,90 @@
                     <h3 id="policyModalTitle">Add Leave Policy</h3>
                     <span class="close" onclick="closePolicyModal()">&times;</span>
                 </div>
-                <form action="/leave/policy/save" method="POST" id="policyForm" autocomplete="off">
+                <form action="/leave/policy/save" method="POST" id="policyForm" autocomplete="off" style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
                     <input type="hidden" name="id" id="fieldId">
-                    <div style="padding: 25px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                        <div class="form-group" style="grid-column: span 2;">
-                            <label>Leave Type Name</label>
-                            <input type="text" name="leave_type" id="fieldLeaveType" class="form-control" placeholder="e.g. Casual Leave" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Days Per Year</label>
-                            <input type="number" step="0.5" name="days_per_year" id="fieldDays" class="form-control" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label>Credit Method</label>
-                            <select name="credit_method" id="fieldCredit" class="form-control" required>
-                                <option>Yearly</option>
-                                <option>Monthly</option>
-                                <option>Quarterly</option>
-                                <option>Manual</option>
-                            </select>
-                        </div>
+                    
+                    <div class="modal-body">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label>Leave Type Name</label>
+                                <input type="text" name="leave_type" id="fieldLeaveType" class="form-control"
+                                    placeholder="e.g. Casual Leave" required>
+                            </div>
 
-                        <div class="form-group">
-                            <label>Applicable Gender</label>
-                            <select name="applicable_gender" id="fieldGender" class="form-control" required>
-                                <option>All</option>
-                                <option>Male</option>
-                                <option>Female</option>
-                            </select>
-                        </div>
+                            <div class="form-group" style="grid-column: span 2;">
+                                <label>Description</label>
+                                <input type="text" name="description" id="fieldDesc" class="form-control"
+                                    placeholder="Short description of this policy...">
+                            </div>
 
-                        <div class="form-group">
-                            <label>Status</label>
-                            <select name="status" id="fieldStatus" class="form-control" required>
-                                <option>Active</option>
-                                <option>Inactive</option>
-                            </select>
-                        </div>
+                            <div class="form-group">
+                                <label>Days Per Year</label>
+                                <input type="number" step="0.5" name="days_per_year" id="fieldDays" class="form-control"
+                                    value="0" required>
+                            </div>
 
-                        <div style="grid-column: span 2; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; background: rgba(255,255,255,0.02); padding: 20px; border-radius: 16px; border: 1px solid var(--glass-border);">
-                            <div class="form-group" style="margin: 0;">
-                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                    <input type="checkbox" name="carry_forward" id="fieldCarry" value="1" style="width: 18px; height: 18px;">
-                                    Carry Forward
+                            <div class="form-group">
+                                <label>Credit Method</label>
+                                <select name="credit_method" id="fieldCredit" class="form-control" required>
+                                    <option>Yearly</option>
+                                    <option>Monthly</option>
+                                    <option>Quarterly</option>
+                                    <option>Manual</option>
+                                    <option>Joining</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Applicable Gender</label>
+                                <select name="applicable_gender" id="fieldGender" class="form-control" required>
+                                    <option>All</option>
+                                    <option>Male</option>
+                                    <option>Female</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Min Service Days</label>
+                                <input type="number" name="min_service_days" id="fieldMinSvc" class="form-control" value="0">
+                            </div>
+
+                            <div class="form-group">
+                                <label>Status</label>
+                                <select name="status" id="fieldStatus" class="form-control" required>
+                                    <option>Active</option>
+                                    <option>Inactive</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" style="grid-column: span 2; display: flex; gap: 25px; background: #f8fafc; padding: 15px; border-radius: 12px; border: 1px solid var(--glass-border);">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0; text-transform: none; color: var(--text-main);">
+                                    <input type="checkbox" name="carry_forward" id="fieldCarry" value="1" style="width: 18px; height: 18px;"> Carry Forward
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0; text-transform: none; color: var(--text-main);">
+                                    <input type="checkbox" name="encashable" id="fieldEncash" value="1" style="width: 18px; height: 18px;"> Encashable
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 0; text-transform: none; color: var(--text-main);">
+                                    <input type="checkbox" name="pro_rata" id="fieldProRata" value="1" style="width: 18px; height: 18px;"> Pro-Rata
                                 </label>
                             </div>
-                            <div class="form-group" style="margin: 0;">
-                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                    <input type="checkbox" name="encashable" id="fieldEncash" value="1" style="width: 18px; height: 18px;">
-                                    Encashable
-                                </label>
-                            </div>
-                            <div class="form-group" style="margin: 0;">
-                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                    <input type="checkbox" name="pro_rata" id="fieldProRata" value="1" style="width: 18px; height: 18px;">
-                                    Pro-Rata Basis
-                                </label>
-                            </div>
-                        </div>
 
-                        <div class="form-group">
-                            <label>Max Carry Forward</label>
-                            <input type="number" step="0.5" name="max_carry" id="fieldMaxCarry" class="form-control" value="0">
-                        </div>
+                            <div class="form-group">
+                                <label>Max Carry Forward</label>
+                                <input type="number" step="0.5" name="max_carry" id="fieldMaxCarry" class="form-control"
+                                    value="0">
+                            </div>
 
-                        <div class="form-group">
-                            <label>Expiry Months (0=Never)</label>
-                            <input type="number" name="expire_months" id="fieldExpire" class="form-control" value="0">
+                            <div class="form-group">
+                                <label>Expiry Months (0=Never)</label>
+                                <input type="number" name="expire_months" id="fieldExpire" class="form-control" value="0">
+                            </div>
                         </div>
                     </div>
+
                     <div class="modal-footer">
-                        <button type="button" class="btn-primary" style="background: #f1f5f9; color: var(--text-main);" onclick="closePolicyModal()">Cancel</button>
+                        <button type="button" class="btn-primary" style="background: #f1f5f9; color: var(--text-main);"
+                            onclick="closePolicyModal()">Cancel</button>
                         <button type="submit" class="btn-primary">Save Policy</button>
                     </div>
                 </form>
@@ -154,7 +185,7 @@
         </div>
 
         <script th:inline="javascript">
-            const policies = /*[[${policies}]]*/ [];
+            const policies = /*[[${policies}]]*/[];
 
             function openPolicyModal() {
                 document.getElementById('policyForm').reset();
@@ -174,16 +205,18 @@
 
                 document.getElementById('fieldId').value = p.id;
                 document.getElementById('fieldLeaveType').value = p.leave_type;
+                document.getElementById('fieldDesc').value = p.description || '';
                 document.getElementById('fieldDays').value = p.days_per_year;
                 document.getElementById('fieldCredit').value = p.credit_method;
                 document.getElementById('fieldGender').value = p.applicable_gender;
                 document.getElementById('fieldStatus').value = p.status;
                 document.getElementById('fieldMaxCarry').value = p.max_carry;
                 document.getElementById('fieldExpire').value = p.expire_months;
-                
-                document.getElementById('fieldCarry').checked = String(p.carry_forward) == '1';
-                document.getElementById('fieldEncash').checked = String(p.encashable) == '1';
-                document.getElementById('fieldProRata').checked = String(p.pro_rata) == '1';
+                document.getElementById('fieldMinSvc').value = p.min_service_days || 0;
+
+                document.getElementById('fieldCarry').checked = (p.carry_forward == 1 || p.carry_forward == true);
+                document.getElementById('fieldEncash').checked = (p.encashable == 1 || p.encashable == true);
+                document.getElementById('fieldProRata').checked = (p.pro_rata == 1 || p.pro_rata == true);
 
                 document.getElementById('policyModalTitle').innerText = 'Edit Leave Policy';
                 document.getElementById('policyModal').style.display = 'flex';
@@ -216,4 +249,5 @@
         </script>
     </section>
 </body>
+
 </html>

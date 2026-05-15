@@ -47,6 +47,7 @@
                     </tr>
                 </tbody>
             </table>
+            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/masters/departments')}"></div>
         </div>
 
         <!-- Dept Modal -->
@@ -56,9 +57,9 @@
                     <h3 id="modalTitle">Create Department</h3>
                     <span class="close" onclick="closeDeptModal()">&times;</span>
                 </div>
-                <form action="/masters/departments/save" method="post" id="deptForm">
+                <form action="/masters/departments/save" method="post" id="deptForm" style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
                     <input type="hidden" name="id" id="fieldId">
-                    <div style="padding: 20px;">
+                    <div class="modal-body">
                         <div class="form-group">
                             <label>Dept Name *</label>
                             <input type="text" name="name" id="fieldName" class="form-control" required>

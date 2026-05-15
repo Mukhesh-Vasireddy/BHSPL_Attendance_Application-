@@ -68,7 +68,7 @@
                         </td>
                     </tr>
                 </tbody>
-            </table>
+            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/reports/leave')}"></div>
         </div>
     </section>
 </body>

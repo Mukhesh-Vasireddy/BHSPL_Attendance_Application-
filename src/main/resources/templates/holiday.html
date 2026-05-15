@@ -66,6 +66,7 @@
                     </tr>
                 </tbody>
             </table>
+            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/leave/holidays')}"></div>
         </div>
 
         <!-- Add/Edit Holiday Modal -->

@@ -59,66 +59,52 @@
                 <i class="fas fa-microchip" style="font-size: 64px; margin-bottom: 25px; opacity: 0.1;"></i>
                 <p style="font-size: 16px; font-weight: 500;">No devices configured in the system.</p>
             </div>
+            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/devices')}"></div>
         </div>
 
         <!-- Device Modal -->
-        <div id="deviceModal" class="modal"
-            style="display:none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); align-items: center; justify-content: center;">
-            <div class="card"
-                style="width: 500px; padding: 40px; background: #ffffff; border: 1px solid var(--glass-border); border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.1);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-                    <h3 id="modalTitle" style="color: var(--text-main); margin: 0; font-size: 22px;">Add New Device</h3>
-                    <button onclick="closeDeviceModal()"
-                        style="background: none; border: none; color: var(--text-muted); font-size: 24px; cursor: pointer;"><i
-                            class="fas fa-times"></i></button>
+        <div id="deviceModal" class="modal">
+            <div class="modal-content" style="width: 500px;">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Add New Device</h3>
+                    <span class="close" onclick="closeDeviceModal()">&times;</span>
                 </div>
 
-                <form action="/devices/save" method="post" id="deviceForm">
+                <form action="/devices/save" method="post" id="deviceForm" style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
                     <input type="hidden" name="device_id" id="form_device_id" value="0">
 
-                    <div style="display: grid; gap: 25px;">
-                        <div>
-                            <label
-                                style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Device
-                                Name</label>
-                            <input type="text" name="device_name" id="form_device_name" required
-                                style="width: 100%; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; color: var(--text-main); outline: none; transition: border-color 0.3s;">
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 120px; gap: 20px;">
+                    <div class="modal-body">
+                        <div style="display: grid; gap: 25px;">
                             <div>
-                                <label
-                                    style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">IP
-                                    Address</label>
-                                <input type="text" name="ip_address" id="form_ip_address" required
-                                    placeholder="192.168.1.201"
-                                    style="width: 100%; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; color: var(--text-main); outline: none;">
+                                <label class="form-group-label" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Device Name</label>
+                                <input type="text" name="device_name" id="form_device_name" class="form-control" required>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 120px; gap: 20px;">
+                                <div>
+                                    <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">IP Address</label>
+                                    <input type="text" name="ip_address" id="form_ip_address" class="form-control" required placeholder="192.168.1.201">
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Port</label>
+                                    <input type="number" name="port" id="form_port" class="form-control" value="4370" required>
+                                </div>
                             </div>
                             <div>
-                                <label
-                                    style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Port</label>
-                                <input type="number" name="port" id="form_port" value="4370" required
-                                    style="width: 100%; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; color: var(--text-main); outline: none;">
+                                <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Serial Number (Optional)</label>
+                                <input type="text" name="serial_number" id="form_serial_number" class="form-control">
                             </div>
-                        </div>
-                        <div>
-                            <label
-                                style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Serial
-                                Number (Optional)</label>
-                            <input type="text" name="serial_number" id="form_serial_number"
-                                style="width: 100%; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; color: var(--text-main); outline: none;">
-                        </div>
 
-                        <div>
-                            <label
-                                style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Status</label>
-                            <select name="status" id="form_status" style="width: 100%;">
-                                <option value="Active">Active</option>
-                                <option value="Inactive">Inactive</option>
-                            </select>
+                            <div>
+                                <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Status</label>
+                                <select name="status" id="form_status" class="form-control">
+                                    <option value="Active">Active</option>
+                                    <option value="Inactive">Inactive</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
-                    <div style="display: flex; gap: 15px; margin-top: 40px;">
+                    <div class="modal-footer">
                         <button type="button" onclick="deleteCurrentDevice()" id="deleteBtn"
                             style="display: none; padding: 12px 20px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; color: #ef4444; cursor: pointer; font-weight: 600;"><i
                                 class="fas fa-trash"></i></button>
@@ -130,6 +116,8 @@
                 </form>
             </div>
         </div>
+
+        <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/devices')}"></div>
 
         <script th:inline="javascript">
             const devices = /*[[${devices}]]*/[];

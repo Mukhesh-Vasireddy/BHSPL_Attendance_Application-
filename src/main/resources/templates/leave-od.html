@@ -15,14 +15,9 @@
         <div class="card" style="margin-bottom: 15px; padding: 15px;">
             <div style="display: flex; flex-wrap: wrap; gap: 10px;">
                 <button class="btn-primary" style="background: #10B981;" onclick="openODModal()"><i class="fas fa-plus"></i> Apply OD</button>
-                <button class="btn-primary" style="background: #15803D;" onclick="updateStatus('Approved')"><i class="fas fa-check"></i> Approve</button>
-                <button class="btn-primary" style="background: #B91C1C;" onclick="updateStatus('Rejected')"><i class="fas fa-times"></i> Reject</button>
                 <button class="btn-primary" style="background: #475569;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
             </div>
         </div>
-
-        <!-- Filter Toolbar -->
-        <!-- ... -->
 
         <!-- Data Table -->
         <div class="card" style="overflow-x: auto;">
@@ -73,6 +68,7 @@
                     </tr>
                 </tbody>
             </table>
+            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/leave/od')}"></div>
         </div>
 
         <!-- Apply OD Modal -->
@@ -86,7 +82,7 @@
                     <input type="hidden" name="id" id="od_id">
                     <div style="padding: 25px;">
                         <div class="form-group">
-                            <label>Employee</label>
+                            <label>Employee <span style="color: #ef4444;">*</span></label>
                             <select name="emp_id" id="od_emp_id" class="form-control" required>
                                 <option value="">Select Employee</option>
                                 <option th:each="e : ${employees}" th:value="${e.emp_id}" th:text="${e.emp_id + ' - ' + e.emp_name}"></option>
@@ -95,21 +91,23 @@
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                             <div class="form-group">
                                 <label>From Date</label>
-                                <input type="date" name="od_from" class="form-control" required style="color-scheme: light;">
+                                <input type="date" name="od_from" id="od_from" class="form-control" required 
+                                       oninput="handleODFromChange()" max="9999-12-31" style="color-scheme: light;">
                             </div>
                             <div class="form-group">
                                 <label>To Date</label>
-                                <input type="date" name="od_to" class="form-control" required style="color-scheme: light;">
+                                <input type="date" name="od_to" id="od_to" class="form-control" required 
+                                       oninput="calculateODDays()" max="9999-12-31" style="color-scheme: light;">
                             </div>
                         </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                             <div class="form-group">
                                 <label>Total Days</label>
-                                <input type="number" step="0.5" name="od_days" class="form-control" value="1.0" required>
+                                <input type="number" step="0.5" name="od_days" id="od_days" class="form-control" readonly style="background: #f8fafc; font-weight: 600; color: var(--accent-primary);">
                             </div>
                             <div class="form-group">
                                 <label>Request Type</label>
-                                <select name="od_type" class="form-control" required>
+                                <select name="od_type" id="od_type" class="form-control" required>
                                     <option>Full Day</option>
                                     <option>Half Day (First Half)</option>
                                     <option>Half Day (Second Half)</option>
@@ -118,7 +116,7 @@
                         </div>
                         <div class="form-group">
                             <label>Client Location / Site Name</label>
-                            <input type="text" name="location" class="form-control" placeholder="e.g. Bangalore Site Office" required>
+                            <input type="text" name="location" id="od_location" class="form-control" placeholder="e.g. Bangalore Site Office" required>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -130,22 +128,86 @@
         </div>
 
         <script>
+            // Form submission validation
+            document.getElementById('odForm').onsubmit = function(e) {
+                const f = document.getElementById('od_from').value;
+                const t = document.getElementById('od_to').value;
+                if (f && t && new Date(t) < new Date(f)) {
+                    showAlert('Invalid Date Range', 'To Date cannot be earlier than From Date.');
+                    e.preventDefault();
+                    return false;
+                }
+                return true;
+            };
+
             function openODModal() {
-                document.getElementById('odForm').reset();
+                const form = document.getElementById('odForm');
+                form.reset();
                 document.getElementById('od_id').value = '';
+                document.getElementById('od_to').removeAttribute('min');
+                document.getElementById('od_to').value = '';
+                document.getElementById('od_days').value = '';
                 document.getElementById('odModalTitle').innerText = 'Apply On Duty (OD)';
                 document.getElementById('applyODModal').style.display = 'flex';
+            }
+
+            function handleODFromChange() {
+                const fromInput = document.getElementById('od_from');
+                const toInput = document.getElementById('od_to');
+                
+                // Truncate year if more than 4 digits
+                if (fromInput.value && fromInput.value.split('-')[0].length > 4) {
+                    fromInput.value = fromInput.value.split('-')[0].substring(0, 4) + fromInput.value.substring(fromInput.value.indexOf('-'));
+                }
+
+                if (fromInput.value) {
+                    toInput.min = fromInput.value;
+                } else {
+                    toInput.removeAttribute('min');
+                }
+                calculateODDays();
+            }
+
+            function calculateODDays() {
+                const fromInput = document.getElementById('od_from');
+                const toInput = document.getElementById('od_to');
+                const daysInput = document.getElementById('od_days');
+                
+                // Truncate year if more than 4 digits
+                if (toInput.value && toInput.value.split('-')[0].length > 4) {
+                    toInput.value = toInput.value.split('-')[0].substring(0, 4) + toInput.value.substring(toInput.value.indexOf('-'));
+                }
+
+                toInput.setCustomValidity("");
+                
+                if (fromInput.value && toInput.value) {
+                    const start = new Date(fromInput.value);
+                    const end = new Date(toInput.value);
+                    
+                    if (end >= start) {
+                        const diffTime = Math.abs(end - start);
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                        daysInput.value = diffDays;
+                    } else {
+                        daysInput.value = '';
+                        toInput.setCustomValidity("To Date cannot be before From Date");
+                    }
+                } else {
+                    daysInput.value = '';
+                }
             }
 
             function editOD(btn) {
                 const tr = btn.closest('tr');
                 document.getElementById('od_id').value = tr.dataset.id;
                 document.getElementById('od_emp_id').value = tr.dataset.empid;
-                document.querySelector('[name="od_from"]').value = tr.dataset.from;
-                document.querySelector('[name="od_to"]').value = tr.dataset.to;
-                document.querySelector('[name="od_days"]').value = tr.dataset.days;
-                document.querySelector('[name="od_type"]').value = tr.dataset.type;
-                document.querySelector('[name="location"]').value = tr.dataset.location;
+                document.getElementById('od_from').value = tr.dataset.from;
+                document.getElementById('od_to').value = tr.dataset.to;
+                document.getElementById('od_days').value = tr.dataset.days;
+                document.getElementById('od_type').value = tr.dataset.type;
+                document.getElementById('od_location').value = tr.dataset.location;
+                
+                handleODFromChange();
                 
                 document.getElementById('odModalTitle').innerText = 'Edit OD Request';
                 document.getElementById('applyODModal').style.display = 'flex';
@@ -163,23 +225,6 @@
                     form.appendChild(idInput);
                     document.body.appendChild(form);
                     form.submit();
-                });
-            }
-
-            function filterOD() {
-                const status = document.getElementById('statusFilter').value;
-                const dept = document.getElementById('deptFilter').value;
-                const rows = document.querySelectorAll('#odTable tbody tr');
-                
-                rows.forEach(row => {
-                    const matchStatus = (status === 'All' || row.dataset.status === status);
-                    const matchDept = (dept === 'All' || row.dataset.dept === dept);
-                    
-                    if (matchStatus && matchDept) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
                 });
             }
 
@@ -204,10 +249,6 @@
                     document.body.appendChild(form);
                     form.submit();
                 });
-            }
-
-            function updateStatus(newStatus) {
-                showAlert('Status Update', 'Please use the icons in the Action column for individual requests.');
             }
         </script>
     </section>
