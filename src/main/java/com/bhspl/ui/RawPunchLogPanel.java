@@ -239,7 +239,7 @@ public class RawPunchLogPanel extends JPanel {
                 // 2. Fetch Employees & Shifts for identified EmpIDs + All Active Employees
                 StringBuilder empSql = new StringBuilder(
                         "SELECT e.emp_id, e.emp_name, e.department, s.shift_name, s.start_time, s.end_time " +
-                                "FROM employees e LEFT JOIN shifts s ON e.shift = s.shift_name WHERE 1=1");
+                                "FROM employees e LEFT JOIN shifts s ON e.shift = s.shift_name WHERE e.status='Active'");
                 List<Object> empParams = new ArrayList<>();
                 if (!"All".equals(dept)) {
                     empSql.append(" AND e.department = ?");

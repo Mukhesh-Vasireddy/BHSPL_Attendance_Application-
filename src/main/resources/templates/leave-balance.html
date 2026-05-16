@@ -12,8 +12,16 @@
                 <div style="display: flex; gap: 10px;">
                     <button class="btn-primary" style="background: #10B981;" onclick="openCreditModal()"><i class="fas fa-plus"></i> Credit Leaves</button>
                     <button class="btn-primary" style="background: #F59E0B;"><i class="fas fa-calendar-check"></i> Year-End Process</button>
-                    <button class="btn-primary" style="background: #334155;" onclick="exportTableToExcel('Leave_Balances.xls')"><i class="fas fa-file-excel"></i> Export Excel</button>
-                    <button class="btn-primary" style="background: #64748B;" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+                    <!-- Excel Export Group -->
+                    <div style="display: flex; gap: 2px;">
+                        <button type="button" onclick="performFullExport('Leave_Balances.xls')" class="btn-primary" style="background: #10b981; color: #fff; border-radius: 12px 0 0 12px; font-size: 13px; padding: 10px 15px; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px;" title="Export ALL records across all pages">
+                            <i class="fas fa-database"></i> Full Excel
+                        </button>
+                        <button type="button" onclick="exportCurrentPage('Leave_Balances.xls')" class="btn-primary" style="background: #059669; color: #fff; border-radius: 0 12px 12px 0; font-size: 13px; padding: 10px 12px; border: none; cursor: pointer; display: flex; align-items: center;" title="Export current page only">
+                            <i class="fas fa-file-alt"></i> Page
+                        </button>
+                    </div>
+                    <button class="btn-primary" style="background: #64748B;" onclick="refreshAndSync()"><i class="fas fa-sync"></i> Refresh</button>
                 </div>
             </div>
         </div>
@@ -67,7 +75,7 @@
 
         <!-- Data Table -->
         <div class="card" style="overflow-x: auto;">
-            <table>
+            <table id="mainDataTable">
                 <thead>
                     <tr>
                         <th>Emp ID</th>

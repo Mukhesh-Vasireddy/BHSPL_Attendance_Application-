@@ -44,6 +44,10 @@ public class SyncService {
         logToFile("SyncService: " + msg);
     }
 
+    public static boolean isRunning() {
+        return IsRunning;
+    }
+
     public static void start() {
         if (IsRunning)
             return;

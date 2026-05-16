@@ -9,7 +9,8 @@
                 <h3 style="margin: 0; color: var(--accent-purple);"><i class="fas fa-sitemap"></i> Department Structure</h3>
                 <div style="display: flex; gap: 10px;">
                     <button class="btn-primary" style="background: #10B981;" onclick="openDeptModal()"><i class="fas fa-plus"></i> Add Dept</button>
-                    <button class="btn-primary" style="background: #f1f5f9; color: var(--text-main); border: 1px solid var(--glass-border);" onclick="location.reload()"><i class="fas fa-sync"></i> Refresh</button>
+                    <button class="btn-primary" style="background: rgba(51, 65, 85, 0.1); color: #334155; border: 1px solid rgba(51, 65, 85, 0.2);" onclick="exportTableToExcel('Departments.xls')"><i class="fas fa-file-excel"></i> Export</button>
+                    <button class="btn-primary" style="background: #f1f5f9; color: var(--text-main); border: 1px solid var(--glass-border);" onclick="refreshAndSync()"><i class="fas fa-sync"></i> Refresh</button>
                 </div>
             </div>
         </div>

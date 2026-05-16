@@ -67,9 +67,10 @@ public class WebController {
 
     @GetMapping({ "/", "/dashboard" })
     public String index(Model model, @RequestParam(name = "search", required = false) String search,
-            @RequestParam(name = "page", defaultValue = "1") int page, HttpSession session) {
-        if (session.getAttribute("user") == null)
-            return "redirect:/login";
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "export", defaultValue = "false") boolean isExport,
+            HttpSession session) {
+        if (isExport) { /* Dashboard uses fixed 10 but we'll override if needed */ }
 
         // Ensure ADMS/Push Service is running (Self-Healing) - Only if not manually
         // stopped
@@ -78,14 +79,18 @@ public class WebController {
         }
 
         try {
+            DatabaseManager.getInstance().execute("UPDATE raw_logs SET synced=0 WHERE punch_time >= DATE_SUB(NOW(), INTERVAL 1 DAY)");
+        } catch (Exception ignored) {}
+
+        try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
+            int pageSize = isExport ? 50000 : 10;
             int offset = (page - 1) * pageSize;
 
             // Stats
             long totalEmps = db.queryLong("SELECT COUNT(*) FROM employees WHERE status='Active'");
             long presentCount = db
-                    .queryLong("SELECT COUNT(DISTINCT emp_id) FROM raw_logs WHERE DATE(punch_time) = CURDATE()");
+                    .queryLong("SELECT COUNT(DISTINCT r.emp_id) FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE DATE(r.punch_time) = CURDATE() AND e.status = 'Active'");
             long leaveCount = db.queryLong(
                     "SELECT COUNT(*) FROM leaves WHERE status='Approved' AND CURDATE() BETWEEN from_date AND to_date");
             long absentCount = totalEmps - presentCount - leaveCount;
@@ -94,7 +99,7 @@ public class WebController {
 
             // Pagination info
             long totalLogs = db.queryLong(
-                    "SELECT COUNT(*) FROM (SELECT emp_id FROM raw_logs WHERE DATE(punch_time) = CURDATE() GROUP BY emp_id) as t");
+                    "SELECT COUNT(*) FROM (SELECT r.emp_id FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE DATE(r.punch_time) = CURDATE() AND e.status = 'Active' GROUP BY r.emp_id) as t");
             int totalPages = (int) Math.ceil((double) totalLogs / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
@@ -120,7 +125,7 @@ public class WebController {
                             "MIN(r.punch_time) as in_time, MAX(r.punch_time) as out_time, COUNT(*) as punches " +
                             "FROM raw_logs r " +
                             "LEFT JOIN employees e ON r.emp_id = e.emp_id " +
-                            "WHERE DATE(r.punch_time) = CURDATE() " + searchFilter +
+                            "WHERE DATE(r.punch_time) = CURDATE() AND e.status = 'Active' " + searchFilter +
                             "GROUP BY r.emp_id, e.emp_name " +
                             "ORDER BY MAX(r.punch_time) DESC LIMIT " + pageSize + " OFFSET " + offset);
 
@@ -139,7 +144,7 @@ public class WebController {
             // Calculate Total Presents for the Bar Chart
             List<Long> weeklyPresentCounts = new java.util.ArrayList<>();
             for (String d : weekDates) {
-                long presentOnDay = db.queryLong("SELECT COUNT(DISTINCT emp_id) FROM raw_logs WHERE DATE(punch_time) = ?", d);
+                long presentOnDay = db.queryLong("SELECT COUNT(DISTINCT r.emp_id) FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE DATE(r.punch_time) = ? AND e.status = 'Active'", d);
                 weeklyPresentCounts.add(presentOnDay);
             }
             model.addAttribute("weeklyPresentCounts", weeklyPresentCounts);
@@ -147,6 +152,7 @@ public class WebController {
             // Fetch Latest Sync Time
             String lastSync = db.queryString("SELECT MAX(last_sync) FROM devices");
             model.addAttribute("lastSync", lastSync != null ? lastSync : "Never");
+            model.addAttribute("autoSyncActive", com.bhspl.service.SyncService.isRunning());
 
             if (!recentLogs.isEmpty()) {
                 StringBuilder empIds = new StringBuilder();
@@ -197,7 +203,7 @@ public class WebController {
                             "(SELECT COUNT(*) FROM raw_logs r2 WHERE r2.emp_id = r.emp_id AND DATE(r2.punch_time) = CURDATE() AND r2.punch_time <= r.punch_time) as punch_num "
                             +
                             "FROM raw_logs r LEFT JOIN employees e ON r.emp_id = e.emp_id " +
-                            "WHERE DATE(r.punch_time) = CURDATE() ORDER BY r.punch_time DESC LIMIT 10");
+                            "WHERE DATE(r.punch_time) = CURDATE() AND e.status = 'Active' ORDER BY r.punch_time DESC LIMIT 10");
             model.addAttribute("livePunches", livePunches);
 
         } catch (Exception e) {
@@ -205,6 +211,25 @@ public class WebController {
             model.addAttribute("error", e.getMessage());
         }
         return "dashboard";
+    }
+
+    @GetMapping("/api/sync")
+    @ResponseBody
+    public Map<String, Object> sync(HttpSession session) {
+        Map<String, Object> res = new HashMap<>();
+        if (session.getAttribute("user") == null) {
+            res.put("success", false);
+            return res;
+        }
+        try {
+            SyncService.performSync();
+            res.put("success", true);
+            res.put("message", "Sync completed successfully.");
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
+        return res;
     }
 
     @GetMapping("/employees")
@@ -286,12 +311,12 @@ public class WebController {
             @RequestParam(name = "date", required = false) String date,
             @RequestParam(name = "status", required = false) String status,
             @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize,
             HttpSession session) {
         if (session.getAttribute("user") == null)
             return "redirect:/login";
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             int offset = (page - 1) * pageSize;
             String filterDate = (date != null) ? date : java.time.LocalDate.now().toString();
 
@@ -341,11 +366,13 @@ public class WebController {
     public String reportsDaily(Model model,
             @RequestParam(name = "date", required = false) String date,
             @RequestParam(name = "dept", required = false) String dept,
-            @RequestParam(name = "page", defaultValue = "1") int page) {
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize,
+            @RequestParam(name = "export", defaultValue = "false") boolean isExport) {
+        if (isExport) { pageSize = 50000; page = 1; }
         List<Map<String, Object>> data = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             int offset = (page - 1) * pageSize;
             String filterDate = (date != null) ? date : java.time.LocalDate.now().toString();
 
@@ -384,11 +411,13 @@ public class WebController {
             @RequestParam(name = "year", required = false) String year,
             @RequestParam(name = "dept", required = false) String dept,
             @RequestParam(name = "type", required = false) String type,
-            @RequestParam(name = "page", defaultValue = "1") int page) {
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize,
+            @RequestParam(name = "export", defaultValue = "false") boolean isExport) {
+        if (isExport) { pageSize = 50000; page = 1; }
         List<Map<String, Object>> matrix = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             int curM = (month != null) ? Integer.parseInt(month) : 5;
             int curY = (year != null) ? Integer.parseInt(year) : 2026;
             String reportType = (type != null) ? type : "PA";
@@ -524,11 +553,13 @@ public class WebController {
             @RequestParam(name = "from", required = false) String from,
             @RequestParam(name = "to", required = false) String to,
             @RequestParam(name = "dept", required = false) String dept,
-            @RequestParam(name = "page", defaultValue = "1") int page) {
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize,
+            @RequestParam(name = "export", defaultValue = "false") boolean isExport) {
+        if (isExport) { pageSize = 50000; page = 1; }
         List<Map<String, Object>> data = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             int offset = (page - 1) * pageSize;
             String f = (from != null) ? from : java.time.LocalDate.now().withDayOfMonth(1).toString();
             String t = (to != null) ? to : java.time.LocalDate.now().toString();
@@ -567,8 +598,11 @@ public class WebController {
             @RequestParam(name = "to", required = false) String to,
             @RequestParam(name = "dept", required = false) String dept,
             @RequestParam(name = "emp", required = false) String emp,
-            @RequestParam(name = "page", defaultValue = "1") int page) {
-        return handleRawLogs(model, from, to, dept, emp, "raw-logs", page);
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize,
+            @RequestParam(name = "export", defaultValue = "false") boolean isExport) {
+        if (isExport) { pageSize = 50000; page = 1; }
+        return handleRawLogs(model, from, to, dept, emp, "raw-logs", page, pageSize);
     }
 
     @GetMapping("/raw-logs/report")
@@ -577,15 +611,17 @@ public class WebController {
             @RequestParam(name = "to", required = false) String to,
             @RequestParam(name = "dept", required = false) String dept,
             @RequestParam(name = "emp", required = false) String emp,
-            @RequestParam(name = "page", defaultValue = "1") int page) {
-        return handleRawLogs(model, from, to, dept, emp, "report-raw-logs", page);
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize,
+            @RequestParam(name = "export", defaultValue = "false") boolean isExport) {
+        if (isExport) { pageSize = 50000; page = 1; }
+        return handleRawLogs(model, from, to, dept, emp, "report-raw-logs", page, pageSize);
     }
 
     private String handleRawLogs(Model model, String from, String to, String dept, String emp, String viewName,
-            int page) {
+            int page, int pageSize) {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             String f = (from != null && !from.isEmpty()) ? from : java.time.LocalDate.now().toString();
             String t = (to != null && !to.isEmpty()) ? to : java.time.LocalDate.now().toString();
             String d = (dept != null && !dept.trim().isEmpty()) ? dept.trim() : "All";
@@ -713,12 +749,13 @@ public class WebController {
     }
 
     @GetMapping("/devices")
-    public String devices(Model model, HttpSession session, @RequestParam(name = "page", defaultValue = "1") int page) {
+    public String devices(Model model, HttpSession session, 
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize) {
         if (session.getAttribute("user") == null)
             return "redirect:/login";
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             int offset = (page - 1) * pageSize;
 
             long total = db.queryLong("SELECT COUNT(*) FROM devices");
@@ -780,12 +817,13 @@ public class WebController {
     }
 
     @GetMapping("/leave/manager")
-    public String leaveManager(Model model, @RequestParam(name = "page", defaultValue = "1") int page) {
+    public String leaveManager(Model model, 
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize) {
         List<Map<String, Object>> leaves = new java.util.ArrayList<>();
         List<Map<String, Object>> types = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             int offset = (page - 1) * pageSize;
 
             long total = db.queryLong("SELECT COUNT(*) FROM leaves");
@@ -809,13 +847,14 @@ public class WebController {
     }
 
     @GetMapping("/leave/requests")
-    public String leaveRequests(Model model, @RequestParam(name = "page", defaultValue = "1") int page) {
+    public String leaveRequests(Model model, 
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize) {
         List<Map<String, Object>> leaves = new java.util.ArrayList<>();
         int pendingCount = 0;
         int approvedToday = 0;
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             int offset = (page - 1) * pageSize;
 
             long total = db.queryLong("SELECT COUNT(*) FROM leaves WHERE status='Pending'");
@@ -945,13 +984,14 @@ public class WebController {
     // Leave Sub-menus
 
     @GetMapping("/leave/od")
-    public String leaveOD(Model model, @RequestParam(name = "page", defaultValue = "1") int page) {
+    public String leaveOD(Model model, 
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize) {
         List<Map<String, Object>> depts = new java.util.ArrayList<>();
         List<Map<String, Object>> ods = new java.util.ArrayList<>();
         List<Map<String, Object>> employees = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             int offset = (page - 1) * pageSize;
 
             depts = db.query("SELECT dept_name FROM departments WHERE status='Active'");
@@ -1054,11 +1094,12 @@ public class WebController {
     }
 
     @GetMapping("/leave/policy")
-    public String leavePolicy(Model model, @RequestParam(name = "page", defaultValue = "1") int page) {
+    public String leavePolicy(Model model, 
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize) {
         List<Map<String, Object>> policies = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             int offset = (page - 1) * pageSize;
 
             long total = db.queryLong("SELECT COUNT(*) FROM leave_policy");
@@ -1201,10 +1242,12 @@ public class WebController {
             @RequestParam(name = "year", required = false) String year,
             @RequestParam(name = "dept", required = false) String dept,
             @RequestParam(name = "type", required = false) String type,
-            @RequestParam(name = "page", defaultValue = "1") int page) {
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize,
+            @RequestParam(name = "export", defaultValue = "false") boolean isExport) {
+        if (isExport) { pageSize = 50000; page = 1; }
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             int offset = (page - 1) * pageSize;
             int curY = java.time.LocalDate.now().getYear();
             String filterYear = (year != null) ? year : String.valueOf(curY);
@@ -1274,11 +1317,11 @@ public class WebController {
     @GetMapping("/leave/holidays")
     public String leaveHolidays(Model model,
             @RequestParam(name = "type", required = false) String type,
-            @RequestParam(name = "page", defaultValue = "1") int page) {
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize) {
         List<Map<String, Object>> holidays = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             int offset = (page - 1) * pageSize;
 
             String where = "";

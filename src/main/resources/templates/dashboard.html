@@ -5,17 +5,29 @@
     <section>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <div style="display: flex; flex-direction: column;">
-                <span style="font-size: 14px; color: var(--text-muted); font-weight: 500;">Welcome back to the BHSPL Portal</span>
-                <h2 style="margin: 5px 0 0 0; color: var(--text-main); font-weight: 700; font-size: 24px;">System Overview</h2>
+                <h1 style="font-size: 32px; color: var(--text-main); font-weight: 800; margin: 0; letter-spacing: -1px;">Welcome back to the BHSPL Portal</h1>
+                <div style="display: flex; align-items: center; gap: 15px; margin-top: 5px;">
+                    <span style="font-size: 16px; color: var(--text-muted); font-weight: 500;">Comprehensive System Overview & Real-time Analytics</span>
+                    <div style="display: flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;"
+                         th:classappend="${autoSyncActive ? 'pill-green' : 'pill-red'}">
+                        <i th:class="${autoSyncActive ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle'}"></i>
+                        <span th:text="${autoSyncActive ? 'Auto-Polling Active' : 'Auto-Polling Stopped'}"></span>
+                    </div>
+                </div>
             </div>
             
             <!-- Real-time Sync Status -->
-            <div style="background: rgba(16, 185, 129, 0.08); color: #10B981; padding: 10px 18px; border-radius: 12px; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(16, 185, 129, 0.2); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.05);">
-                <span style="position: relative; display: flex; height: 10px; width: 10px;">
-                    <span style="animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; position: absolute; display: inline-flex; height: 100%; width: 100%; border-radius: 50%; background-color: #10B981; opacity: 0.75;"></span>
-                    <span style="position: relative; display: inline-flex; border-radius: 50%; height: 10px; width: 10px; background-color: #10B981;"></span>
-                </span>
-                Live Sync: <span style="color: var(--text-main); font-weight: 500;" th:text="${lastSync != 'Never' ? #strings.substring(lastSync, 11, 16) : 'Never'}">Just now</span>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button onclick="refreshAndSync()" class="btn-primary" style="background: var(--glass-bg); color: var(--text-main); border: 1px solid var(--glass-border); padding: 10px 15px; border-radius: 12px; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px; box-shadow: var(--card-shadow); cursor: pointer;">
+                    <i class="fas fa-sync-alt"></i> Sync Now
+                </button>
+                <div style="background: rgba(16, 185, 129, 0.08); color: #10B981; padding: 10px 18px; border-radius: 12px; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(16, 185, 129, 0.2); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.05);">
+                    <span style="position: relative; display: flex; height: 10px; width: 10px;">
+                        <span style="animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; position: absolute; display: inline-flex; height: 100%; width: 100%; border-radius: 50%; background-color: #10B981; opacity: 0.75;"></span>
+                        <span style="position: relative; display: inline-flex; border-radius: 50%; height: 10px; width: 10px; background-color: #10B981;"></span>
+                    </span>
+                    Live Sync: <span style="color: var(--text-main); font-weight: 500;" th:text="${lastSync != 'Never' ? #strings.substring(lastSync, 11, 16) : 'Never'}">Just now</span>
+                </div>
             </div>
         </div>
 
@@ -114,6 +126,15 @@
             .emp-dept { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
             .day-number { font-size: 13px; color: var(--text-main); font-weight: 500; }
             .view-select, .search-input { background: #ffffff; color: var(--text-main); border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 15px; outline: none; font-weight: 500; font-size: 13px; transition: all 0.3s; }
+            .view-select { 
+                appearance: none; 
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236366f1'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+                background-repeat: no-repeat;
+                background-position: right 15px center;
+                background-size: 16px;
+                padding-right: 40px;
+                cursor: pointer;
+            }
             .view-select:focus, .search-input:focus { border-color: var(--accent-primary); box-shadow: 0 0 15px rgba(99, 102, 241, 0.2); }
             
             /* Scrollbar for live punches */
@@ -129,7 +150,7 @@
 
         <div style="display: grid; grid-template-columns: 2.5fr 1fr; gap: 20px; margin-top: 20px;">
             <!-- Left Column: Attendance Table -->
-            <div class="table-container" style="margin-top: 0; display: flex; flex-direction: column; height: 100%;">
+            <div class="table-container" style="margin-top: 0; display: flex; flex-direction: column; align-self: start;">
                 <div class="table-header" style="flex-wrap: wrap; gap: 15px;">
                     <h3>Attendance Directory</h3>
                     <div style="display:flex; gap:12px; align-items: center; flex-wrap: wrap;">
@@ -146,7 +167,7 @@
                         </select>
                     </div>
                 </div>
-                <div style="overflow-x:auto; flex-grow: 1;">
+                <div style="overflow-x:auto;">
                     <table class="weekly-table" id="variance-table">
                         <thead>
                             <tr>
@@ -294,14 +315,17 @@
                     const present = /*[[${presentCount}]]*/ 0;
                     const absent = /*[[${absentCount}]]*/ 0;
                     const leave = /*[[${leaveCount}]]*/ 0;
+                    const late = /*[[${lateCount}]]*/ 0;
+                    
+                    const onTime = present > late ? present - late : 0;
                     
                     new Chart(ctx.getContext('2d'), {
                         type: 'doughnut',
                         data: {
-                            labels: ['Present', 'Absent', 'On Leave'],
+                            labels: ['On Time', 'Late', 'Absent', 'On Leave'],
                             datasets: [{
-                                data: [present, absent, leave],
-                                backgroundColor: ['#10B981', '#EF4444', '#F59E0B'],
+                                data: [onTime, late, absent, leave],
+                                backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#3B82F6'],
                                 borderWidth: 0,
                                 hoverOffset: 6
                             }]

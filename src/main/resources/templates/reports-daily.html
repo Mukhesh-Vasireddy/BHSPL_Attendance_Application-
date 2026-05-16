@@ -17,14 +17,28 @@
                         <option th:each="d : ${depts}" th:value="${d['dept_name']}" th:text="${d['dept_name']}" th:selected="${selDept == d['dept_name']}"></option>
                     </select>
                 </div>
-                <div style="display: flex; gap: 10px;">
+                <div style="display: flex; gap: 8px;">
                     <button type="submit" class="btn-primary" style="background: var(--accent-primary);"><i class="fas fa-sync"></i> Refresh Report</button>
-                    <button type="button" class="btn-primary" style="background: rgba(16, 185, 129, 0.1); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.2);" onclick="exportTableToExcel('Daily_Attendance.xls')">
-                        <i class="fas fa-file-excel"></i> Export Excel
-                    </button>
-                    <button type="button" class="btn-primary" style="background: rgba(13, 148, 136, 0.1); color: #2DD4BF; border: 1px solid rgba(13, 148, 136, 0.2);" onclick="exportTableToCSV('Daily_Attendance.csv')">
-                        <i class="fas fa-file-csv"></i> Export CSV
-                    </button>
+                    
+                    <!-- Excel Export Group -->
+                    <div style="display: flex; gap: 2px;">
+                        <button type="button" onclick="performFullExport('Daily_Attendance.xls')" class="btn-primary" style="background: #10b981; color: #fff; border-radius: 12px 0 0 12px; font-size: 13px; padding: 10px 15px;" title="Export ALL records across all pages">
+                            <i class="fas fa-database"></i> Full Excel
+                        </button>
+                        <button type="button" onclick="exportCurrentPage('Daily_Attendance.xls')" class="btn-primary" style="background: #059669; color: #fff; border-radius: 0 12px 12px 0; font-size: 13px; padding: 10px 12px;" title="Export current page only">
+                            <i class="fas fa-file-alt"></i> Page
+                        </button>
+                    </div>
+
+                    <!-- CSV Export Group -->
+                    <div style="display: flex; gap: 2px;">
+                        <button type="button" onclick="performFullExport('Daily_Attendance.csv')" class="btn-primary" style="background: #0d9488; color: #fff; border-radius: 12px 0 0 12px; font-size: 13px; padding: 10px 15px;" title="Export ALL records as CSV">
+                            <i class="fas fa-file-csv"></i> Full CSV
+                        </button>
+                        <button type="button" onclick="exportCurrentPage('Daily_Attendance.csv')" class="btn-primary" style="background: #0f766e; color: #fff; border-radius: 0 12px 12px 0; font-size: 13px; padding: 10px 12px;" title="Export current page as CSV">
+                            <i class="fas fa-file-alt"></i> Page
+                        </button>
+                    </div>
                 </div>
                 <div style="margin-left: auto; text-align: right;">
                     <h4 style="margin: 0; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">REPORT DATE</h4>
@@ -35,7 +49,7 @@
 
         <!-- Report Results -->
         <div class="card" style="padding: 0; overflow-x: auto;">
-            <table style="width: 100%; border-collapse: collapse;">
+            <table id="mainDataTable" style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="background: #f8fafc;">
                         <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Emp ID</th>

@@ -284,6 +284,11 @@
                 <span th:text="${error}">Error message</span>
             </div>
 
+            <div th:if="${param.timeout}" class="error-msg" style="background: rgba(99, 102, 241, 0.1); color: var(--accent-primary); border-color: rgba(99, 102, 241, 0.2);">
+                <i class="fas fa-clock"></i>
+                <span>Your session has expired. Please login again.</span>
+            </div>
+
             <form action="/login" method="post">
                 <div class="input-group">
                     <label>Username</label>
