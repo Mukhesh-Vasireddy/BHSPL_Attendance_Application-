@@ -94,7 +94,7 @@ public class WebController {
             long totalEmps = db.queryLong("SELECT COUNT(*) FROM employees WHERE status='Active'");
             long presentCount = db
                     .queryLong(
-                            "SELECT COUNT(DISTINCT r.emp_id) FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE DATE(r.punch_time) = CURDATE() AND e.status = 'Active'");
+                            "SELECT COUNT(DISTINCT r.emp_id) FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.status = 'Active'");
             long leaveCount = db.queryLong(
                     "SELECT COUNT(*) FROM leaves WHERE status='Approved' AND CURDATE() BETWEEN from_date AND to_date");
             long absentCount = totalEmps - presentCount - leaveCount;
@@ -103,7 +103,7 @@ public class WebController {
 
             // Pagination info
             long totalLogs = db.queryLong(
-                    "SELECT COUNT(*) FROM (SELECT r.emp_id FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE DATE(r.punch_time) = CURDATE() AND e.status = 'Active' GROUP BY r.emp_id) as t");
+                    "SELECT COUNT(*) FROM (SELECT r.emp_id FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.status = 'Active' GROUP BY r.emp_id) as t");
             int totalPages = (int) Math.ceil((double) totalLogs / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
@@ -121,7 +121,8 @@ public class WebController {
             String orderBy = "MAX(r.punch_time) DESC";
             if (search != null && !search.isEmpty()) {
                 searchFilter = " AND (e.emp_name LIKE '%" + search + "%' OR r.emp_id LIKE '%" + search + "%') ";
-                orderBy = "CASE WHEN LOWER(e.emp_name) LIKE LOWER('" + search + "%') THEN 0 WHEN LOWER(r.emp_id) LIKE LOWER('" + search + "%') THEN 1 ELSE 2 END, " + orderBy;
+                orderBy = "CASE WHEN LOWER(e.emp_name) LIKE LOWER('" + search
+                        + "%') THEN 0 WHEN LOWER(r.emp_id) LIKE LOWER('" + search + "%') THEN 1 ELSE 2 END, " + orderBy;
             }
 
             List<Map<String, Object>> recentLogs = db.query(
@@ -132,7 +133,8 @@ public class WebController {
                             "MIN(r.punch_time) as in_time, MAX(r.punch_time) as out_time, COUNT(*) as punches " +
                             "FROM raw_logs r " +
                             "LEFT JOIN employees e ON r.emp_id = e.emp_id " +
-                            "WHERE DATE(r.punch_time) = CURDATE() AND e.status = 'Active' " + searchFilter +
+                            "WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.status = 'Active' "
+                            + searchFilter +
                             "GROUP BY r.emp_id, e.emp_name " +
                             "ORDER BY " + orderBy + " LIMIT " + pageSize + " OFFSET " + offset);
 
@@ -148,12 +150,13 @@ public class WebController {
                 weekDays.add(d.format(dayFormatter));
             }
 
-            // Calculate Total Presents for the Bar Chart
+            // Calculate Total Presents for the Bar Chart using range-scans (fully utilizes
+            // index on punch_time)
             List<Long> weeklyPresentCounts = new java.util.ArrayList<>();
             for (String d : weekDates) {
                 long presentOnDay = db.queryLong(
-                        "SELECT COUNT(DISTINCT r.emp_id) FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE DATE(r.punch_time) = ? AND e.status = 'Active'",
-                        d);
+                        "SELECT COUNT(DISTINCT r.emp_id) FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE r.punch_time >= ? AND r.punch_time < DATE_ADD(?, INTERVAL 1 DAY) AND e.status = 'Active'",
+                        d, d);
                 weeklyPresentCounts.add(presentOnDay);
             }
             model.addAttribute("weeklyPresentCounts", weeklyPresentCounts);
@@ -174,7 +177,8 @@ public class WebController {
                 List<Map<String, Object>> weeklyLogs = db.query(
                         "SELECT emp_id, DATE(punch_time) as pdate, COUNT(*) as punches " +
                                 "FROM raw_logs WHERE emp_id IN (" + empIds.toString() + ") " +
-                                "AND DATE(punch_time) >= CURDATE() - INTERVAL 6 DAY " +
+                                "AND punch_time >= CURDATE() - INTERVAL 6 DAY AND punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) "
+                                +
                                 "GROUP BY emp_id, DATE(punch_time)");
 
                 for (Map<String, Object> wl : weeklyLogs) {
@@ -209,10 +213,10 @@ public class WebController {
             // Recent Live Punches Activity (last 10 punches today)
             List<Map<String, Object>> livePunches = db.query(
                     "SELECT r.emp_id, e.emp_name, r.punch_time, " +
-                            "(SELECT COUNT(*) FROM raw_logs r2 WHERE r2.emp_id = r.emp_id AND DATE(r2.punch_time) = CURDATE() AND r2.punch_time <= r.punch_time) as punch_num "
+                            "(SELECT COUNT(*) FROM raw_logs r2 WHERE r2.emp_id = r.emp_id AND r2.punch_time >= CURDATE() AND r2.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND r2.punch_time <= r.punch_time) as punch_num "
                             +
                             "FROM raw_logs r LEFT JOIN employees e ON r.emp_id = e.emp_id " +
-                            "WHERE DATE(r.punch_time) = CURDATE() AND e.status = 'Active' ORDER BY r.punch_time DESC LIMIT 10");
+                            "WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.status = 'Active' ORDER BY r.punch_time DESC LIMIT 10");
             model.addAttribute("livePunches", livePunches);
 
         } catch (Exception e) {
@@ -257,7 +261,8 @@ public class WebController {
             String orderBy = "emp_name";
             if (search != null && !search.isEmpty()) {
                 where += " AND (emp_name LIKE '%" + search + "%' OR emp_id LIKE '%" + search + "%')";
-                orderBy = "CASE WHEN LOWER(emp_name) LIKE LOWER('" + search + "%') THEN 0 WHEN LOWER(emp_id) LIKE LOWER('" + search + "%') THEN 1 ELSE 2 END, " + orderBy;
+                orderBy = "CASE WHEN LOWER(emp_name) LIKE LOWER('" + search
+                        + "%') THEN 0 WHEN LOWER(emp_id) LIKE LOWER('" + search + "%') THEN 1 ELSE 2 END, " + orderBy;
             }
 
             long total = db.queryLong("SELECT COUNT(*) FROM employees" + where);

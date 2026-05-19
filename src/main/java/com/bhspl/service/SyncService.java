@@ -53,9 +53,9 @@ public class SyncService {
             return;
         IsRunning = true;
         System.out.println("SyncService: Initializing background scheduler...");
-        // Wait 5 seconds for initial run, then 60 seconds between runs
-        scheduler.scheduleWithFixedDelay(SyncService::performSync, 5, 60, TimeUnit.SECONDS);
-        broadcast("Background polling active (1m interval).");
+        // Wait 5 seconds for initial run, then 10 seconds between runs
+        scheduler.scheduleWithFixedDelay(SyncService::performSync, 5, 10, TimeUnit.SECONDS);
+        broadcast("Background polling active (10s interval).");
     }
 
     public static void performSync() {
@@ -82,7 +82,7 @@ public class SyncService {
             }
 
             if (devices != null) {
-                for (Map<String, Object> d : devices) {
+                devices.parallelStream().forEach(d -> {
                     try {
                         syncDevice(d, 7);
                     } catch (Exception e) {
@@ -90,7 +90,7 @@ public class SyncService {
                                 .println("SyncService: Failed to sync " + d.get("ip_address") + ": " + e.getMessage());
                         logToFile("ERROR: Sync failed for " + d.get("ip_address") + ": " + e.getMessage());
                     }
-                }
+                });
             }
 
             System.out.println("SyncService: Starting raw log processing...");
@@ -140,7 +140,7 @@ public class SyncService {
         int pwd = (int) dev.get("comm_password");
 
         broadcast("Syncing " + name + " (" + ip + ")...");
-        ZkProtocol zk = new ZkProtocol(ip, port, 30000);
+        ZkProtocol zk = new ZkProtocol(ip, port, 4000);
         zk.setPassword(pwd);
         if (zk.connect()) {
             try {
@@ -151,28 +151,22 @@ public class SyncService {
                 if (records != null) {
                     DatabaseManager dbInstance = DatabaseManager.getInstance();
                     try {
-                        dbInstance.setAutoCommit(false);
-                        int newLogs = 0;
+                        List<Object[]> paramsList = new ArrayList<>();
                         for (Map<String, Object> rec : records) {
                             String uid = (String) rec.get("uid");
                             Object punchTimeObj = rec.get("punch_time");
                             String time = (punchTimeObj instanceof LocalDateTime)
                                     ? ((LocalDateTime) punchTimeObj).toString().replace("T", " ")
                                     : punchTimeObj.toString();
-
-                            int affected = dbInstance.execute(
-                                    "INSERT IGNORE INTO raw_logs (device_id, emp_id, punch_time, punch_type, synced) VALUES (?,?,?,?,0)",
-                                    id, uid, time, (rec.get("punch_type") != null ? (int) rec.get("punch_type") : 0));
-                            if (affected > 0)
-                                newLogs++;
+                            int pType = (rec.get("punch_type") != null ? (int) rec.get("punch_type") : 0);
+                            paramsList.add(new Object[] { id, uid, time, pType });
                         }
-                        dbInstance.commit();
+                        int newLogs = dbInstance.executeBatch(
+                                "INSERT IGNORE INTO raw_logs (device_id, emp_id, punch_time, punch_type, synced) VALUES (?,?,?,?,0)",
+                                paramsList);
                         broadcast(name + ": Sync complete. Found: " + records.size() + ", New: " + newLogs);
                     } catch (Exception e) {
-                        dbInstance.rollback();
                         broadcast(name + ": Database Error: " + e.getMessage());
-                    } finally {
-                        dbInstance.setAutoCommit(true);
                     }
                     DatabaseManager.getInstance().execute(
                             "UPDATE devices SET last_sync=NOW(), last_error=NULL, status='Active' WHERE device_id=?",

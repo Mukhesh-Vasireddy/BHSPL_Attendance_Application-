@@ -473,6 +473,46 @@ public class DatabaseManager {
             System.err.println("Database Migration Warning: " + e.getMessage());
             try { conn.rollback(); } catch (Exception ignored) {}
         }
+
+        // Performance Indexes on raw_logs to speed up sync and query scans
+        try {
+            execute("CREATE INDEX idx_raw_logs_synced ON raw_logs (synced)");
+            conn.commit();
+            System.out.println("Database: Created index idx_raw_logs_synced successfully.");
+        } catch (Exception ignored) {}
+        try {
+            execute("CREATE INDEX idx_raw_logs_punch_time ON raw_logs (punch_time)");
+            conn.commit();
+            System.out.println("Database: Created index idx_raw_logs_punch_time successfully.");
+        } catch (Exception ignored) {}
+
+        // Self-healing migration for attendance table: deduplicate and add UNIQUE key on (emp_id, punch_date)
+        try {
+            boolean hasUniqueIndex = false;
+            try (java.sql.ResultSet rs = conn.getMetaData().getIndexInfo(null, null, "attendance", true, false)) {
+                while (rs.next()) {
+                    String indexName = rs.getString("INDEX_NAME");
+                    if ("uq_emp_punch_date".equalsIgnoreCase(indexName)) {
+                        hasUniqueIndex = true;
+                        break;
+                    }
+                }
+            }
+            if (!hasUniqueIndex) {
+                System.out.println("Database: Running migration to deduplicate and add uq_emp_punch_date index...");
+                // 1. Delete rows where work_hours is smaller than another row on the same date for the same employee
+                execute("DELETE t1 FROM attendance t1 INNER JOIN attendance t2 ON t1.emp_id = t2.emp_id AND t1.punch_date = t2.punch_date AND t1.work_hours < t2.work_hours");
+                // 2. In case of identical work hours, keep the lower ID record and delete the others
+                execute("DELETE t1 FROM attendance t1 INNER JOIN attendance t2 ON t1.emp_id = t2.emp_id AND t1.punch_date = t2.punch_date AND t1.id > t2.id");
+                // 3. Add the unique key uq_emp_punch_date on (emp_id, punch_date)
+                execute("ALTER TABLE attendance ADD UNIQUE KEY uq_emp_punch_date (emp_id, punch_date)");
+                conn.commit();
+                System.out.println("Database: Successfully de-duplicated attendance and created UNIQUE KEY uq_emp_punch_date.");
+            }
+        } catch (Exception e) {
+            System.err.println("Database Migration Warning for attendance table: " + e.getMessage());
+            try { conn.rollback(); } catch (Exception ignored) {}
+        }
     }
 
     // ── Query helpers ─────────────────────────────────────────────────────────
@@ -489,6 +529,45 @@ public class DatabaseManager {
                     return affected;
                 }
             } catch (SQLException e) {
+                if (attempt == 0 && (e instanceof SQLRecoverableException || e instanceof CommunicationsException)) {
+                    try { reconnect(); } catch (Exception ignored) {}
+                    continue;
+                }
+                throw e;
+            } catch (Exception e) {
+                throw new SQLException(e);
+            }
+        }
+        return 0;
+    }
+
+    /** Execute a batch of statements inside a single transaction roundtrip for extreme performance. */
+    public synchronized int executeBatch(String sql, List<Object[]> paramsList) throws SQLException {
+        if (paramsList == null || paramsList.isEmpty()) return 0;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                if (!isConnected()) reconnect();
+                boolean prevAutoCommit = conn.getAutoCommit();
+                conn.setAutoCommit(false);
+                try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                    for (Object[] params : paramsList) {
+                        setParams(ps, params);
+                        ps.addBatch();
+                    }
+                    int[] results = ps.executeBatch();
+                    conn.commit();
+                    int affected = 0;
+                    for (int res : results) {
+                        if (res > 0 || res == Statement.SUCCESS_NO_INFO) {
+                            affected++;
+                        }
+                    }
+                    return affected;
+                } finally {
+                    conn.setAutoCommit(prevAutoCommit);
+                }
+            } catch (SQLException e) {
+                try { conn.rollback(); } catch (Exception ignored) {}
                 if (attempt == 0 && (e instanceof SQLRecoverableException || e instanceof CommunicationsException)) {
                     try { reconnect(); } catch (Exception ignored) {}
                     continue;

@@ -455,7 +455,7 @@ public class ZkProtocol {
     }
 
     private void send(byte[] data) throws IOException {
-        System.out.println("ZkProtocol: Sending UDP Packet (" + data.length + " bytes): " + bytesToHex(data));
+        // System.out.println("ZkProtocol: Sending UDP Packet (" + data.length + " bytes): " + bytesToHex(data));
         InetAddress addr = InetAddress.getByName(ip);
         DatagramPacket p = new DatagramPacket(data, data.length, addr, port);
         socket.send(p);

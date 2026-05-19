@@ -472,38 +472,78 @@
             color: white;
         }
 
-        /* Specific Stat Card Colors (Bavya Branding - Full Card) */
-        .stat-card.total { 
-            background: linear-gradient(135deg, rgba(13, 148, 136, 0.05), rgba(15, 118, 110, 0.1));
-            border: 1px solid rgba(13, 148, 136, 0.2);
-        }
-        .stat-card.total .stat-icon { color: #0d9488; background: rgba(13, 148, 136, 0.1); }
-        .stat-card.total:hover { background: linear-gradient(135deg, #0d9488, #0f766e); }
-        .stat-card.total:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
-
+        /* Specific Stat Card Colors - High-Contrast 8-Color Palette */
+        /* 1. Today Present (Emerald Green/Success) */
         .stat-card.present { 
-            background: linear-gradient(135deg, rgba(251, 191, 36, 0.05), rgba(245, 158, 11, 0.1));
-            border: 1px solid rgba(251, 191, 36, 0.2);
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.1));
+            border: 1px solid rgba(16, 185, 129, 0.2);
         }
-        .stat-card.present .stat-icon { color: #f59e0b; background: rgba(251, 191, 36, 0.1); }
-        .stat-card.present:hover { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+        .stat-card.present .stat-icon { color: #10b981; background: rgba(16, 185, 129, 0.1); }
+        .stat-card.present:hover { background: linear-gradient(135deg, #34d399, #10b981); }
         .stat-card.present:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
 
+        /* 2. Today Absents (Rose Red/Danger) */
         .stat-card.absent { 
-            background: linear-gradient(135deg, rgba(236, 72, 153, 0.05), rgba(190, 18, 60, 0.1));
-            border: 1px solid rgba(236, 72, 153, 0.2);
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.1));
+            border: 1px solid rgba(239, 68, 68, 0.2);
         }
-        .stat-card.absent .stat-icon { color: #ec4899; background: rgba(236, 72, 153, 0.1); }
-        .stat-card.absent:hover { background: linear-gradient(135deg, #ec4899, #be123c); }
+        .stat-card.absent .stat-icon { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+        .stat-card.absent:hover { background: linear-gradient(135deg, #f87171, #ef4444); }
         .stat-card.absent:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
 
+        /* 3. Total Employees (Slate Gray/Neutral Grounding) */
+        .stat-card.total { 
+            background: linear-gradient(135deg, rgba(71, 85, 105, 0.05), rgba(71, 85, 105, 0.1));
+            border: 1px solid rgba(71, 85, 105, 0.2);
+        }
+        .stat-card.total .stat-icon { color: #475569; background: rgba(71, 85, 105, 0.1); }
+        .stat-card.total:hover { background: linear-gradient(135deg, #64748b, #475569); }
+        .stat-card.total:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
+
+        /* 4. On Leave Today (Vibrant Fuchsia/Magenta) */
         .stat-card.leave { 
-            background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(217, 119, 6, 0.1));
+            background: linear-gradient(135deg, rgba(217, 70, 239, 0.05), rgba(217, 70, 239, 0.1));
+            border: 1px solid rgba(217, 70, 239, 0.2);
+        }
+        .stat-card.leave .stat-icon { color: #d946ef; background: rgba(217, 70, 239, 0.1); }
+        .stat-card.leave:hover { background: linear-gradient(135deg, #e879f9, #d946ef); }
+        .stat-card.leave:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
+
+        /* 5. Late Comers (Amber/Gold/Warning) */
+        .stat-card.late { 
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(245, 158, 11, 0.1));
             border: 1px solid rgba(245, 158, 11, 0.2);
         }
-        .stat-card.leave .stat-icon { color: #d97706; background: rgba(245, 158, 11, 0.1); }
-        .stat-card.leave:hover { background: linear-gradient(135deg, #f59e0b, #d97706); }
-        .stat-card.leave:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
+        .stat-card.late .stat-icon { color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
+        .stat-card.late:hover { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+        .stat-card.late:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
+
+        /* 6. Devices Online (Cyan/Bright Turquoise) */
+        .stat-card.devices { 
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.05), rgba(6, 182, 212, 0.1));
+            border: 1px solid rgba(6, 182, 212, 0.2);
+        }
+        .stat-card.devices .stat-icon { color: #06b6d4; background: rgba(6, 182, 212, 0.1); }
+        .stat-card.devices:hover { background: linear-gradient(135deg, #22d3ee, #06b6d4); }
+        .stat-card.devices:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
+
+        /* 7. Pending Leaves (Vibrant Orange/Coral) */
+        .stat-card.pending { 
+            background: linear-gradient(135deg, rgba(249, 115, 22, 0.05), rgba(249, 115, 22, 0.1));
+            border: 1px solid rgba(249, 115, 22, 0.2);
+        }
+        .stat-card.pending .stat-icon { color: #f97316; background: rgba(249, 115, 22, 0.1); }
+        .stat-card.pending:hover { background: linear-gradient(135deg, #fb923c, #f97316); }
+        .stat-card.pending:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
+
+        /* 8. Weekly Off (Royal Blue/Cobalt) */
+        .stat-card.weekly { 
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(37, 99, 235, 0.1));
+            border: 1px solid rgba(37, 99, 235, 0.2);
+        }
+        .stat-card.weekly .stat-icon { color: #2563eb; background: rgba(37, 99, 235, 0.1); }
+        .stat-card.weekly:hover { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .stat-card.weekly:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
 
         /* Table Styling */
         table {

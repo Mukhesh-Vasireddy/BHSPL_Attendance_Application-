@@ -97,7 +97,7 @@
                     </tbody>
                 </table>
             </div>
-            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/reports/monthly')}"></div>
+            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/reports/monthly?month=' + ${selMonth} + '&amp;year=' + ${selYear} + '&amp;dept=' + ${selDept} + '&amp;type=' + ${selType})}"></div>
         </div>
 
         <style>

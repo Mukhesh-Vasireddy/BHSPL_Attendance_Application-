@@ -73,29 +73,28 @@
 
         <!-- New Analytics Row -->
         <div class="stats-grid" style="margin-top: 20px;">
-            <div class="stat-card late" style="cursor: pointer;"
-                onclick="window.location.href='/attendance?status=Late'">
+            <div class="stat-card late" onclick="window.location.href='/attendance?status=Late'">
                 <div class="stat-info">
                     <h3 th:text="${lateCount}">5</h3>
                     <p>Late Comers</p>
                 </div>
                 <div class="stat-icon"><i class="fas fa-clock"></i></div>
             </div>
-            <div class="stat-card devices" style="cursor: pointer;" onclick="window.location.href='/devices'">
+            <div class="stat-card devices" onclick="window.location.href='/devices'">
                 <div class="stat-info">
                     <h3 th:text="${devicesOnline}">2</h3>
                     <p>Devices Online</p>
                 </div>
                 <div class="stat-icon"><i class="fas fa-microchip"></i></div>
             </div>
-            <div class="stat-card pending" style="cursor: pointer;" onclick="window.location.href='/leave/requests'">
+            <div class="stat-card pending" onclick="window.location.href='/leave/requests'">
                 <div class="stat-info">
                     <h3 th:text="${pendingLeaves}">3</h3>
                     <p>Pending Leaves</p>
                 </div>
                 <div class="stat-icon"><i class="fas fa-envelope-open-text"></i></div>
             </div>
-            <div class="stat-card weekly" style="cursor: pointer;" onclick="window.location.href='/masters/weekly-off'">
+            <div class="stat-card weekly" onclick="window.location.href='/masters/weekly-off'">
                 <div class="stat-info">
                     <h3 th:text="${weeklyOffCount}">4</h3>
                     <p>Weekly Off</p>
@@ -105,83 +104,6 @@
         </div>
 
         <style>
-            /* Second Row Card Highlights */
-            .stat-card.late {
-                border-left: 4px solid #f59e0b;
-                background: linear-gradient(145deg, #ffffff, #fffdf8);
-            }
-
-            .stat-card.late .stat-icon {
-                color: #f59e0b;
-                background: rgba(245, 158, 11, 0.1);
-            }
-
-            .stat-card.late:hover {
-                background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
-            }
-
-            .stat-card.late:hover .stat-icon {
-                color: white;
-                background: rgba(255, 255, 255, 0.2);
-            }
-
-            .stat-card.devices {
-                border-left: 4px solid #10b981;
-                background: linear-gradient(145deg, #ffffff, #f2fdf7);
-            }
-
-            .stat-card.devices .stat-icon {
-                color: #10b981;
-                background: rgba(16, 185, 129, 0.1);
-            }
-
-            .stat-card.devices:hover {
-                background: linear-gradient(135deg, #34d399, #10b981) !important;
-            }
-
-            .stat-card.devices:hover .stat-icon {
-                color: white;
-                background: rgba(255, 255, 255, 0.2);
-            }
-
-            .stat-card.pending {
-                border-left: 4px solid #3b82f6;
-                background: linear-gradient(145deg, #ffffff, #f0f6ff);
-            }
-
-            .stat-card.pending .stat-icon {
-                color: #3b82f6;
-                background: rgba(59, 130, 246, 0.1);
-            }
-
-            .stat-card.pending:hover {
-                background: linear-gradient(135deg, #60a5fa, #3b82f6) !important;
-            }
-
-            .stat-card.pending:hover .stat-icon {
-                color: white;
-                background: rgba(255, 255, 255, 0.2);
-            }
-
-            .stat-card.weekly {
-                border-left: 4px solid #8b5cf6;
-                background: linear-gradient(145deg, #ffffff, #f7f5ff);
-            }
-
-            .stat-card.weekly .stat-icon {
-                color: #8b5cf6;
-                background: rgba(139, 92, 246, 0.1);
-            }
-
-            .stat-card.weekly:hover {
-                background: linear-gradient(135deg, #a78bfa, #8b5cf6) !important;
-            }
-
-            .stat-card.weekly:hover .stat-icon {
-                color: white;
-                background: rgba(255, 255, 255, 0.2);
-            }
-
             .weekly-table {
                 width: 100%;
                 border-collapse: collapse;
@@ -367,7 +289,8 @@
                                 </td>
                                 <td class="col-today">
                                     <span class="day-number"
-                                        th:text="${log.punches > 1 ? #temporals.format(log.out_time, 'hh:mm a') : '—'}">06:00 PM</span>
+                                        th:text="${log.punches > 1 ? #temporals.format(log.out_time, 'hh:mm a') : '—'}">06:00
+                                        PM</span>
                                 </td>
                                 <td class="col-today">
                                     <span class="day-number"
@@ -527,7 +450,7 @@
                             labels: ['On Time', 'Late', 'Absent', 'On Leave'],
                             datasets: [{
                                 data: [onTime, late, absent, leave],
-                                backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#3B82F6'],
+                                backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#D946EF'],
                                 borderWidth: 0,
                                 hoverOffset: 6
                             }]
