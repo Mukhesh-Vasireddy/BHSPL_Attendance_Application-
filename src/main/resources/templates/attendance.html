@@ -22,8 +22,12 @@
                             <i class="fas fa-file-alt"></i> Page
                         </button>
                     </div>
+                    <button type="button" class="btn-primary" style="background: rgba(13, 148, 136, 0.1); color: #2DD4BF; border: 1px solid rgba(13, 148, 136, 0.2); border-radius: 12px; font-size: 12px; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;" onclick="exportTableToCSV('Attendance_Logs.csv')">
+                        <i class="fas fa-file-csv"></i> Export CSV
+                    </button>
                 </div>
                 <form action="/attendance" method="get" style="display: flex; gap: 15px; align-items: flex-end;">
+                    <input type="hidden" name="size" th:value="${pageSize != null ? pageSize : 10}">
                     <div>
                         <label
                             style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Attendance
@@ -50,7 +54,7 @@
         </div>
 
         <!-- Attendance Table -->
-        <div class="card" style="padding: 0; overflow: hidden;">
+        <div class="card live-update-container" style="padding: 0; overflow: hidden;">
             <div style="overflow-x: auto;">
                 <table id="mainDataTable" style="width: 100%; border-collapse: collapse; min-width: 900px;">
                     <thead>

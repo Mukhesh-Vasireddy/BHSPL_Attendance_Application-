@@ -21,6 +21,9 @@
                             <i class="fas fa-file-alt"></i> Page
                         </button>
                     </div>
+                    <button type="button" class="btn-primary" style="background: rgba(13, 148, 136, 0.1); color: #2DD4BF; border: 1px solid rgba(13, 148, 136, 0.2); border-radius: 12px; font-size: 13px; padding: 10px 15px; cursor: pointer; display: flex; align-items: center; gap: 8px;" onclick="exportTableToCSV('Leave_Balances.csv')">
+                        <i class="fas fa-file-csv"></i> Export CSV
+                    </button>
                     <button class="btn-primary" style="background: #64748B;" onclick="refreshAndSync()"><i class="fas fa-sync"></i> Refresh</button>
                 </div>
             </div>
@@ -29,6 +32,7 @@
         <!-- Filter Bar -->
         <div class="card" style="margin-bottom: 20px; padding: 15px;">
             <form action="/leave/balance" method="get" style="display: flex; gap: 20px; align-items: center;">
+                <input type="hidden" name="size" th:value="${pageSize != null ? pageSize : 10}">
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <span style="font-size: 13px; font-weight: 600; color: #64748B;">Year:</span>
                     <select name="year" class="form-control" style="width: 100px;">

@@ -7,7 +7,19 @@
         <div class="card" style="margin-bottom: 15px; padding: 15px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <h3 style="margin: 0; color: var(--accent-purple);"><i class="fas fa-users-cog"></i> System User Management</h3>
-                <div style="display: flex; gap: 10px;">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <!-- Excel Export Group -->
+                    <div style="display: flex; gap: 2px;">
+                        <button type="button" onclick="performFullExport('System_Users.xls')" class="btn-primary" style="background: #10b981; color: #fff; border-radius: 12px 0 0 12px; font-size: 13px; padding: 10px 15px; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px;" title="Export ALL records across all pages">
+                            <i class="fas fa-database"></i> Full Excel
+                        </button>
+                        <button type="button" onclick="exportCurrentPage('System_Users.xls')" class="btn-primary" style="background: #059669; color: #fff; border-radius: 0 12px 12px 0; font-size: 13px; padding: 10px 12px; border: none; cursor: pointer; display: flex; align-items: center;" title="Export current page only">
+                            <i class="fas fa-file-alt"></i> Page
+                        </button>
+                    </div>
+                    <button type="button" class="btn-primary" style="background: rgba(13, 148, 136, 0.1); color: #2DD4BF; border: 1px solid rgba(13, 148, 136, 0.2); border-radius: 12px; font-size: 13px; padding: 10px 15px; cursor: pointer; display: flex; align-items: center; gap: 8px;" onclick="exportTableToCSV('System_Users.csv')">
+                        <i class="fas fa-file-csv"></i> Export CSV
+                    </button>
                     <button class="btn-primary" style="background: #10B981;" onclick="openUserModal()"><i class="fas fa-plus"></i> Add User</button>
                     <button class="btn-primary" style="background: #f1f5f9; color: var(--text-main); border: 1px solid var(--glass-border);" onclick="refreshAndSync()"><i class="fas fa-sync"></i> Refresh</button>
                 </div>
@@ -16,7 +28,7 @@
 
         <!-- Data Table -->
         <div class="card">
-            <table>
+            <table id="mainDataTable">
                 <thead>
                     <tr>
                         <th>ID</th>

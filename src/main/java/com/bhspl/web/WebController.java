@@ -68,6 +68,7 @@ public class WebController {
     @GetMapping({ "/", "/dashboard" })
     public String index(Model model, @RequestParam(name = "search", required = false) String search,
             @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize,
             @RequestParam(name = "export", defaultValue = "false") boolean isExport,
             HttpSession session) {
         if (isExport) {
@@ -87,7 +88,7 @@ public class WebController {
 
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = isExport ? 50000 : 10;
+            if (isExport) pageSize = 50000;
             int offset = (page - 1) * pageSize;
 
             // Stats
@@ -206,6 +207,8 @@ public class WebController {
             model.addAttribute("selSearch", search);
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", totalLogs);
             model.addAttribute("weekDates", weekDates);
             model.addAttribute("weekDays", weekDays);
             model.addAttribute("weeklyData", weeklyData);
@@ -249,12 +252,12 @@ public class WebController {
     public String employees(Model model,
             @RequestParam(name = "search", required = false) String search,
             @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize,
             HttpSession session) {
         if (session.getAttribute("user") == null)
             return "redirect:/login";
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             int offset = (page - 1) * pageSize;
 
             String where = " WHERE 1=1";
@@ -278,6 +281,8 @@ public class WebController {
             model.addAttribute("selSearch", search);
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
             model.addAttribute("depts", db.query("SELECT dept_name FROM departments ORDER BY dept_name"));
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
@@ -367,6 +372,8 @@ public class WebController {
             model.addAttribute("selStatus", (status != null) ? status : "All");
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -416,6 +423,8 @@ public class WebController {
             model.addAttribute("selDept", (dept != null) ? dept : "All");
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
             model.addAttribute("depts", db.query("SELECT dept_name FROM departments ORDER BY dept_name"));
         } catch (Exception e) {
             e.printStackTrace();
@@ -477,6 +486,8 @@ public class WebController {
 
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
 
             for (Map<String, Object> emp : employees) {
                 String eid = (String) emp.get("emp_id");
@@ -610,6 +621,8 @@ public class WebController {
             model.addAttribute("depts", db.query("SELECT dept_name FROM departments ORDER BY dept_name"));
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -768,6 +781,8 @@ public class WebController {
             model.addAttribute("sessions", pagedSessions);
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
             model.addAttribute("selFrom", f);
             model.addAttribute("selTo", t);
             model.addAttribute("selDept", d);
@@ -799,6 +814,8 @@ public class WebController {
             model.addAttribute("devices", devices);
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
         }
@@ -869,6 +886,8 @@ public class WebController {
 
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
         }
@@ -906,6 +925,8 @@ public class WebController {
 
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
         }
@@ -1039,6 +1060,8 @@ public class WebController {
 
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
         }
@@ -1142,6 +1165,8 @@ public class WebController {
             System.out.println("Fetched " + policies.size() + " leave policies.");
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
         } catch (Exception e) {
             e.printStackTrace();
             model.addAttribute("error", e.getMessage());
@@ -1337,6 +1362,8 @@ public class WebController {
             model.addAttribute("selType", (type != null) ? type : "All");
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
             model.addAttribute("stats", Map.of(
                     "empCount", uniqueEmps.size() + " / " + totalActive,
                     "totalBal", String.format("%.1f", tBal),
@@ -1375,6 +1402,8 @@ public class WebController {
             model.addAttribute("selType", (type != null) ? type : "All");
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
         }
@@ -1462,11 +1491,12 @@ public class WebController {
     }
 
     @GetMapping("/masters/departments")
-    public String mastersDepts(Model model, @RequestParam(name = "page", defaultValue = "1") int page) {
+    public String mastersDepts(Model model, 
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize) {
         List<Map<String, Object>> depts = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             int offset = (page - 1) * pageSize;
 
             long total = db.queryLong("SELECT COUNT(*) FROM departments");
@@ -1477,6 +1507,8 @@ public class WebController {
             depts = db.query("SELECT * FROM departments ORDER BY dept_name LIMIT " + pageSize + " OFFSET " + offset);
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
         }
@@ -1521,11 +1553,11 @@ public class WebController {
     @GetMapping("/masters/designations")
     public String mastersDesig(Model model,
             @RequestParam(name = "search", required = false) String search,
-            @RequestParam(name = "page", defaultValue = "1") int page) {
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize) {
         List<Map<String, Object>> desigs = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             int offset = (page - 1) * pageSize;
 
             String where = "";
@@ -1546,6 +1578,8 @@ public class WebController {
 
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
             model.addAttribute("selSearch", search);
         } catch (Exception e) {
             e.printStackTrace();
@@ -1590,11 +1624,12 @@ public class WebController {
     }
 
     @GetMapping("/masters/shifts")
-    public String mastersShifts(Model model, @RequestParam(name = "page", defaultValue = "1") int page) {
+    public String mastersShifts(Model model, 
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize) {
         List<Map<String, Object>> shifts = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             int offset = (page - 1) * pageSize;
 
             long total = db.queryLong("SELECT COUNT(*) FROM shifts");
@@ -1605,6 +1640,8 @@ public class WebController {
             shifts = db.query("SELECT * FROM shifts ORDER BY shift_name LIMIT " + pageSize + " OFFSET " + offset);
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
         }
@@ -1654,13 +1691,13 @@ public class WebController {
     @GetMapping("/masters/weekly-off")
     public String mastersWeeklyOff(Model model,
             @RequestParam(name = "dept", required = false) String dept,
-            @RequestParam(name = "page", defaultValue = "1") int page) {
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize) {
         List<Map<String, Object>> depts = new java.util.ArrayList<>();
         List<Map<String, Object>> offs = new java.util.ArrayList<>();
         List<Map<String, Object>> employees = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             int offset = (page - 1) * pageSize;
 
             depts = db.query("SELECT dept_name FROM departments ORDER BY dept_name");
@@ -1684,6 +1721,8 @@ public class WebController {
 
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
             model.addAttribute("selDept", (dept != null) ? dept : "All");
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
@@ -1721,11 +1760,12 @@ public class WebController {
 
     // System Sub-menus
     @GetMapping("/system/users")
-    public String systemUsers(Model model, @RequestParam(name = "page", defaultValue = "1") int page) {
+    public String systemUsers(Model model, 
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize) {
         List<Map<String, Object>> users = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int pageSize = 10;
             int offset = (page - 1) * pageSize;
 
             long total = db.queryLong("SELECT COUNT(*) FROM users");
@@ -1737,6 +1777,8 @@ public class WebController {
                     + pageSize + " OFFSET " + offset);
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
+            model.addAttribute("pageSize", pageSize);
+            model.addAttribute("totalItems", total);
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
         }

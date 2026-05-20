@@ -4,20 +4,362 @@
     <!-- Reusable Pagination Fragment Definition -->
     <th:block th:fragment="pagination(current, total, url)" 
               th:with="curr=${current != null ? current : (currentPage != null ? currentPage : 1)}, 
-                       tot=${total != null ? total : (totalPages != null ? totalPages : 1)}">
-        <div class="pagination-container" style="display: flex; align-items: center; justify-content: space-between; padding: 25px; border-top: 1px solid var(--glass-border); background: #f8fafc; margin-top: 20px;">
-            <div style="color: var(--text-muted); font-size: 13px;">
-                Showing page <span th:text="${curr}" style="color: var(--text-main); font-weight: 700;">1</span> of <span th:text="${tot}" style="color: var(--text-main); font-weight: 700;">1</span>
+                       tot=${total != null ? total : (totalPages != null ? totalPages : 1)},
+                       totalCount=${totalItems != null ? totalItems : 0},
+                       sizeVal=${pageSize != null ? pageSize : 10}">
+        
+        <div class="pagination-container" th:attr="data-curr=${curr}, data-tot=${tot}, data-size=${sizeVal}, data-total-count=${totalCount}">
+            <!-- Left: Items Info -->
+            <div class="pagination-info">
+                Showing 0 - 0 of 0 items
             </div>
-            <div style="display: flex; gap: 12px;">
-                <a th:if="${curr > 1}" th:href="@{${url}(page=${curr - 1})}" class="btn-primary" style="padding: 8px 16px; font-size: 13px; text-decoration: none; background: #f1f5f9; color: var(--text-main); border: 1px solid var(--glass-border); box-shadow: none;">
-                    <i class="fas fa-chevron-left"></i> Previous
-                </a>
-                <a th:if="${curr < tot}" th:href="@{${url}(page=${curr + 1})}" class="btn-primary" style="padding: 8px 16px; font-size: 13px; text-decoration: none;">
-                    Next <i class="fas fa-chevron-right"></i>
-                </a>
+            
+            <!-- Center: Page Numbers -->
+            <div class="pagination-pages">
+                <!-- Dynamic page numbers populated by JavaScript -->
             </div>
+            
+            <!-- Right: Page Size Dropdown -->
+            <div class="custom-page-size-selector">
+                <button class="selector-btn">
+                    <span class="selected-page-size-label" th:text="${sizeVal} + ' / page'">10 / page</span>
+                    <svg class="chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </button>
+                <div class="selector-dropdown-menu">
+                    <div class="dropdown-item" data-value="10">10 / page</div>
+                    <div class="dropdown-item" data-value="20">20 / page</div>
+                    <div class="dropdown-item" data-value="50">50 / page</div>
+                    <div class="dropdown-item" data-value="100">100 / page</div>
+                </div>
+            </div>
+
+            <!-- Scoped CSS Styles inside the block -->
+            <style>
+                .pagination-container {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 20px 25px;
+                    border-top: 1px solid var(--glass-border);
+                    background: #f8fafc;
+                    margin-top: 20px;
+                    font-family: 'Outfit', sans-serif;
+                }
+
+                .pagination-info {
+                    color: var(--text-muted);
+                    font-size: 14px;
+                    font-weight: 500;
+                }
+
+                .pagination-pages {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+
+                /* Pagination Button Styles */
+                .pagination-btn-link {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-width: 38px;
+                    height: 38px;
+                    padding: 0 6px;
+                    border-radius: 50%;
+                    font-size: 14px;
+                    font-weight: 600;
+                    text-decoration: none;
+                    color: var(--text-muted);
+                    background: transparent;
+                    border: 1px solid transparent;
+                    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+                    cursor: pointer;
+                }
+
+                .pagination-btn-link:hover:not(.active):not(.disabled) {
+                    background: #e2e8f0;
+                    color: var(--text-main);
+                    border-color: var(--glass-border);
+                }
+
+                .pagination-btn-link.active {
+                    color: #be185d !important;
+                    border: 1.5px solid #be185d !important;
+                    background: transparent !important;
+                    box-shadow: 0 2px 6px rgba(190, 24, 93, 0.1);
+                }
+
+                .pagination-btn-link.disabled {
+                    opacity: 0.4;
+                    cursor: not-allowed;
+                    pointer-events: none;
+                }
+
+                .pagination-ellipsis {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 38px;
+                    height: 38px;
+                    font-size: 14px;
+                    color: var(--text-muted);
+                    user-select: none;
+                }
+
+                /* Page Size Selector Styling */
+                .custom-page-size-selector {
+                    position: relative;
+                    display: inline-block;
+                }
+
+                .custom-page-size-selector .selector-btn {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 10px;
+                    min-width: 120px;
+                    height: 38px;
+                    padding: 0 16px;
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 10px;
+                    color: var(--text-muted);
+                    font-family: 'Outfit', sans-serif;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.25s ease;
+                    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+                }
+
+                .custom-page-size-selector .selector-btn:hover {
+                    border-color: #be185d;
+                    color: #be185d;
+                    background: #fff5f7;
+                }
+
+                .custom-page-size-selector.open .selector-btn {
+                    border-color: #be185d;
+                    color: #be185d;
+                    box-shadow: 0 0 0 3px rgba(190, 24, 93, 0.15);
+                    background: #ffffff;
+                }
+
+                .custom-page-size-selector .chevron-icon {
+                    transition: transform 0.25s ease;
+                    stroke: currentColor;
+                }
+
+                .custom-page-size-selector.open .chevron-icon {
+                    transform: rotate(180deg);
+                }
+
+                .custom-page-size-selector .selector-dropdown-menu {
+                    position: absolute;
+                    bottom: calc(100% + 6px);
+                    right: 0;
+                    z-index: 1050;
+                    display: none;
+                    min-width: 120px;
+                    padding: 4px;
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 12px;
+                    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 16px -6px rgba(0, 0, 0, 0.04);
+                    animation: dropdownFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                }
+
+                .custom-page-size-selector.open .selector-dropdown-menu {
+                    display: block;
+                }
+
+                .custom-page-size-selector .dropdown-item {
+                    padding: 10px 14px;
+                    border-radius: 8px;
+                    color: #475569;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.2s ease;
+                    white-space: nowrap;
+                }
+
+                .custom-page-size-selector .dropdown-item:hover {
+                    background: #f8fafc;
+                    color: #be185d;
+                }
+
+                .custom-page-size-selector .dropdown-item.selected {
+                    background: #fce7f3 !important;
+                    color: #be185d !important;
+                    font-weight: 700;
+                }
+
+                @keyframes dropdownFadeIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(4px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+            </style>
+
+            <!-- Inline Scoped Script for dynamic pagination rendering and click handling -->
+            <script>
+                if (typeof window.initPagination === 'undefined') {
+                    window.initPagination = function(container) {
+                        if (!container) return;
+                        container.classList.add('pagination-initialized');
+
+                        const curr = parseInt(container.getAttribute('data-curr')) || 1;
+                        const tot = parseInt(container.getAttribute('data-tot')) || 1;
+                        const size = parseInt(container.getAttribute('data-size')) || 10;
+                        const totalCount = parseInt(container.getAttribute('data-total-count')) || 0;
+
+                        // Toggle dropdown
+                        const selector = container.querySelector('.custom-page-size-selector');
+                        const btn = container.querySelector('.selector-btn');
+                        if (btn && selector) {
+                            btn.addEventListener('click', function(e) {
+                                e.stopPropagation();
+                                // Close all other page size selectors first
+                                document.querySelectorAll('.custom-page-size-selector').forEach(sel => {
+                                    if (sel !== selector) sel.classList.remove('open');
+                                });
+                                selector.classList.toggle('open');
+                            });
+                        }
+
+                        // Dropdown items click handling
+                        const items = container.querySelectorAll('.dropdown-item');
+                        items.forEach(item => {
+                            // Highlight active size
+                            const val = parseInt(item.getAttribute('data-value'));
+                            if (val === size) {
+                                item.classList.add('selected');
+                            } else {
+                                item.classList.remove('selected');
+                            }
+
+                            item.addEventListener('click', function(e) {
+                                e.stopPropagation();
+                                const newSize = item.getAttribute('data-value');
+                                const url = new URL(window.location.href);
+                                url.searchParams.set('size', newSize);
+                                url.searchParams.set('page', '1'); // reset to page 1
+                                window.location.href = url.toString();
+                            });
+                        });
+
+                        // Render Info Label
+                        const infoLabel = container.querySelector('.pagination-info');
+                        if (infoLabel) {
+                            if (totalCount > 0) {
+                                const startIdx = (curr - 1) * size + 1;
+                                const endIdx = Math.min(curr * size, totalCount);
+                                infoLabel.innerText = 'Showing ' + startIdx + '-' + endIdx + ' of ' + totalCount + ' items';
+                            } else {
+                                infoLabel.innerText = 'Page ' + curr + ' of ' + tot;
+                            }
+                        }
+
+                        // Helper to build page link
+                        function buildPaginationUrl(targetPage) {
+                            const searchParams = new URLSearchParams(window.location.search);
+                            searchParams.set('page', targetPage);
+                            searchParams.set('size', size);
+                            return window.location.pathname + '?' + searchParams.toString();
+                        }
+
+                        function renderPageLink(pageNum, activePage) {
+                            if (pageNum === activePage) {
+                                return '<span class="pagination-btn-link active">' + pageNum + '</span>';
+                            } else {
+                                return '<a href="' + buildPaginationUrl(pageNum) + '" class="pagination-btn-link">' + pageNum + '</a>';
+                            }
+                        }
+
+                        // Render Dynamic Numeric Page Links
+                        const pagesContainer = container.querySelector('.pagination-pages');
+                        if (pagesContainer) {
+                            let html = '';
+                            
+                            // Previous button
+                            if (curr > 1) {
+                                html += '<a href="' + buildPaginationUrl(curr - 1) + '" class="pagination-btn-link" title="Previous page"><i class="fas fa-chevron-left"></i></a>';
+                            } else {
+                                html += '<span class="pagination-btn-link disabled"><i class="fas fa-chevron-left"></i></span>';
+                            }
+                            
+                            // Dynamic page list
+                            if (tot <= 7) {
+                                for (let i = 1; i <= tot; i++) {
+                                    html += renderPageLink(i, curr);
+                                }
+                            } else {
+                                if (curr <= 4) {
+                                    for (let i = 1; i <= 5; i++) {
+                                        html += renderPageLink(i, curr);
+                                    }
+                                    html += '<span class="pagination-ellipsis">...</span>';
+                                    html += renderPageLink(tot, curr);
+                                } else if (curr >= tot - 3) {
+                                    html += renderPageLink(1, curr);
+                                    html += '<span class="pagination-ellipsis">...</span>';
+                                    for (let i = tot - 4; i <= tot; i++) {
+                                        html += renderPageLink(i, curr);
+                                    }
+                                } else {
+                                    html += renderPageLink(1, curr);
+                                    html += '<span class="pagination-ellipsis">...</span>';
+                                    html += renderPageLink(curr - 1, curr);
+                                    html += renderPageLink(curr, curr);
+                                    html += renderPageLink(curr + 1, curr);
+                                    html += '<span class="pagination-ellipsis">...</span>';
+                                    html += renderPageLink(tot, curr);
+                                }
+                            }
+                            
+                            // Next button
+                            if (curr < tot) {
+                                html += '<a href="' + buildPaginationUrl(curr + 1) + '" class="pagination-btn-link" title="Next page"><i class="fas fa-chevron-right"></i></a>';
+                            } else {
+                                html += '<span class="pagination-btn-link disabled"><i class="fas fa-chevron-right"></i></span>';
+                            }
+                            
+                            pagesContainer.innerHTML = html;
+                        }
+                    };
+                }
+
+                // Initialize immediately for the nearest container
+                (function() {
+                    const currentScript = document.currentScript;
+                    const container = currentScript.closest('.pagination-container');
+                    if (container) {
+                        window.initPagination(container);
+                    }
+                })();
+            </script>
         </div>
+
+        <!-- Global Click Event to close all dropdowns when clicking outside -->
+        <script>
+            if (typeof window.__paginationGlobalClickBound === 'undefined') {
+                window.__paginationGlobalClickBound = true;
+                window.addEventListener('click', function() {
+                    document.querySelectorAll('.custom-page-size-selector').forEach(sel => {
+                        sel.classList.remove('open');
+                    });
+                });
+            }
+        </script>
     </th:block>
 </body>
 </html>

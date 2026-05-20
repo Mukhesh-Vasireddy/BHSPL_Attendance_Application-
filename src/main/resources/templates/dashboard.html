@@ -40,7 +40,8 @@
             </div>
         </div>
 
-        <div class="stats-grid">
+        <div class="stats-grid live-update-container">
+            <input type="hidden" id="weekly-counts-data" th:value="${#strings.listJoin(weeklyPresentCounts, ',')}">
             <div class="stat-card present" onclick="window.location.href='/attendance?status=Present'">
                 <div class="stat-info">
                     <h3 th:text="${presentCount}">28</h3>
@@ -72,7 +73,7 @@
         </div>
 
         <!-- New Analytics Row -->
-        <div class="stats-grid" style="margin-top: 20px;">
+        <div class="stats-grid live-update-container" style="margin-top: 20px;">
             <div class="stat-card late" onclick="window.location.href='/attendance?status=Late'">
                 <div class="stat-info">
                     <h3 th:text="${lateCount}">5</h3>
@@ -236,7 +237,7 @@
 
         <div style="display: grid; grid-template-columns: 2.5fr 1fr; gap: 20px; margin-top: 20px;">
             <!-- Left Column: Attendance Table -->
-            <div class="table-container"
+            <div class="table-container live-update-container"
                 style="margin-top: 0; display: flex; flex-direction: column; align-self: start;">
                 <div class="table-header" style="flex-wrap: wrap; gap: 15px;">
                     <h3>Attendance Directory</h3>
@@ -343,7 +344,7 @@
                         <span
                             style="display: inline-block; width: 8px; height: 8px; background: #10B981; border-radius: 50%; box-shadow: 0 0 10px #10B981;"></span>
                     </div>
-                    <div class="live-punches-container"
+                    <div class="live-punches-container live-update-container"
                         style="max-height: 380px; overflow-y: auto; padding: 10px 20px;">
                         <div th:each="lp : ${livePunches}"
                             style="display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #f1f5f9;">
@@ -444,7 +445,10 @@
 
                     const onTime = present > late ? present - late : 0;
 
-                    new Chart(ctx.getContext('2d'), {
+                    if (window.attendanceDoughnutChart) {
+                        window.attendanceDoughnutChart.destroy();
+                    }
+                    window.attendanceDoughnutChart = new Chart(ctx.getContext('2d'), {
                         type: 'doughnut',
                         data: {
                             labels: ['On Time', 'Late', 'Absent', 'On Leave'],
@@ -483,7 +487,10 @@
                     const weekDays = /*[[${weekDays}]]*/['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
                     const weeklyPresentCounts = /*[[${weeklyPresentCounts}]]*/[0, 0, 0, 0, 0, 0, 0];
 
-                    new Chart(weeklyCtx.getContext('2d'), {
+                    if (window.weeklyTrendChart) {
+                        window.weeklyTrendChart.destroy();
+                    }
+                    window.weeklyTrendChart = new Chart(weeklyCtx.getContext('2d'), {
                         type: 'line',
                         data: {
                             labels: weekDays,
@@ -523,6 +530,34 @@
                     });
                 }
             });
+
+            // Global callback after background live-updates complete
+            window.onLiveUpdateComplete = function(doc) {
+                // 1. Update Stats Doughnut Chart
+                const presentEl = document.querySelector('.stat-card.present h3');
+                const absentEl = document.querySelector('.stat-card.absent h3');
+                const leaveEl = document.querySelector('.stat-card.leave h3');
+                const lateEl = document.querySelector('.stat-card.late h3');
+                
+                if (presentEl && absentEl && leaveEl && lateEl && window.attendanceDoughnutChart) {
+                    const present = parseInt(presentEl.textContent) || 0;
+                    const absent = parseInt(absentEl.textContent) || 0;
+                    const leave = parseInt(leaveEl.textContent) || 0;
+                    const late = parseInt(lateEl.textContent) || 0;
+                    const onTime = present > late ? present - late : 0;
+                    
+                    window.attendanceDoughnutChart.data.datasets[0].data = [onTime, late, absent, leave];
+                    window.attendanceDoughnutChart.update();
+                }
+
+                // 2. Update Weekly Trend Line Chart
+                const weeklyDataEl = document.getElementById('weekly-counts-data');
+                if (weeklyDataEl && window.weeklyTrendChart) {
+                    const newCounts = weeklyDataEl.value.split(',').map(Number);
+                    window.weeklyTrendChart.data.datasets[0].data = newCounts;
+                    window.weeklyTrendChart.update();
+                }
+            };
         </script>
     </section>
 </body>

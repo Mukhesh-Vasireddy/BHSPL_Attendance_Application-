@@ -6,6 +6,7 @@
         <!-- Filters Row -->
         <div class="card" style="margin-bottom: 25px; padding: 25px;">
             <form action="/raw-logs" method="get">
+                <input type="hidden" name="size" th:value="${pageSize != null ? pageSize : 10}">
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 40px; margin-bottom: 25px;">
                     <!-- Left Column -->
                     <div style="display: flex; flex-direction: column; gap: 20px;">
@@ -72,8 +73,8 @@
         </div>
 
         <!-- Data Table -->
-        <div class="card" style="padding: 0; overflow-x: auto; margin-bottom: 25px;">
-            <table>
+        <div class="card live-update-container" style="padding: 0; overflow-x: auto; margin-bottom: 25px;">
+            <table id="mainDataTable">
                 <thead>
                     <tr>
                         <th>Emp ID</th>

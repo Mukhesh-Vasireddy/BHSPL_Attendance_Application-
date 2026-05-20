@@ -1125,6 +1125,14 @@
                 <h2 th:text="${title}" style="margin: 0;">Page Title</h2>
             </div>
             <div style="display: flex; gap: 20px; align-items: center;">
+                <!-- Premium Live Update Pulse Badge -->
+                <div id="live-update-badge" onclick="toggleLiveUpdate()" style="display: none; align-items: center; gap: 8px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #10B981; cursor: pointer; user-select: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 8px rgba(16, 185, 129, 0.05);" title="Click to Pause/Resume Auto Update">
+                    <span style="position: relative; display: flex; height: 8px; width: 8px;">
+                        <span id="live-update-ping" style="animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; position: absolute; display: inline-flex; height: 100%; width: 100%; border-radius: 50%; background-color: #10B981; opacity: 0.75;"></span>
+                        <span id="live-update-dot" style="position: relative; display: inline-flex; border-radius: 50%; height: 8px; width: 8px; background-color: #10B981;"></span>
+                    </span>
+                    <span id="live-update-text">Live: <span id="live-update-countdown" style="font-family: monospace; font-weight: 700;">10s</span></span>
+                </div>
                 <span id="date-time" style="font-size: 13px; color: #64748B; font-weight: 500;">Tue, 05 May 17:58:00</span>
                 
                 <!-- Profile Dropdown -->
@@ -1404,9 +1412,13 @@
                     // Check pagination for next page
                     const pagContainer = doc.querySelector('.pagination-container');
                     if (pagContainer) {
-                        const spans = pagContainer.querySelectorAll('span');
-                        if (spans.length >= 2) {
-                            totalPages = parseInt(spans[1].innerText.trim()) || 1;
+                        if (pagContainer.hasAttribute('data-tot')) {
+                            totalPages = parseInt(pagContainer.getAttribute('data-tot')) || 1;
+                        } else {
+                            const spans = pagContainer.querySelectorAll('span');
+                            if (spans.length >= 2) {
+                                totalPages = parseInt(spans[1].innerText.trim()) || 1;
+                            }
                         }
                     }
                     
@@ -1482,6 +1494,135 @@
         ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(evt => {
             document.addEventListener(evt, resetIdleTimer, true);
         });
+
+        // --- Real-time Auto-Update Engine ---
+        let autoUpdateInterval = null;
+        let countdown = 10;
+        let isAutoUpdatePaused = false;
+        
+        function initLiveAutoUpdate() {
+            const containers = document.querySelectorAll('.live-update-container');
+            const badge = document.getElementById('live-update-badge');
+            if (containers.length === 0 || !badge) return;
+            
+            // Show badge
+            badge.style.display = 'flex';
+            
+            // Retrieve user preference from localStorage if set
+            const pausedPref = localStorage.getItem('live-update-paused') === 'true';
+            if (pausedPref) {
+                pauseLiveUpdate();
+            } else {
+                startLiveUpdateTimer();
+            }
+        }
+        
+        function startLiveUpdateTimer() {
+            isAutoUpdatePaused = false;
+            localStorage.setItem('live-update-paused', 'false');
+            updateBadgeUI();
+            
+            if (autoUpdateInterval) clearInterval(autoUpdateInterval);
+            autoUpdateInterval = setInterval(() => {
+                countdown--;
+                if (countdown <= 0) {
+                    countdown = 10; // reset
+                    performLiveUpdate();
+                }
+                const cdEl = document.getElementById('live-update-countdown');
+                if (cdEl) cdEl.textContent = countdown + 's';
+            }, 1000);
+        }
+        
+        function pauseLiveUpdate() {
+            isAutoUpdatePaused = true;
+            localStorage.setItem('live-update-paused', 'true');
+            if (autoUpdateInterval) {
+                clearInterval(autoUpdateInterval);
+                autoUpdateInterval = null;
+            }
+            updateBadgeUI();
+        }
+        
+        function toggleLiveUpdate() {
+            if (isAutoUpdatePaused) {
+                countdown = 10;
+                startLiveUpdateTimer();
+            } else {
+                pauseLiveUpdate();
+            }
+        }
+        
+        function updateBadgeUI() {
+            const badge = document.getElementById('live-update-badge');
+            const ping = document.getElementById('live-update-ping');
+            const dot = document.getElementById('live-update-dot');
+            const textEl = document.getElementById('live-update-text');
+            
+            if (!badge) return;
+            
+            if (isAutoUpdatePaused) {
+                badge.style.background = 'rgba(245, 158, 11, 0.08)';
+                badge.style.borderColor = 'rgba(245, 158, 11, 0.2)';
+                badge.style.color = '#F59E0B';
+                if (ping) ping.style.display = 'none';
+                if (dot) dot.style.backgroundColor = '#F59E0B';
+                if (textEl) textEl.innerHTML = 'Live: <span id="live-update-countdown" style="font-family: monospace; font-weight: 700;">Paused</span>';
+            } else {
+                badge.style.background = 'rgba(16, 185, 129, 0.08)';
+                badge.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+                badge.style.color = '#10B981';
+                if (ping) {
+                    ping.style.display = 'inline-flex';
+                    ping.style.backgroundColor = '#10B981';
+                }
+                if (dot) dot.style.backgroundColor = '#10B981';
+                if (textEl) textEl.innerHTML = 'Live: <span id="live-update-countdown" style="font-family: monospace; font-weight: 700;">' + countdown + 's</span>';
+            }
+        }
+        
+        async function performLiveUpdate() {
+            try {
+                const res = await fetch(window.location.href);
+                if (!res.ok) throw new Error('Network response was not OK');
+                const htmlText = await res.text();
+                
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlText, 'text/html');
+                
+                const activeContainers = document.querySelectorAll('.live-update-container');
+                const newContainers = doc.querySelectorAll('.live-update-container');
+                
+                activeContainers.forEach((el, index) => {
+                    const newEl = newContainers[index];
+                    if (newEl && el) {
+                        el.style.opacity = '0.7';
+                        el.style.transition = 'opacity 0.2s ease-in-out';
+                        
+                        setTimeout(() => {
+                            el.innerHTML = newEl.innerHTML;
+                            el.style.opacity = '1';
+                            
+                            // Re-bind pagination if present
+                            el.querySelectorAll('.pagination-container').forEach(container => {
+                                if (window.initPagination) {
+                                    window.initPagination(container);
+                                }
+                            });
+                        }, 200);
+                    }
+                });
+                
+                // Trigger any page-specific callbacks
+                if (typeof window.onLiveUpdateComplete === 'function') {
+                    window.onLiveUpdateComplete(doc);
+                }
+            } catch (err) {
+                console.warn('Auto-update failed temporarily:', err);
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', initLiveAutoUpdate);
     </script>
     <!-- SVG Filter for removing white background from logo -->
     <svg style="position: absolute; width: 0; height: 0;">

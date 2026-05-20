@@ -6,6 +6,7 @@
         <!-- Filter Header -->
         <div class="card" style="margin-bottom: 20px; padding: 20px;">
             <form action="/reports/daily" method="get" style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
+                <input type="hidden" name="size" th:value="${pageSize != null ? pageSize : 10}">
                 <div>
                     <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase;">Select Date</label>
                     <input type="date" name="date" th:value="${selDate}" class="form-control" style="width: 200px;" required>
