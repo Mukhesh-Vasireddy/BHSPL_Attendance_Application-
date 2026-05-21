@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="/js/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
@@ -1042,6 +1043,9 @@
 </head>
 
 <body>
+    <!-- Premium glowing top loading bar -->
+    <div id="spa-loading-bar" style="position: fixed; top: 0; left: 0; height: 3px; width: 0%; background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary), var(--accent-vibrant)); box-shadow: 0 0 10px var(--accent-primary), 0 0 5px var(--accent-secondary); z-index: 99999; transition: width 0.3s cubic-bezier(0.1, 0.8, 0.3, 1), opacity 0.3s ease; opacity: 0; pointer-events: none;"></div>
+
     <div class="sidebar">
         <a href="/" style="text-decoration: none;">
             <div class="logo-container" style="margin: 0 25px 40px; padding: 15px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; background: rgba(255, 255, 255, 0.05); display: flex; align-items: center; gap: 15px; transition: all 0.3s ease;">
@@ -1160,7 +1164,9 @@
         </div>
 
 
-        <div th:replace="${content}"></div>
+        <div id="spa-content-container">
+            <div th:replace="${content}"></div>
+        </div>
         
         <!-- Global Footer -->
         <footer style="padding: 20px 30px; text-align: center; color: var(--text-muted); font-size: 13px; font-weight: 500; border-top: 1px solid var(--glass-border); margin-top: auto;">
@@ -1234,9 +1240,26 @@
 
         function updateDateTime() {
             const now = new Date();
-            const options = { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+            const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            
+            const wday = weekdays[now.getDay()];
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = months[now.getMonth()];
+            
+            let hours = now.getHours();
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            
+            hours = hours % 12;
+            hours = hours ? hours : 12; // the hour '0' should be '12'
+            const strHours = String(hours).padStart(2, '0');
+            
             const dateTimeEl = document.getElementById('date-time');
-            if (dateTimeEl) dateTimeEl.innerText = now.toLocaleString('en-GB', options).replace(',', '');
+            if (dateTimeEl) {
+                dateTimeEl.innerText = `${wday} ${day} ${month} ${strHours}:${minutes}:${seconds} ${ampm}`;
+            }
         }
         setInterval(updateDateTime, 1000);
         updateDateTime();
@@ -1623,6 +1646,254 @@
         }
         
         document.addEventListener('DOMContentLoaded', initLiveAutoUpdate);
+
+        // --- Single Page Application (SPA) AJAX Router & Glowing Loader ---
+        function startLoadingBar() {
+            const bar = document.getElementById('spa-loading-bar');
+            if (!bar) return;
+            bar.style.opacity = '1';
+            bar.style.width = '0%';
+            // Force reflow
+            bar.offsetWidth;
+            bar.style.width = '35%';
+            
+            if (window.spaLoadingInterval) clearInterval(window.spaLoadingInterval);
+            window.spaLoadingInterval = setInterval(() => {
+                let currentWidth = parseFloat(bar.style.width);
+                if (currentWidth < 85) {
+                    bar.style.width = (currentWidth + (85 - currentWidth) * 0.1) + '%';
+                }
+            }, 200);
+        }
+
+        function completeLoadingBar() {
+            const bar = document.getElementById('spa-loading-bar');
+            if (!bar) return;
+            if (window.spaLoadingInterval) {
+                clearInterval(window.spaLoadingInterval);
+            }
+            bar.style.width = '100%';
+            setTimeout(() => {
+                bar.style.opacity = '0';
+                setTimeout(() => {
+                    bar.style.width = '0%';
+                }, 300);
+            }, 200);
+        }
+
+        async function navigateToSpa(url, pushState = true) {
+            // Stop any running auto-update intervals
+            if (window.autoUpdateInterval) {
+                clearInterval(window.autoUpdateInterval);
+                window.autoUpdateInterval = null;
+            }
+
+            // Destroy existing dashboard charts if they exist to prevent memory leaks and detached canvas errors
+            try {
+                if (window.attendanceDoughnutChart && typeof window.attendanceDoughnutChart.destroy === 'function') {
+                    window.attendanceDoughnutChart.destroy();
+                    window.attendanceDoughnutChart = null;
+                }
+            } catch (e) {
+                console.warn('Error destroying attendanceDoughnutChart on transition:', e);
+            }
+            try {
+                if (window.weeklyTrendChart && typeof window.weeklyTrendChart.destroy === 'function') {
+                    window.weeklyTrendChart.destroy();
+                    window.weeklyTrendChart = null;
+                }
+            } catch (e) {
+                console.warn('Error destroying weeklyTrendChart on transition:', e);
+            }
+            
+            startLoadingBar();
+            
+            try {
+                const response = await fetch(url);
+                if (response.redirected) {
+                    // Direct browser to the redirected URL (useful for session timeouts / logins)
+                    window.location.href = response.url;
+                    return;
+                }
+                
+                if (!response.ok) {
+                    throw new Error('Response status: ' + response.status);
+                }
+                
+                const htmlText = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlText, 'text/html');
+                
+                // Update title
+                document.title = doc.title;
+                
+                // Swap main content
+                const newContent = doc.getElementById('spa-content-container');
+                const container = document.getElementById('spa-content-container');
+                if (newContent && container) {
+                    container.innerHTML = newContent.innerHTML;
+                }
+                
+                // Swap top bar
+                const newTopBar = doc.querySelector('.top-bar');
+                const activeTopBar = document.querySelector('.top-bar');
+                if (newTopBar && activeTopBar) {
+                    activeTopBar.innerHTML = newTopBar.innerHTML;
+                }
+                
+                // Swap sidebar (to update active states and sub-menus)
+                const newSidebar = doc.querySelector('.sidebar');
+                const activeSidebar = document.querySelector('.sidebar');
+                if (newSidebar && activeSidebar) {
+                    activeSidebar.innerHTML = newSidebar.innerHTML;
+                }
+                
+                // Update history
+                if (pushState) {
+                    history.pushState({ url: url }, '', url);
+                }
+                
+                // Evaluate scripts in new container
+                if (container) {
+                    await loadSpaScripts(container);
+                }
+                
+                // Re-initialize live auto update on the new page if present
+                initLiveAutoUpdate();
+                
+            } catch (error) {
+                console.error('SPA Navigation failed, falling back to full reload:', error);
+                window.location.href = url;
+            } finally {
+                completeLoadingBar();
+            }
+        }
+
+        async function loadSpaScripts(container) {
+            const scripts = Array.from(container.querySelectorAll('script'));
+            const inlineScripts = [];
+            const srcScripts = [];
+
+            scripts.forEach(s => {
+                const parent = s.parentNode;
+                if (s.src) {
+                    srcScripts.push({ script: s, parent: parent });
+                } else {
+                    inlineScripts.push({ script: s, parent: parent });
+                }
+                if (s.parentNode) {
+                    s.parentNode.removeChild(s);
+                }
+            });
+
+            // 1. Load and execute all src scripts sequentially
+            for (const item of srcScripts) {
+                const oldScript = item.script;
+                const parent = item.parent;
+                
+                // Optimized check: If Chart.js is requested but window.Chart is already available, skip reloading
+                if (oldScript.src && oldScript.src.includes('chart.js') && typeof window.Chart !== 'undefined') {
+                    continue;
+                }
+                
+                await new Promise((resolve) => {
+                    const newScript = document.createElement('script');
+                    Array.from(oldScript.attributes).forEach(attr => {
+                        newScript.setAttribute(attr.name, attr.value);
+                    });
+                    newScript.onload = () => resolve();
+                    newScript.onerror = () => resolve(); 
+                    if (parent && parent.isConnected) {
+                        parent.appendChild(newScript);
+                    } else {
+                        document.body.appendChild(newScript);
+                    }
+                });
+            }
+
+            // 2. Intercept addEventListener for inline scripts
+            const originalAddEventListener = document.addEventListener;
+            document.addEventListener = function(type, listener, options) {
+                if (type === 'DOMContentLoaded') {
+                    try {
+                        listener();
+                    } catch (e) {
+                        console.error('Error in SPA lazy DOMContentLoaded:', e);
+                    }
+                } else {
+                    originalAddEventListener.call(document, type, listener, options);
+                }
+            };
+
+            // 3. Execute all inline scripts
+            for (const item of inlineScripts) {
+                const oldScript = item.script;
+                const parent = item.parent;
+                const newScript = document.createElement('script');
+                Array.from(oldScript.attributes).forEach(attr => {
+                    newScript.setAttribute(attr.name, attr.value);
+                });
+                newScript.textContent = oldScript.textContent;
+                if (parent && parent.isConnected) {
+                    parent.appendChild(newScript);
+                } else {
+                    document.body.appendChild(newScript);
+                }
+            }
+
+            // 4. Restore original addEventListener
+            document.addEventListener = originalAddEventListener;
+        }
+
+        // Global Click Interceptor for SPA Links
+        document.addEventListener('click', function(e) {
+            const anchor = e.target.closest('a');
+            if (!anchor) return;
+            
+            const href = anchor.getAttribute('href');
+            if (!href) return;
+            
+            // Bypass external, anchor, and blank target links
+            if (href.startsWith('http') && !href.startsWith(window.location.origin)) return;
+            if (href.startsWith('#') || href.startsWith('javascript:')) return;
+            if (anchor.getAttribute('target') === '_blank') return;
+            if (anchor.hasAttribute('download')) return;
+            
+            // Bypass logins, logouts, exports, api
+            if (href.includes('/logout') || href.includes('/login') || href.includes('/export') || href.includes('export=true')) return;
+            if (href.includes('/api/')) return;
+            
+            e.preventDefault();
+            navigateToSpa(href);
+        });
+
+        // GET Form Interceptor for SPA Filters and Searches
+        document.addEventListener('submit', function(e) {
+            const form = e.target;
+            if (form.method.toLowerCase() === 'get') {
+                const action = form.getAttribute('action') || window.location.pathname;
+                
+                // Exclude exported filter pages
+                if (action.includes('/export') || action.includes('export=true')) return;
+                
+                const formData = new FormData(form);
+                const params = new URLSearchParams();
+                for (const [key, val] of formData.entries()) {
+                    if (val !== '') params.append(key, val);
+                }
+                
+                const queryString = params.toString();
+                const targetUrl = action + (queryString ? '?' + queryString : '');
+                
+                e.preventDefault();
+                navigateToSpa(targetUrl);
+            }
+        });
+
+        // popstate listener for back/forward buttons
+        window.addEventListener('popstate', function(e) {
+            navigateToSpa(window.location.href, false);
+        });
     </script>
     <!-- SVG Filter for removing white background from logo -->
     <svg style="position: absolute; width: 0; height: 0;">

@@ -214,7 +214,7 @@
             <script>
                 if (typeof window.initPagination === 'undefined') {
                     window.initPagination = function(container) {
-                        if (!container) return;
+                        if (!container || container.classList.contains('pagination-initialized')) return;
                         container.classList.add('pagination-initialized');
 
                         const curr = parseInt(container.getAttribute('data-curr')) || 1;
@@ -225,6 +225,12 @@
                         // Toggle dropdown
                         const selector = container.querySelector('.custom-page-size-selector');
                         const btn = container.querySelector('.selector-btn');
+                        
+                        // Sync selector button label with actual active size
+                        const labelEl = container.querySelector('.selected-page-size-label');
+                        if (labelEl) {
+                            labelEl.textContent = size + ' / page';
+                        }
                         if (btn && selector) {
                             btn.addEventListener('click', function(e) {
                                 e.stopPropagation();
@@ -253,7 +259,11 @@
                                 const url = new URL(window.location.href);
                                 url.searchParams.set('size', newSize);
                                 url.searchParams.set('page', '1'); // reset to page 1
-                                window.location.href = url.toString();
+                                if (window.navigateToSpa) {
+                                    window.navigateToSpa(url.pathname + url.search);
+                                } else {
+                                    window.location.href = url.toString();
+                                }
                             });
                         });
 
@@ -341,9 +351,17 @@
                 // Initialize immediately for the nearest container
                 (function() {
                     const currentScript = document.currentScript;
-                    const container = currentScript.closest('.pagination-container');
-                    if (container) {
-                        window.initPagination(container);
+                    if (currentScript) {
+                        const container = currentScript.closest('.pagination-container');
+                        if (container) {
+                            window.initPagination(container);
+                        }
+                    } else {
+                        // Fallback: when currentScript is null (such as in SPA/AJAX lazy evaluation),
+                        // initialize any uninitialized pagination containers.
+                        document.querySelectorAll('.pagination-container:not(.pagination-initialized)').forEach(container => {
+                            window.initPagination(container);
+                        });
                     }
                 })();
             </script>

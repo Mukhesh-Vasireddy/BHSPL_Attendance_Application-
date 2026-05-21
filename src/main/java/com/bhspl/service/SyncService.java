@@ -65,11 +65,6 @@ public class SyncService {
         }
         long start = System.currentTimeMillis();
         try {
-            // Auto-refresh last 2 days to ensure status updates (e.g. IN becomes PRESENT when OUT arrives)
-            try { 
-                DatabaseManager.getInstance().execute("UPDATE raw_logs SET synced=0 WHERE punch_time >= DATE_SUB(NOW(), INTERVAL 2 DAY)"); 
-            } catch (Exception ignored) {}
-
             broadcast("Checking for active devices...");
             List<Map<String, Object>> devices;
             try {
@@ -394,6 +389,9 @@ public class SyncService {
             if (!newRawIds.isEmpty()) {
                 String idList = newRawIds.stream().map(String::valueOf).collect(Collectors.joining(","));
                 db.execute("UPDATE raw_logs SET synced=1 WHERE id IN (" + idList + ")");
+                try {
+                    com.bhspl.util.CacheManager.getInstance().invalidate("dashboard_stats");
+                } catch (Exception ignored) {}
             }
             db.commit(); // CRITICAL: Save everything to DB
             if (logConsumer != null)

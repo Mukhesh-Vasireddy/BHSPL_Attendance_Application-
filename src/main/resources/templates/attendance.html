@@ -91,10 +91,10 @@
                                 style="padding: 18px 25px; font-weight: 700; color: var(--text-main);">John Doe</td>
                             <td th:text="${a['shift'] ?: '--'}" style="padding: 18px 25px; color: var(--text-main);">Day
                             </td>
-                            <td th:text="${a['in_time'] != null ? #strings.substring(a['in_time'], 11, 16) : '--:--'}"
-                                style="padding: 18px 25px; color: var(--text-main); font-weight: 600;">09:00</td>
-                            <td th:text="${a['out_time'] != null ? #strings.substring(a['out_time'], 11, 16) : '--:--'}"
-                                style="padding: 18px 25px; color: var(--text-main); font-weight: 600;">18:00</td>
+                            <td class="format-time" th:text="${a['in_time_formatted'] != null ? a['in_time_formatted'] : (a['in_time'] != null ? a['in_time'] : '--:--')}"
+                                style="padding: 18px 25px; color: var(--text-main); font-weight: 600;">09:00 AM</td>
+                            <td class="format-time" th:text="${(a['out_time'] != null && a['in_time'] != null && !a['out_time'].toString().equals(a['in_time'].toString())) ? (a['out_time_formatted'] != null ? a['out_time_formatted'] : a['out_time']) : '--:--'}"
+                                style="padding: 18px 25px; color: var(--text-main); font-weight: 600;">06:00 PM</td>
                             <td th:text="${a['work_hours'] != null ? #numbers.formatDecimal(a['work_hours'], 1, 2) : '0.00'}"
                                 style="padding: 18px 25px; color: var(--text-main); font-weight: 700;">8.00</td>
                             <td style="padding: 18px 25px; text-align: center;">
@@ -125,6 +125,72 @@
             </div>
             <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/attendance')}"></div>
         </div>
+
+        <script>
+            (function() {
+                function formatTimeElements() {
+                    const rows = document.querySelectorAll('tbody tr');
+                    rows.forEach(row => {
+                        const cells = row.querySelectorAll('td');
+                        if (cells.length < 5) return;
+                        
+                        const inCell = cells[3];
+                        const outCell = cells[4];
+                        if (!inCell || !outCell) return;
+                        
+                        let inText = inCell.textContent.trim();
+                        let outText = outCell.textContent.trim();
+                        
+                        // Deduplicate if Out Time is identical to In Time (representing single swipe)
+                        if (inText !== '--:--' && outText !== '--:--' && inText === outText) {
+                            outCell.textContent = '--:--';
+                            outText = '--:--';
+                        }
+                        
+                        inCell.textContent = formatSingleTime(inText);
+                        outCell.textContent = formatSingleTime(outText);
+                    });
+                }
+                
+                function formatSingleTime(text) {
+                    if (text === '--:--' || text === '--' || text.includes('AM') || text.includes('PM')) {
+                        return text;
+                    }
+                    
+                    let timePart = text;
+                    if (text.includes(' ')) {
+                        timePart = text.split(' ')[1]; 
+                    }
+                    if (timePart.includes('.')) {
+                        timePart = timePart.split('.')[0]; 
+                    }
+                    
+                    const parts = timePart.split(':');
+                    if (parts.length >= 2) {
+                        let hours = parseInt(parts[0], 10);
+                        const minutes = parts[1];
+                        if (isNaN(hours)) return text;
+                        
+                        const ampm = hours >= 12 ? 'PM' : 'AM';
+                        hours = hours % 12;
+                        hours = hours ? hours : 12;
+                        const strHours = String(hours).padStart(2, '0');
+                        
+                        return `${strHours}:${minutes} ${ampm}`;
+                    }
+                    return text;
+                }
+                
+                formatTimeElements();
+                
+                // Also hook into global callback if background live-updates complete
+                const oldCallback = window.onLiveUpdateComplete;
+                window.onLiveUpdateComplete = function(doc) {
+                    if (typeof oldCallback === 'function') oldCallback(doc);
+                    formatTimeElements();
+                };
+            })();
+        </script>
     </section>
 </body>
 

@@ -485,6 +485,16 @@ public class DatabaseManager {
             conn.commit();
             System.out.println("Database: Created index idx_raw_logs_punch_time successfully.");
         } catch (Exception ignored) {}
+        try {
+            execute("CREATE INDEX idx_attendance_punch_date ON attendance (punch_date)");
+            conn.commit();
+            System.out.println("Database: Created index idx_attendance_punch_date successfully.");
+        } catch (Exception ignored) {}
+        try {
+            execute("CREATE INDEX idx_leaves_dates ON leaves (from_date, to_date, status)");
+            conn.commit();
+            System.out.println("Database: Created index idx_leaves_dates successfully.");
+        } catch (Exception ignored) {}
 
         // Self-healing migration for attendance table: deduplicate and add UNIQUE key on (emp_id, punch_date)
         try {

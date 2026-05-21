@@ -2,6 +2,7 @@ package com.bhspl.web;
 
 import com.bhspl.db.DatabaseManager;
 import com.bhspl.service.SyncService;
+import com.bhspl.util.CacheManager;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -80,42 +81,98 @@ public class WebController {
             com.bhspl.service.PushService.start();
         }
 
-        try {
-            DatabaseManager.getInstance()
-                    .execute("UPDATE raw_logs SET synced=0 WHERE punch_time >= DATE_SUB(NOW(), INTERVAL 1 DAY)");
-        } catch (Exception ignored) {
-        }
+        // Removed brute-force daily raw_logs reset from GET request to prevent DB lock contention
 
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             if (isExport) pageSize = 50000;
             int offset = (page - 1) * pageSize;
 
-            // Stats
-            long totalEmps = db.queryLong("SELECT COUNT(*) FROM employees WHERE status='Active'");
-            long presentCount = db
-                    .queryLong(
-                            "SELECT COUNT(DISTINCT r.emp_id) FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.status = 'Active'");
-            long leaveCount = db.queryLong(
-                    "SELECT COUNT(*) FROM leaves WHERE status='Approved' AND CURDATE() BETWEEN from_date AND to_date");
+            // Stats & Analytics Caching
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> stats = (java.util.Map<String, Object>) CacheManager.getInstance().get("dashboard_stats");
+            if (stats == null || !stats.containsKey("weeklyPresentCounts")) {
+                stats = new java.util.HashMap<>();
+                long totalEmpsVal = db.queryLong("SELECT COUNT(*) FROM employees WHERE status='Active'");
+                long presentCountVal = db.queryLong(
+                        "SELECT COUNT(DISTINCT r.emp_id) FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.status = 'Active'");
+                long leaveCountVal = db.queryLong(
+                        "SELECT COUNT(*) FROM leaves WHERE status='Approved' AND CURDATE() BETWEEN from_date AND to_date");
+                // totalLogs is equal to presentCount!
+                long totalLogsVal = presentCountVal;
+                long lateCountVal = db.queryLong(
+                        "SELECT COUNT(*) FROM attendance WHERE punch_date = CURDATE() AND status = 'Late'");
+                long devicesOnlineVal = db.queryLong("SELECT COUNT(*) FROM devices WHERE status = 'Active'");
+                long pendingLeavesVal = db.queryLong("SELECT COUNT(*) FROM leaves WHERE status = 'Pending'");
+                long weeklyOffCountVal = db.queryLong(
+                        "SELECT COUNT(e.emp_id) FROM employees e LEFT JOIN shifts s ON e.shift = s.shift_name WHERE s.weekly_off1 = DAYNAME(CURDATE()) OR s.weekly_off2 = DAYNAME(CURDATE())");
+
+                stats.put("totalEmps", totalEmpsVal);
+                stats.put("presentCount", presentCountVal);
+                stats.put("leaveCount", leaveCountVal);
+                stats.put("totalLogs", totalLogsVal);
+                stats.put("lateCount", lateCountVal);
+                stats.put("devicesOnline", devicesOnlineVal);
+                stats.put("pendingLeaves", pendingLeavesVal);
+                stats.put("weeklyOffCount", weeklyOffCountVal);
+
+                // Compute Weekly Data inside the cache block
+                List<String> weekDatesList = new java.util.ArrayList<>();
+                List<String> weekDaysList = new java.util.ArrayList<>();
+                java.time.format.DateTimeFormatter dayFormatter = java.time.format.DateTimeFormatter.ofPattern("EEE");
+
+                for (int i = 6; i >= 0; i--) {
+                    java.time.LocalDate d = java.time.LocalDate.now().minusDays(i);
+                    weekDatesList.add(d.toString());
+                    weekDaysList.add(d.format(dayFormatter));
+                }
+
+                List<Long> weeklyPresentCountsList = new java.util.ArrayList<>();
+                if (!weekDatesList.isEmpty()) {
+                    String startDate = weekDatesList.get(0);
+                    String endDate = weekDatesList.get(weekDatesList.size() - 1);
+                    List<Map<String, Object>> rows = db.query(
+                            "SELECT DATE(r.punch_time) as pdate, COUNT(DISTINCT r.emp_id) as pcount " +
+                            "FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id " +
+                            "WHERE r.punch_time >= ? AND r.punch_time < DATE_ADD(?, INTERVAL 1 DAY) AND e.status = 'Active' " +
+                            "GROUP BY DATE(r.punch_time)",
+                            startDate, endDate);
+                    Map<String, Long> countMap = new java.util.HashMap<>();
+                    for (Map<String, Object> r : rows) {
+                        Object pdateObj = r.get("pdate");
+                        if (pdateObj != null) {
+                            countMap.put(pdateObj.toString(), ((Number) r.get("pcount")).longValue());
+                        }
+                    }
+                    for (String d : weekDatesList) {
+                        weeklyPresentCountsList.add(countMap.getOrDefault(d, 0L));
+                    }
+                }
+                stats.put("weeklyPresentCounts", weeklyPresentCountsList);
+                stats.put("weekDates", weekDatesList);
+                stats.put("weekDays", weekDaysList);
+
+                CacheManager.getInstance().put("dashboard_stats", stats, 300000); // 5 minutes cache
+            }
+
+            long totalEmps = ((Number) stats.get("totalEmps")).longValue();
+            long presentCount = ((Number) stats.get("presentCount")).longValue();
+            long leaveCount = ((Number) stats.get("leaveCount")).longValue();
             long absentCount = totalEmps - presentCount - leaveCount;
             if (absentCount < 0)
                 absentCount = 0;
 
             // Pagination info
-            long totalLogs = db.queryLong(
-                    "SELECT COUNT(*) FROM (SELECT r.emp_id FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.status = 'Active' GROUP BY r.emp_id) as t");
+            long totalLogs = ((Number) stats.get("totalLogs")).longValue();
             int totalPages = (int) Math.ceil((double) totalLogs / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
 
             // New Analytics
-            long lateCount = db
-                    .queryLong("SELECT COUNT(*) FROM attendance WHERE punch_date = CURDATE() AND status = 'Late'");
-            long devicesOnline = db.queryLong("SELECT COUNT(*) FROM devices WHERE status = 'Active'");
-            long pendingLeaves = db.queryLong("SELECT COUNT(*) FROM leaves WHERE status = 'Pending'");
-            long weeklyOffCount = db.queryLong(
-                    "SELECT COUNT(e.emp_id) FROM employees e LEFT JOIN shifts s ON e.shift = s.shift_name WHERE s.weekly_off1 = DAYNAME(CURDATE()) OR s.weekly_off2 = DAYNAME(CURDATE())");
+            long lateCount = ((Number) stats.get("lateCount")).longValue();
+            long devicesOnline = ((Number) stats.get("devicesOnline")).longValue();
+            long pendingLeaves = ((Number) stats.get("pendingLeaves")).longValue();
+            long weeklyOffCount = ((Number) stats.get("weeklyOffCount")).longValue();
 
             // Recent Logs (Live Attendance Overview)
             String searchFilter = "";
@@ -141,29 +198,17 @@ public class WebController {
 
             // Weekly Data mapping
             Map<String, Map<String, String>> weeklyData = new java.util.HashMap<>();
-            List<String> weekDates = new java.util.ArrayList<>();
-            List<String> weekDays = new java.util.ArrayList<>();
-            java.time.format.DateTimeFormatter dayFormatter = java.time.format.DateTimeFormatter.ofPattern("EEE");
+            @SuppressWarnings("unchecked")
+            List<String> weekDates = (List<String>) stats.get("weekDates");
+            @SuppressWarnings("unchecked")
+            List<String> weekDays = (List<String>) stats.get("weekDays");
+            @SuppressWarnings("unchecked")
+            List<Long> weeklyPresentCounts = (List<Long>) stats.get("weeklyPresentCounts");
 
-            for (int i = 6; i >= 0; i--) {
-                java.time.LocalDate d = java.time.LocalDate.now().minusDays(i);
-                weekDates.add(d.toString());
-                weekDays.add(d.format(dayFormatter));
-            }
-
-            // Calculate Total Presents for the Bar Chart using range-scans (fully utilizes
-            // index on punch_time)
-            List<Long> weeklyPresentCounts = new java.util.ArrayList<>();
-            for (String d : weekDates) {
-                long presentOnDay = db.queryLong(
-                        "SELECT COUNT(DISTINCT r.emp_id) FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE r.punch_time >= ? AND r.punch_time < DATE_ADD(?, INTERVAL 1 DAY) AND e.status = 'Active'",
-                        d, d);
-                weeklyPresentCounts.add(presentOnDay);
-            }
             model.addAttribute("weeklyPresentCounts", weeklyPresentCounts);
 
             // Fetch Latest Sync Time
-            String lastSync = db.queryString("SELECT MAX(last_sync) FROM devices");
+            String lastSync = db.queryString("SELECT DATE_FORMAT(MAX(last_sync), '%Y-%m-%d %I:%i:%s %p') FROM devices");
             model.addAttribute("lastSync", lastSync != null ? lastSync : "Never");
             model.addAttribute("autoSyncActive", com.bhspl.service.SyncService.isRunning());
 
@@ -213,13 +258,20 @@ public class WebController {
             model.addAttribute("weekDays", weekDays);
             model.addAttribute("weeklyData", weeklyData);
 
-            // Recent Live Punches Activity (last 10 punches today)
+            // Recent Live Punches Activity (last 10 punches today) - Optimized to run point queries in Java
             List<Map<String, Object>> livePunches = db.query(
-                    "SELECT r.emp_id, e.emp_name, r.punch_time, " +
-                            "(SELECT COUNT(*) FROM raw_logs r2 WHERE r2.emp_id = r.emp_id AND r2.punch_time >= CURDATE() AND r2.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND r2.punch_time <= r.punch_time) as punch_num "
-                            +
-                            "FROM raw_logs r LEFT JOIN employees e ON r.emp_id = e.emp_id " +
-                            "WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.status = 'Active' ORDER BY r.punch_time DESC LIMIT 10");
+                    "SELECT r.emp_id, e.emp_name, r.punch_time " +
+                    "FROM raw_logs r LEFT JOIN employees e ON r.emp_id = e.emp_id " +
+                    "WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.status = 'Active' " +
+                    "ORDER BY r.punch_time DESC LIMIT 10");
+            for (Map<String, Object> punch : livePunches) {
+                String empId = (String) punch.get("emp_id");
+                Object punchTime = punch.get("punch_time");
+                long count = db.queryLong(
+                        "SELECT COUNT(*) FROM raw_logs WHERE emp_id = ? AND punch_time >= CURDATE() AND punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND punch_time <= ?",
+                        empId, punchTime);
+                punch.put("punch_num", count);
+            }
             model.addAttribute("livePunches", livePunches);
 
         } catch (Exception e) {
@@ -239,6 +291,7 @@ public class WebController {
         }
         try {
             SyncService.performSync();
+            com.bhspl.util.CacheManager.getInstance().invalidate("dashboard_stats");
             res.put("success", true);
             res.put("message", "Sync completed successfully.");
         } catch (Exception e) {
@@ -283,7 +336,13 @@ public class WebController {
             model.addAttribute("totalPages", totalPages);
             model.addAttribute("pageSize", pageSize);
             model.addAttribute("totalItems", total);
-            model.addAttribute("depts", db.query("SELECT dept_name FROM departments ORDER BY dept_name"));
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> cachedDepts = (List<Map<String, Object>>) CacheManager.getInstance().get("list_departments");
+            if (cachedDepts == null) {
+                cachedDepts = db.query("SELECT dept_name FROM departments ORDER BY dept_name");
+                CacheManager.getInstance().put("list_departments", cachedDepts, 3600000); // 1 hour
+            }
+            model.addAttribute("depts", cachedDepts);
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
         }
@@ -321,6 +380,7 @@ public class WebController {
     public String deleteEmployee(@PathVariable("id") String id) {
         try {
             DatabaseManager.getInstance().execute("DELETE FROM employees WHERE emp_id=?", id);
+            CacheManager.getInstance().clear();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -366,6 +426,41 @@ public class WebController {
                     where + " ORDER BY a.in_time DESC, e.emp_name ASC LIMIT " + pageSize + " OFFSET " + offset;
 
             List<Map<String, Object>> data = db.query(sql, filterDate);
+
+            java.time.format.DateTimeFormatter timeFmt = java.time.format.DateTimeFormatter.ofPattern("hh:mm a");
+            for (Map<String, Object> a : data) {
+                Object inVal = a.get("in_time");
+                if (inVal != null) {
+                    if (inVal instanceof java.sql.Timestamp) {
+                        a.put("in_time_formatted", ((java.sql.Timestamp) inVal).toLocalDateTime().format(timeFmt));
+                    } else if (inVal instanceof java.time.LocalDateTime) {
+                        a.put("in_time_formatted", ((java.time.LocalDateTime) inVal).format(timeFmt));
+                    } else {
+                        try {
+                            java.time.LocalDateTime dt = java.time.LocalDateTime.parse(inVal.toString().replace(" ", "T").substring(0, 19));
+                            a.put("in_time_formatted", dt.format(timeFmt));
+                        } catch (Exception e) {
+                            a.put("in_time_formatted", inVal.toString());
+                        }
+                    }
+                }
+
+                Object outVal = a.get("out_time");
+                if (outVal != null && !outVal.equals(inVal)) {
+                    if (outVal instanceof java.sql.Timestamp) {
+                        a.put("out_time_formatted", ((java.sql.Timestamp) outVal).toLocalDateTime().format(timeFmt));
+                    } else if (outVal instanceof java.time.LocalDateTime) {
+                        a.put("out_time_formatted", ((java.time.LocalDateTime) outVal).format(timeFmt));
+                    } else {
+                        try {
+                            java.time.LocalDateTime dt = java.time.LocalDateTime.parse(outVal.toString().replace(" ", "T").substring(0, 19));
+                            a.put("out_time_formatted", dt.format(timeFmt));
+                        } catch (Exception e) {
+                            a.put("out_time_formatted", outVal.toString());
+                        }
+                    }
+                }
+            }
 
             model.addAttribute("attendance", data);
             model.addAttribute("selDate", filterDate);
@@ -419,6 +514,42 @@ public class WebController {
                     + " ORDER BY e.emp_name ASC LIMIT " + pageSize + " OFFSET " + offset;
 
             data = db.query(sql, filterDate);
+
+            java.time.format.DateTimeFormatter timeFmt = java.time.format.DateTimeFormatter.ofPattern("hh:mm a");
+            for (Map<String, Object> r : data) {
+                Object inVal = r.get("punch_in");
+                if (inVal != null) {
+                    if (inVal instanceof java.sql.Timestamp) {
+                        r.put("punch_in", ((java.sql.Timestamp) inVal).toLocalDateTime().format(timeFmt));
+                    } else if (inVal instanceof java.time.LocalDateTime) {
+                        r.put("punch_in", ((java.time.LocalDateTime) inVal).format(timeFmt));
+                    } else {
+                        try {
+                            java.time.LocalDateTime dt = java.time.LocalDateTime.parse(inVal.toString().replace(" ", "T").substring(0, 19));
+                            r.put("punch_in", dt.format(timeFmt));
+                        } catch (Exception e) {
+                            r.put("punch_in", inVal.toString());
+                        }
+                    }
+                }
+
+                Object outVal = r.get("punch_out");
+                if (outVal != null) {
+                    if (outVal instanceof java.sql.Timestamp) {
+                        r.put("punch_out", ((java.sql.Timestamp) outVal).toLocalDateTime().format(timeFmt));
+                    } else if (outVal instanceof java.time.LocalDateTime) {
+                        r.put("punch_out", ((java.time.LocalDateTime) outVal).format(timeFmt));
+                    } else {
+                        try {
+                            java.time.LocalDateTime dt = java.time.LocalDateTime.parse(outVal.toString().replace(" ", "T").substring(0, 19));
+                            r.put("punch_out", dt.format(timeFmt));
+                        } catch (Exception e) {
+                            r.put("punch_out", outVal.toString());
+                        }
+                    }
+                }
+            }
+
             model.addAttribute("selDate", filterDate);
             model.addAttribute("selDept", (dept != null) ? dept : "All");
             model.addAttribute("currentPage", page);
@@ -2080,6 +2211,7 @@ public class WebController {
     public String systemSync(@RequestParam(name = "redirect", required = false) String redirect) {
         try {
             SyncService.performSync();
+            CacheManager.getInstance().clear();
         } catch (Exception e) {
             e.printStackTrace();
         }

@@ -33,8 +33,8 @@
                         <span
                             style="position: relative; display: inline-flex; border-radius: 50%; height: 10px; width: 10px; background-color: #10B981;"></span>
                     </span>
-                    Live Sync: <span style="color: var(--text-main); font-weight: 500;"
-                        th:text="${lastSync != 'Never' ? #strings.substring(lastSync, 11, 16) : 'Never'}">Just
+                    Live Sync: <span id="live-sync-time" style="color: var(--text-main); font-weight: 500;"
+                        th:text="${lastSync != 'Never' ? #strings.substring(lastSync, 11) : 'Never'}">Just
                         now</span>
                 </div>
             </div>
@@ -253,10 +253,6 @@
                                 style="padding: 10px 16px; border-radius: 10px;"><i
                                     class="fas fa-arrow-right"></i></button>
                         </form>
-                        <select id="view-toggle" class="view-select">
-                            <option value="today">Today's Detailed View</option>
-                            <option value="weekly">Weekly Variance Grid</option>
-                        </select>
                     </div>
                 </div>
                 <div style="overflow-x:auto;">
@@ -264,12 +260,10 @@
                         <thead>
                             <tr>
                                 <th>Employee</th>
-                                <th class="col-today">In Time</th>
-                                <th class="col-today">Out Time</th>
-                                <th class="col-today">Punches</th>
-                                <th class="col-today">Status</th>
-                                <th class="col-weekly" style="display:none;" th:each="day : ${weekDays}"
-                                    th:text="${day}">Day</th>
+                                <th>In Time</th>
+                                <th>Out Time</th>
+                                <th>Punches</th>
+                                <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -284,21 +278,21 @@
                                         </div>
                                     </div>
                                 </td>
-                                <td class="col-today">
+                                <td>
                                     <span class="day-number"
                                         th:text="${#temporals.format(log.in_time, 'hh:mm a')}">09:00 AM</span>
                                 </td>
-                                <td class="col-today">
+                                <td>
                                     <span class="day-number"
                                         th:text="${log.punches > 1 ? #temporals.format(log.out_time, 'hh:mm a') : '—'}">06:00
                                         PM</span>
                                 </td>
-                                <td class="col-today">
+                                <td>
                                     <span class="day-number"
                                         style="font-weight:700; background: #f1f5f9; padding: 4px 10px; border-radius: 20px;"
                                         th:text="${log.punches}">1</span>
                                 </td>
-                                <td class="col-today">
+                                <td>
                                     <span th:if="${#temporals.hour(log.in_time) < 10}" class="status-pill pill-green">
                                         <i class="fas fa-check-circle"></i> On Time
                                     </span>
@@ -306,19 +300,9 @@
                                         <i class="far fa-clock"></i> Late Entry
                                     </span>
                                 </td>
-                                <td class="col-weekly" style="display:none;" th:each="dateStr : ${weekDates}">
-                                    <span th:if="${weeklyData.get(log.emp_id)?.get(dateStr) == 'P'}"
-                                        class="status-pill pill-green">
-                                        <i class="fas fa-check"></i> P
-                                    </span>
-                                    <span th:unless="${weeklyData.get(log.emp_id)?.get(dateStr) == 'P'}"
-                                        class="status-pill pill-red" style="opacity: 0.3;">
-                                        -
-                                    </span>
-                                </td>
                             </tr>
                             <tr th:if="${recentLogs == null or recentLogs.empty}">
-                                <td colspan="8" style="text-align: center; padding: 60px; color: var(--text-muted);">
+                                <td colspan="5" style="text-align: center; padding: 60px; color: var(--text-muted);">
                                     <i class="fas fa-search"
                                         style="font-size: 32px; color: #cbd5e1; margin-bottom: 15px; display: block;"></i>
                                     No attendance records found.
@@ -406,158 +390,178 @@
             </div>
         </div>
 
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script th:inline="javascript">
-            // Toggle Weekly vs Today views
-            const viewToggle = document.getElementById('view-toggle');
-            const varianceTable = document.getElementById('variance-table');
+            (function () {
+                // Render Chart.js Analytics
+                function initCharts() {
+                    const ctx = document.getElementById('attendanceDoughnut');
+                    if (ctx) {
+                        const present = /*[[${presentCount}]]*/ 0;
+                        const absent = /*[[${absentCount}]]*/ 0;
+                        const leave = /*[[${leaveCount}]]*/ 0;
+                        const late = /*[[${lateCount}]]*/ 0;
 
-            function updateView(view) {
-                const weeklyCols = document.querySelectorAll('.col-weekly');
-                const todayCols = document.querySelectorAll('.col-today');
+                        const onTime = present > late ? present - late : 0;
 
-                if (view === 'weekly') {
-                    weeklyCols.forEach(col => col.style.display = 'table-cell');
-                    todayCols.forEach(col => col.style.display = 'none');
-                } else {
-                    weeklyCols.forEach(col => col.style.display = 'none');
-                    todayCols.forEach(col => col.style.display = 'table-cell');
-                }
-                localStorage.setItem('dashboard-view-mode', view);
-            }
-
-            viewToggle.addEventListener('change', function (e) {
-                updateView(e.target.value);
-            });
-
-            const savedView = localStorage.getItem('dashboard-view-mode') || 'today';
-            viewToggle.value = savedView;
-            updateView(savedView);
-
-            // Render Chart.js Analytics
-            document.addEventListener("DOMContentLoaded", function () {
-                const ctx = document.getElementById('attendanceDoughnut');
-                if (ctx) {
-                    const present = /*[[${presentCount}]]*/ 0;
-                    const absent = /*[[${absentCount}]]*/ 0;
-                    const leave = /*[[${leaveCount}]]*/ 0;
-                    const late = /*[[${lateCount}]]*/ 0;
-
-                    const onTime = present > late ? present - late : 0;
-
-                    if (window.attendanceDoughnutChart) {
-                        window.attendanceDoughnutChart.destroy();
-                    }
-                    window.attendanceDoughnutChart = new Chart(ctx.getContext('2d'), {
-                        type: 'doughnut',
-                        data: {
-                            labels: ['On Time', 'Late', 'Absent', 'On Leave'],
-                            datasets: [{
-                                data: [onTime, late, absent, leave],
-                                backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#D946EF'],
-                                borderWidth: 0,
-                                hoverOffset: 6
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    position: 'bottom',
-                                    labels: {
-                                        padding: 20,
-                                        usePointStyle: true,
-                                        font: {
-                                            family: "'Inter', sans-serif",
-                                            size: 12,
-                                            weight: '500'
+                        try {
+                            if (window.attendanceDoughnutChart && typeof window.attendanceDoughnutChart.destroy === 'function') {
+                                window.attendanceDoughnutChart.destroy();
+                            }
+                        } catch (e) {
+                            console.warn('Failed to destroy old attendanceDoughnutChart:', e);
+                        }
+                        window.attendanceDoughnutChart = new Chart(ctx.getContext('2d'), {
+                            type: 'doughnut',
+                            data: {
+                                labels: ['On Time', 'Late', 'Absent', 'On Leave'],
+                                datasets: [{
+                                    data: [onTime, late, absent, leave],
+                                    backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#D946EF'],
+                                    borderWidth: 0,
+                                    hoverOffset: 6
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        position: 'bottom',
+                                        labels: {
+                                            padding: 20,
+                                            usePointStyle: true,
+                                            font: {
+                                                family: "'Inter', sans-serif",
+                                                size: 12,
+                                                weight: '500'
+                                            }
                                         }
                                     }
-                                }
-                            },
-                            cutout: '75%'
-                        }
-                    });
-                }
-
-                const weeklyCtx = document.getElementById('weeklyChart');
-                if (weeklyCtx) {
-                    // Generate Weekly Data from Backend
-                    const weekDays = /*[[${weekDays}]]*/['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                    const weeklyPresentCounts = /*[[${weeklyPresentCounts}]]*/[0, 0, 0, 0, 0, 0, 0];
-
-                    if (window.weeklyTrendChart) {
-                        window.weeklyTrendChart.destroy();
-                    }
-                    window.weeklyTrendChart = new Chart(weeklyCtx.getContext('2d'), {
-                        type: 'line',
-                        data: {
-                            labels: weekDays,
-                            datasets: [{
-                                label: 'Present',
-                                data: weeklyPresentCounts,
-                                borderColor: '#0284C7',
-                                backgroundColor: 'rgba(2, 132, 199, 0.1)',
-                                fill: true,
-                                tension: 0.4,
-                                borderWidth: 3,
-                                pointBackgroundColor: '#ffffff',
-                                pointBorderColor: '#0284C7',
-                                pointBorderWidth: 2,
-                                pointRadius: 4,
-                                pointHoverRadius: 6
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: { display: false }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    grid: { color: '#f1f5f9', drawBorder: false },
-                                    ticks: { font: { size: 10, family: "'Inter', sans-serif" } }
                                 },
-                                x: {
-                                    grid: { display: false },
-                                    ticks: { font: { size: 11, family: "'Inter', sans-serif" } }
+                                cutout: '75%'
+                            }
+                        });
+                    }
+
+                    const weeklyCtx = document.getElementById('weeklyChart');
+                    if (weeklyCtx) {
+                        // Generate Weekly Data from Backend
+                        const weekDays = /*[[${weekDays}]]*/['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                        const weeklyPresentCounts = /*[[${weeklyPresentCounts}]]*/[0, 0, 0, 0, 0, 0, 0];
+
+                        try {
+                            if (window.weeklyTrendChart && typeof window.weeklyTrendChart.destroy === 'function') {
+                                window.weeklyTrendChart.destroy();
+                            }
+                        } catch (e) {
+                            console.warn('Failed to destroy old weeklyTrendChart:', e);
+                        }
+                        window.weeklyTrendChart = new Chart(weeklyCtx.getContext('2d'), {
+                            type: 'line',
+                            data: {
+                                labels: weekDays,
+                                datasets: [{
+                                    label: 'Present',
+                                    data: weeklyPresentCounts,
+                                    borderColor: '#0284C7',
+                                    backgroundColor: 'rgba(2, 132, 199, 0.1)',
+                                    fill: true,
+                                    tension: 0.4,
+                                    borderWidth: 3,
+                                    pointBackgroundColor: '#ffffff',
+                                    pointBorderColor: '#0284C7',
+                                    pointBorderWidth: 2,
+                                    pointRadius: 4,
+                                    pointHoverRadius: 6
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { display: false }
+                                },
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        grid: { color: '#f1f5f9', drawBorder: false },
+                                        ticks: { font: { size: 10, family: "'Inter', sans-serif" } }
+                                    },
+                                    x: {
+                                        grid: { display: false },
+                                        ticks: { font: { size: 11, family: "'Inter', sans-serif" } }
+                                    }
                                 }
                             }
-                        }
-                    });
+                        });
+                    }
                 }
-            });
 
-            // Global callback after background live-updates complete
-            window.onLiveUpdateComplete = function(doc) {
-                // 1. Update Stats Doughnut Chart
-                const presentEl = document.querySelector('.stat-card.present h3');
-                const absentEl = document.querySelector('.stat-card.absent h3');
-                const leaveEl = document.querySelector('.stat-card.leave h3');
-                const lateEl = document.querySelector('.stat-card.late h3');
-                
-                if (presentEl && absentEl && leaveEl && lateEl && window.attendanceDoughnutChart) {
-                    const present = parseInt(presentEl.textContent) || 0;
-                    const absent = parseInt(absentEl.textContent) || 0;
-                    const leave = parseInt(leaveEl.textContent) || 0;
-                    const late = parseInt(lateEl.textContent) || 0;
-                    const onTime = present > late ? present - late : 0;
+                // Safely schedule chart initialization after DOM layout has stabilized
+                if (window.requestAnimationFrame) {
+                    window.requestAnimationFrame(initCharts);
+                } else {
+                    setTimeout(initCharts, 50);
+                }
+
+                // Global callback after background live-updates complete
+                window.onLiveUpdateComplete = function(doc) {
+                    // 1. Update Stats Doughnut Chart
+                    const presentEl = document.querySelector('.stat-card.present h3');
+                    const absentEl = document.querySelector('.stat-card.absent h3');
+                    const leaveEl = document.querySelector('.stat-card.leave h3');
+                    const lateEl = document.querySelector('.stat-card.late h3');
                     
-                    window.attendanceDoughnutChart.data.datasets[0].data = [onTime, late, absent, leave];
-                    window.attendanceDoughnutChart.update();
-                }
+                    if (presentEl && absentEl && leaveEl && lateEl && window.attendanceDoughnutChart) {
+                        const present = parseInt(presentEl.textContent) || 0;
+                        const absent = parseInt(absentEl.textContent) || 0;
+                        const leave = parseInt(leaveEl.textContent) || 0;
+                        const late = parseInt(lateEl.textContent) || 0;
+                        const onTime = present > late ? present - late : 0;
+                        
+                        window.attendanceDoughnutChart.data.datasets[0].data = [onTime, late, absent, leave];
+                        window.attendanceDoughnutChart.update();
+                    }
 
-                // 2. Update Weekly Trend Line Chart
-                const weeklyDataEl = document.getElementById('weekly-counts-data');
-                if (weeklyDataEl && window.weeklyTrendChart) {
-                    const newCounts = weeklyDataEl.value.split(',').map(Number);
-                    window.weeklyTrendChart.data.datasets[0].data = newCounts;
-                    window.weeklyTrendChart.update();
+                    // 2. Update Weekly Trend Line Chart
+                    const weeklyDataEl = document.getElementById('weekly-counts-data');
+                    if (weeklyDataEl && window.weeklyTrendChart) {
+                        const newCounts = weeklyDataEl.value.split(',').map(Number);
+                        window.weeklyTrendChart.data.datasets[0].data = newCounts;
+                        window.weeklyTrendChart.update();
+                    }
+                };
+
+                // Format Live Sync Time to 12-hour AM/PM format
+                function formatLiveSyncTimeTo12Hour() {
+                    const syncEl = document.getElementById('live-sync-time');
+                    if (!syncEl) return;
+                    let text = syncEl.textContent.trim();
+                    if (text === 'Never' || text === 'Just now' || text.includes('AM') || text.includes('PM')) {
+                        return;
+                    }
+                    
+                    if (text.includes('.')) {
+                        text = text.split('.')[0];
+                    }
+                    
+                    const parts = text.split(':');
+                    if (parts.length >= 2) {
+                        let hours = parseInt(parts[0], 10);
+                        const minutes = parts[1];
+                        const seconds = parts.length > 2 ? parts[2] : '00';
+                        if (isNaN(hours)) return;
+                        
+                        const ampm = hours >= 12 ? 'PM' : 'AM';
+                        hours = hours % 12;
+                        hours = hours ? hours : 12;
+                        const strHours = String(hours).padStart(2, '0');
+                        
+                        syncEl.textContent = `${strHours}:${minutes}:${seconds} ${ampm}`;
+                    }
                 }
-            };
+                formatLiveSyncTimeTo12Hour();
+            })();
         </script>
     </section>
 </body>
