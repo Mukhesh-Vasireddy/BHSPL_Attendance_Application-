@@ -11,11 +11,6 @@
                 <div style="display: flex; align-items: center; gap: 15px; margin-top: 5px;">
                     <span style="font-size: 16px; color: var(--text-muted); font-weight: 500;">Comprehensive System
                         Overview & Real-time Analytics</span>
-                    <div style="display: flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;"
-                        th:classappend="${autoSyncActive ? 'pill-green' : 'pill-red'}">
-                        <i th:class="${autoSyncActive ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle'}"></i>
-                        <span th:text="${autoSyncActive ? 'Auto-Polling Active' : 'Auto-Polling Stopped'}"></span>
-                    </div>
                 </div>
             </div>
 
@@ -25,18 +20,6 @@
                     style="background: var(--glass-bg); color: var(--text-main); border: 1px solid var(--glass-border); padding: 10px 15px; border-radius: 12px; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px; box-shadow: var(--card-shadow); cursor: pointer;">
                     <i class="fas fa-sync-alt"></i> Sync Now
                 </button>
-                <div
-                    style="background: rgba(16, 185, 129, 0.08); color: #10B981; padding: 10px 18px; border-radius: 12px; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(16, 185, 129, 0.2); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.05);">
-                    <span style="position: relative; display: flex; height: 10px; width: 10px;">
-                        <span
-                            style="animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; position: absolute; display: inline-flex; height: 100%; width: 100%; border-radius: 50%; background-color: #10B981; opacity: 0.75;"></span>
-                        <span
-                            style="position: relative; display: inline-flex; border-radius: 50%; height: 10px; width: 10px; background-color: #10B981;"></span>
-                    </span>
-                    Live Sync: <span id="live-sync-time" style="color: var(--text-main); font-weight: 500;"
-                        th:text="${lastSync != 'Never' ? #strings.substring(lastSync, 11) : 'Never'}">Just
-                        now</span>
-                </div>
             </div>
         </div>
 
@@ -532,35 +515,7 @@
                     }
                 };
 
-                // Format Live Sync Time to 12-hour AM/PM format
-                function formatLiveSyncTimeTo12Hour() {
-                    const syncEl = document.getElementById('live-sync-time');
-                    if (!syncEl) return;
-                    let text = syncEl.textContent.trim();
-                    if (text === 'Never' || text === 'Just now' || text.includes('AM') || text.includes('PM')) {
-                        return;
-                    }
-                    
-                    if (text.includes('.')) {
-                        text = text.split('.')[0];
-                    }
-                    
-                    const parts = text.split(':');
-                    if (parts.length >= 2) {
-                        let hours = parseInt(parts[0], 10);
-                        const minutes = parts[1];
-                        const seconds = parts.length > 2 ? parts[2] : '00';
-                        if (isNaN(hours)) return;
-                        
-                        const ampm = hours >= 12 ? 'PM' : 'AM';
-                        hours = hours % 12;
-                        hours = hours ? hours : 12;
-                        const strHours = String(hours).padStart(2, '0');
-                        
-                        syncEl.textContent = `${strHours}:${minutes}:${seconds} ${ampm}`;
-                    }
-                }
-                formatLiveSyncTimeTo12Hour();
+
             })();
         </script>
     </section>

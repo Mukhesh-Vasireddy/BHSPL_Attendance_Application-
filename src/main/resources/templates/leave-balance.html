@@ -11,7 +11,7 @@
                 </h3>
                 <div style="display: flex; gap: 10px;">
                     <button class="btn-primary" style="background: #10B981;" onclick="openCreditModal()"><i class="fas fa-plus"></i> Credit Leaves</button>
-                    <button class="btn-primary" style="background: #F59E0B;"><i class="fas fa-calendar-check"></i> Year-End Process</button>
+                    <button class="btn-primary" style="background: #F59E0B;" onclick="openYearEndModal()"><i class="fas fa-calendar-check"></i> Year-End Process</button>
                     <!-- Excel Export Group -->
                     <div style="display: flex; gap: 2px;">
                         <button type="button" onclick="performFullExport('Leave_Balances.xls')" class="btn-primary" style="background: #10b981; color: #fff; border-radius: 12px 0 0 12px; font-size: 13px; padding: 10px 15px; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px;" title="Export ALL records across all pages">
@@ -55,6 +55,39 @@
                 </div>
                 <button type="submit" class="btn-primary"><i class="fas fa-filter"></i> Filter</button>
             </form>
+        </div>
+
+        <!-- Leave Analytics Dashboard -->
+        <div class="card" style="margin-bottom: 20px; padding: 0; overflow: hidden; border: 1px solid rgba(99, 102, 241, 0.15); box-shadow: 0 4px 20px -2px rgba(99, 102, 241, 0.05);">
+            <div style="background: rgba(99, 102, 241, 0.05); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;" onclick="toggleAnalytics()">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-chart-pie" style="color: var(--accent-purple); font-size: 18px;"></i>
+                    <h4 style="margin: 0; color: var(--text-main); font-weight: 700; font-size: 15px;">Leave Usage Analytics</h4>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span id="analyticsToggleText" style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Expand Dashboard</span>
+                    <i id="analyticsToggleIcon" class="fas fa-chevron-down" style="font-size: 12px; color: var(--text-muted); transition: transform 0.3s;"></i>
+                </div>
+            </div>
+            
+            <div id="analyticsContent" style="display: none; padding: 25px; background: var(--bg-card); border-top: 1px solid rgba(226, 232, 240, 0.8);">
+                <div style="display: grid; grid-template-columns: 3fr 2fr; gap: 30px;">
+                    <!-- Department Leave Usage Chart -->
+                    <div style="background: rgba(248, 250, 252, 0.5); padding: 20px; border-radius: 16px; border: 1px solid #E2E8F0; min-height: 280px; display: flex; flex-direction: column;">
+                        <h5 style="margin: 0 0 15px; color: #475569; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Department-wise Leave Usage</h5>
+                        <div style="flex: 1; position: relative;">
+                            <canvas id="deptUsageChart" style="max-height: 250px; width: 100%;"></canvas>
+                        </div>
+                    </div>
+                    <!-- Leave Type Distribution Chart -->
+                    <div style="background: rgba(248, 250, 252, 0.5); padding: 20px; border-radius: 16px; border: 1px solid #E2E8F0; min-height: 280px; display: flex; flex-direction: column;">
+                        <h5 style="margin: 0 0 15px; color: #475569; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Leave Type Distribution</h5>
+                        <div style="flex: 1; position: relative; display: flex; justify-content: center; align-items: center;">
+                            <canvas id="typeUsageChart" style="max-height: 220px; width: 100%;"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Summary Stats Cards -->
@@ -108,10 +141,19 @@
                         <td th:text="${b.carry_fwd}">0.0</td>
                         <td th:text="${b.used}" style="color: #F59E0B;">2.0</td>
                         <td th:text="${b.lapsed}" style="color: #EF4444;">0.0</td>
-                        <td th:text="${b.closing_bal}" style="font-weight: 700; color: #10B981;">10.0</td>
+                        <td style="font-weight: 700; white-space: nowrap;">
+                            <span th:if="${b.closing_bal <= 0.0}" style="color: #EF4444; display: inline-flex; align-items: center; gap: 6px;">
+                                <i class="fas fa-exclamation-circle" style="font-size: 13px;"></i> <span th:text="${b.closing_bal}">0.0</span>
+                            </span>
+                            <span th:if="${b.closing_bal > 0.0 and b.closing_bal <= 2.0}" style="color: #F59E0B; display: inline-flex; align-items: center; gap: 6px;">
+                                <i class="fas fa-exclamation-triangle" style="font-size: 13px;"></i> <span th:text="${b.closing_bal}">1.5</span>
+                            </span>
+                            <span th:if="${b.closing_bal > 2.0}" style="color: #10B981;" th:text="${b.closing_bal}">10.0</span>
+                        </td>
                         <td>
                             <div class="action-col">
                                 <button class="action-btn edit" title="Adjust Balance" onclick="adjustBalance(this)"><i class="fas fa-pen"></i></button>
+                                <button class="action-btn" style="color: var(--accent-primary); border-color: rgba(2, 132, 199, 0.2);" title="Leave Transaction History" onclick="viewHistory(this)"><i class="fas fa-history"></i></button>
                             </div>
                         </td>
                     </tr>
@@ -132,12 +174,28 @@
                 </div>
                 <form action="/leave/balance/credit" method="POST" id="creditForm">
                     <div style="padding: 25px;">
-                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">This will credit the specified leave type to all active employees for the year <strong th:text="${selYear}">2026</strong>.</p>
+                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">This will credit leaves to matching active employees based on target criteria for <strong th:text="${selYear}">2026</strong>.</p>
                         
                         <div class="form-group">
                             <label>Leave Type</label>
                             <select name="type" class="form-control" required>
                                 <option th:each="t : ${types}" th:value="${t.leave_type}" th:text="${t.leave_type}"></option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Target Department</label>
+                            <select name="dept" class="form-control" required>
+                                <option value="All">All Departments</option>
+                                <option th:each="d : ${depts}" th:value="${d.dept_name}" th:text="${d.dept_name}"></option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Or Target Employee (Optional)</label>
+                            <select name="empId" class="form-control">
+                                <option value="All">All Employees</option>
+                                <option th:each="e : ${employees}" th:value="${e.emp_id}" th:text="${e.emp_name + ' (' + e.emp_id + ')'}"></option>
                             </select>
                         </div>
                         
@@ -146,15 +204,61 @@
                             <input type="number" step="0.5" name="amount" class="form-control" placeholder="e.g. 1.0" required>
                         </div>
 
+                        <div class="form-group">
+                            <label>Remarks / Description</label>
+                            <input type="text" name="remarks" class="form-control" placeholder="e.g. Monthly Credit" required value="Manual Credit">
+                        </div>
+
                         <div style="background: rgba(16, 185, 129, 0.05); padding: 15px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2); margin-top: 10px;">
                             <p style="margin: 0; color: #10b981; font-size: 12px; line-height: 1.4;">
-                                <i class="fas fa-info-circle"></i> This action will increment the "Credited" and "Balance" columns for all matching employee records.
+                                <i class="fas fa-info-circle"></i> This action will credit leaves for selected employees and create audit log transaction tracking.
                             </p>
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn-primary" style="background: #f1f5f9; color: var(--text-main);" onclick="closeModal('creditModal')">Cancel</button>
                         <button type="submit" class="btn-primary">Process Credits</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Year-End Process Modal -->
+        <div id="yearEndModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Year-End Balance Process</h3>
+                    <span class="close" onclick="closeModal('yearEndModal')">&times;</span>
+                </div>
+                <form action="/leave/balance/yearend" method="POST" onsubmit="return confirm('WARNING: This will carry forward leaves and lapse active balances based on policy rules for all active employees. Are you sure you want to proceed?')">
+                    <div style="padding: 25px;">
+                        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px;">
+                            This process will transition active leave balances from the source year to the target year based on the active carry-forward policy rules.
+                        </p>
+                        
+                        <div class="form-group">
+                            <label>Source Year (From)</label>
+                            <select name="sourceYear" class="form-control" required>
+                                <option th:each="y : ${#numbers.sequence(2025, 2027)}" th:value="${y}" th:text="${y}" th:selected="${selYear == #strings.toString(y)}"></option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Target Year (To)</label>
+                            <select name="targetYear" class="form-control" required>
+                                <option th:each="y : ${#numbers.sequence(2025, 2027)}" th:value="${y}" th:text="${y}" th:selected="${y == T(java.lang.Integer).parseInt(selYear) + 1}"></option>
+                            </select>
+                        </div>
+
+                        <div style="background: rgba(245, 158, 11, 0.05); padding: 15px; border-radius: 12px; border: 1px solid rgba(245, 158, 11, 0.2); margin-top: 10px;">
+                            <p style="margin: 0; color: #d97706; font-size: 12px; line-height: 1.4;">
+                                <i class="fas fa-exclamation-triangle"></i> Carry-forward limits, lapses, and opening balances are computed automatically per employee based on each leave type's policy rules.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-primary" style="background: #f1f5f9; color: var(--text-main);" onclick="closeModal('yearEndModal')">Cancel</button>
+                        <button type="submit" class="btn-primary" style="background: #F59E0B;">Execute Year-End</button>
                     </div>
                 </form>
             </div>
@@ -191,9 +295,55 @@
             </div>
         </div>
 
-        <script>
+        <!-- Leave History Modal -->
+        <div id="historyModal" class="modal">
+            <div class="modal-content" style="max-width: 800px; width: 90%;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-history" style="color: var(--accent-purple);"></i> Leave Transaction History</h3>
+                    <span class="close" onclick="closeModal('historyModal')">&times;</span>
+                </div>
+                <div style="padding: 25px;">
+                    <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(226, 232, 240, 0.8); padding-bottom: 15px;">
+                        <div>
+                            <span id="histTitle" style="color: var(--text-main); font-weight: 700; font-size: 16px;">Employee Name</span><br>
+                            <span id="histSub" style="color: var(--text-muted); font-size: 13px;">ID: 101 | Casual Leave (2026)</span>
+                        </div>
+                        <div id="histCurrentBalContainer" style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 8px 12px; border-radius: 10px; text-align: right;">
+                            <span style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #10B981; display: block;">Current Balance</span>
+                            <span id="histCurrentBal" style="font-size: 18px; font-weight: 700; color: #10B981;">0.0 Days</span>
+                        </div>
+                    </div>
+                    
+                    <div style="max-height: 350px; overflow-y: auto;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid #E2E8F0; text-align: left;">
+                                    <th style="padding: 10px 8px; color: #64748B; font-weight: 600;">Date/Time</th>
+                                    <th style="padding: 10px 8px; color: #64748B; font-weight: 600;">Type</th>
+                                    <th style="padding: 10px 8px; color: #64748B; font-weight: 600; text-align: right;">Amount (Days)</th>
+                                    <th style="padding: 10px 8px; color: #64748B; font-weight: 600;">Reference</th>
+                                    <th style="padding: 10px 8px; color: #64748B; font-weight: 600;">Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody">
+                                <!-- Dynamic rows via AJAX -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-primary" style="background: #64748B;" onclick="closeModal('historyModal')">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <script th:inline="javascript">
             function openCreditModal() {
                 document.getElementById('creditModal').style.display = 'flex';
+            }
+
+            function openYearEndModal() {
+                document.getElementById('yearEndModal').style.display = 'flex';
             }
 
             function closeModal(id) {
@@ -211,6 +361,209 @@
                 document.getElementById('adjSub').innerText = 'ID: ' + tr.dataset.empid + ' | ' + tr.dataset.type + ' (' + tr.dataset.year + ')';
                 
                 document.getElementById('adjustModal').style.display = 'flex';
+            }
+
+            function viewHistory(btn) {
+                const tr = btn.closest('tr');
+                const empId = tr.dataset.empid;
+                const type = tr.dataset.type;
+                const year = tr.dataset.year;
+                const closingBal = tr.dataset.bal;
+                const empName = tr.querySelector('td:nth-child(2)').innerText;
+
+                document.getElementById('histTitle').innerText = empName;
+                document.getElementById('histSub').innerText = 'ID: ' + empId + ' | ' + type + ' (' + year + ')';
+                document.getElementById('histCurrentBal').innerText = closingBal + ' Days';
+                
+                const tableBody = document.getElementById('historyTableBody');
+                tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #94A3B8;"><i class="fas fa-spinner fa-spin"></i> Loading transaction history...</td></tr>`;
+                
+                document.getElementById('historyModal').style.display = 'flex';
+
+                fetch(`/api/leave/balance/history?empId=${encodeURIComponent(empId)}&type=${encodeURIComponent(type)}&year=${year}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        tableBody.innerHTML = '';
+                        if (!data || data.length === 0) {
+                            tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #94A3B8;">No transaction history found.</td></tr>`;
+                            return;
+                        }
+                        data.forEach(tx => {
+                            const row = document.createElement('tr');
+                            row.style.borderBottom = '1px solid #F1F5F9';
+                            
+                            let amtColor = '#64748B';
+                            let prefix = '';
+                            if (tx.amount > 0) {
+                                amtColor = '#10B981';
+                                prefix = '+';
+                            } else if (tx.amount < 0) {
+                                amtColor = '#EF4444';
+                            }
+                            const amountHtml = `<span style="color: ${amtColor}; font-weight: 700;">${prefix}${tx.amount}</span>`;
+
+                            let badgeStyle = 'background: #F1F5F9; color: #64748B;';
+                            if (tx.transaction_type === 'Credit') {
+                                badgeStyle = 'background: rgba(16, 185, 129, 0.1); color: #10B981;';
+                            } else if (tx.transaction_type === 'Deduction') {
+                                badgeStyle = 'background: rgba(239, 68, 68, 0.1); color: #EF4444;';
+                            } else if (tx.transaction_type === 'Carry-Forward') {
+                                badgeStyle = 'background: rgba(59, 130, 246, 0.1); color: #3B82F6;';
+                            } else if (tx.transaction_type === 'Lapse') {
+                                badgeStyle = 'background: rgba(148, 163, 184, 0.1); color: #64748B;';
+                            } else if (tx.transaction_type === 'Adjustment') {
+                                badgeStyle = 'background: rgba(245, 158, 11, 0.1); color: #F59E0B;';
+                            }
+
+                            const typeBadge = `<span style="display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; ${badgeStyle}">${tx.transaction_type}</span>`;
+                            
+                            row.innerHTML = `
+                                <td style="padding: 10px 8px; color: #475569;">${tx.formatted_date || tx.transaction_date}</td>
+                                <td style="padding: 10px 8px;">${typeBadge}</td>
+                                <td style="padding: 10px 8px; text-align: right;">${amountHtml}</td>
+                                <td style="padding: 10px 8px; color: #475569; font-family: monospace;">${tx.reference_id || '-'}</td>
+                                <td style="padding: 10px 8px; color: #64748B;">${tx.remarks || '-'}</td>
+                            `;
+                            tableBody.appendChild(row);
+                        });
+                    })
+                    .catch(err => {
+                        console.error('Error fetching history:', err);
+                        tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 20px; color: #EF4444;"><i class="fas fa-exclamation-triangle"></i> Failed to load transaction history.</td></tr>`;
+                    });
+            }
+
+            function toggleAnalytics() {
+                const content = document.getElementById('analyticsContent');
+                const icon = document.getElementById('analyticsToggleIcon');
+                const text = document.getElementById('analyticsToggleText');
+                
+                if (content.style.display === 'none' || !content.style.display) {
+                    content.style.display = 'block';
+                    icon.style.transform = 'rotate(180deg)';
+                    text.innerText = 'Collapse Dashboard';
+                    initAnalyticsCharts();
+                } else {
+                    content.style.display = 'none';
+                    icon.style.transform = 'rotate(0deg)';
+                    text.innerText = 'Expand Dashboard';
+                }
+            }
+
+            let deptChartInstance = null;
+            let typeChartInstance = null;
+
+            function initAnalyticsCharts() {
+                if (typeof Chart === 'undefined') {
+                    console.error('Chart.js is not loaded yet');
+                    return;
+                }
+
+                const deptCtx = document.getElementById('deptUsageChart');
+                const typeCtx = document.getElementById('typeUsageChart');
+
+                if (deptCtx) {
+                    const deptChartList = /*[[${deptChart}]]*/ [];
+                    const deptLabels = deptChartList ? deptChartList.map(item => item.department || 'Unknown') : [];
+                    const deptData = deptChartList ? deptChartList.map(item => item.used_days || 0) : [];
+
+                    if (deptChartInstance) {
+                        deptChartInstance.destroy();
+                    }
+
+                    deptChartInstance = new Chart(deptCtx.getContext('2d'), {
+                        type: 'bar',
+                        data: {
+                            labels: deptLabels,
+                            datasets: [{
+                                label: 'Leaves Used (Days)',
+                                data: deptData,
+                                backgroundColor: 'rgba(99, 102, 241, 0.7)',
+                                borderColor: 'rgb(99, 102, 241)',
+                                borderWidth: 1,
+                                borderRadius: 8,
+                                borderSkipped: false
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    padding: 10,
+                                    bodyFont: { family: "'Outfit', sans-serif" },
+                                    titleFont: { family: "'Outfit', sans-serif", weight: '700' }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    grid: { display: false },
+                                    ticks: { font: { family: "'Outfit', sans-serif", size: 11 } }
+                                },
+                                y: {
+                                    beginAtZero: true,
+                                    grid: { color: 'rgba(241, 245, 249, 0.5)' },
+                                    ticks: { font: { family: "'Outfit', sans-serif", size: 11 } }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                if (typeCtx) {
+                    const typeChartList = /*[[${typeChart}]]*/ [];
+                    const typeLabels = typeChartList ? typeChartList.map(item => item.leave_type || 'Unknown') : [];
+                    const typeData = typeChartList ? typeChartList.map(item => item.used_days || 0) : [];
+
+                    if (typeChartInstance) {
+                        typeChartInstance.destroy();
+                    }
+
+                    typeChartInstance = new Chart(typeCtx.getContext('2d'), {
+                        type: 'doughnut',
+                        data: {
+                            labels: typeLabels,
+                            datasets: [{
+                                data: typeData,
+                                backgroundColor: [
+                                    '#6366F1', // Indigo
+                                    '#10B981', // Emerald
+                                    '#F59E0B', // Amber
+                                    '#EF4444', // Rose
+                                    '#EC4899', // Pink
+                                    '#8B5CF6'  // Violet
+                                ],
+                                borderWidth: 0,
+                                hoverOffset: 8
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'right',
+                                    labels: {
+                                        padding: 15,
+                                        usePointStyle: true,
+                                        font: {
+                                            family: "'Outfit', sans-serif",
+                                            size: 11,
+                                            weight: '500'
+                                        }
+                                    }
+                                },
+                                tooltip: {
+                                    padding: 10,
+                                    bodyFont: { family: "'Outfit', sans-serif" },
+                                    titleFont: { family: "'Outfit', sans-serif", weight: '700' }
+                                }
+                            },
+                            cutout: '70%'
+                        }
+                    });
+                }
             }
         </script>
     </section>

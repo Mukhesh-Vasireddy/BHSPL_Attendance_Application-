@@ -6,6 +6,7 @@ import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication
 @ComponentScan(basePackages = {"com.bhspl"})
+@org.springframework.scheduling.annotation.EnableScheduling
 public class WebApplication {
     public static void start(String[] args) {
         System.out.println("WebApplication: Starting Spring Boot thread...");

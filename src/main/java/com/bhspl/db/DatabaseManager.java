@@ -295,6 +295,20 @@ public class DatabaseManager {
             "  FOREIGN KEY (emp_id) REFERENCES employees(emp_id) ON DELETE CASCADE" +
             ")",
 
+            // leave_transactions
+            "CREATE TABLE IF NOT EXISTS leave_transactions (" +
+            "  id              INT AUTO_INCREMENT PRIMARY KEY," +
+            "  emp_id          VARCHAR(20)," +
+            "  leave_type      VARCHAR(30)," +
+            "  year            INT," +
+            "  transaction_type VARCHAR(30) NOT NULL," +
+            "  amount          DECIMAL(5,1) NOT NULL," +
+            "  reference_id    VARCHAR(50)," +
+            "  remarks         VARCHAR(255)," +
+            "  transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+            "  FOREIGN KEY (emp_id) REFERENCES employees(emp_id) ON DELETE CASCADE" +
+            ")",
+
             // od_requests
             "CREATE TABLE IF NOT EXISTS od_requests (" +
             "  id              INT AUTO_INCREMENT PRIMARY KEY," +
@@ -521,6 +535,27 @@ public class DatabaseManager {
             }
         } catch (Exception e) {
             System.err.println("Database Migration Warning for attendance table: " + e.getMessage());
+            try { conn.rollback(); } catch (Exception ignored) {}
+        }
+
+        // Self-healing migration for leave_transactions table
+        try {
+            execute("CREATE TABLE IF NOT EXISTS leave_transactions (" +
+                    "  id              INT AUTO_INCREMENT PRIMARY KEY," +
+                    "  emp_id          VARCHAR(20)," +
+                    "  leave_type      VARCHAR(30)," +
+                    "  year            INT," +
+                    "  transaction_type VARCHAR(30) NOT NULL," +
+                    "  amount          DECIMAL(5,1) NOT NULL," +
+                    "  reference_id    VARCHAR(50)," +
+                    "  remarks         VARCHAR(255)," +
+                    "  transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+                    "  FOREIGN KEY (emp_id) REFERENCES employees(emp_id) ON DELETE CASCADE" +
+                    ")");
+            conn.commit();
+            System.out.println("Database: Successfully verified/created leave_transactions table (Self-healing).");
+        } catch (Exception e) {
+            System.err.println("Database Migration Warning for leave_transactions table: " + e.getMessage());
             try { conn.rollback(); } catch (Exception ignored) {}
         }
     }

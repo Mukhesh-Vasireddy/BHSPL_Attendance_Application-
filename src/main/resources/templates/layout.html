@@ -226,17 +226,17 @@
 
         .logo-text {
             color: #ffffff;
-            font-size: 26px;
+            font-size: 30px;
             font-weight: 800;
-            letter-spacing: 1px;
-            display: flex;
-            align-items: center;
+            letter-spacing: 0.5px;
+            display: inline-block;
+            text-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
         }
 
         .logo-text span {
-            color: var(--accent-primary);
-            position: relative;
-            text-shadow: 0 0 20px rgba(99, 102, 241, 0.4), 0 4px 8px rgba(0, 0, 0, 0.08);
+            color: #00f0ff !important;
+            text-shadow: 0 0 15px rgba(0, 240, 255, 0.6), 0 0 5px rgba(0, 240, 255, 0.3);
+            font-weight: 900;
         }
 
         .nav-menu {
@@ -878,15 +878,15 @@
         .profile-trigger .avatar-circle {
             width: 38px;
             height: 38px;
-            background: #ffffff;
-            color: var(--sidebar-bg);
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            color: #ffffff;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 16px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            border: 1px solid var(--glass-border);
+            box-shadow: 0 4px 10px rgba(2, 132, 199, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .profile-trigger .profile-text {
@@ -1130,7 +1130,7 @@
             </div>
             <div style="display: flex; gap: 20px; align-items: center;">
                 <!-- Premium Live Update Pulse Badge -->
-                <div id="live-update-badge" onclick="toggleLiveUpdate()" style="display: none; align-items: center; gap: 8px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #10B981; cursor: pointer; user-select: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 8px rgba(16, 185, 129, 0.05);" title="Click to Pause/Resume Auto Update">
+                <div id="live-update-badge" style="display: none; align-items: center; gap: 8px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #10B981; user-select: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 8px rgba(16, 185, 129, 0.05);">
                     <span style="position: relative; display: flex; height: 8px; width: 8px;">
                         <span id="live-update-ping" style="animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; position: absolute; display: inline-flex; height: 100%; width: 100%; border-radius: 50%; background-color: #10B981; opacity: 0.75;"></span>
                         <span id="live-update-dot" style="position: relative; display: inline-flex; border-radius: 50%; height: 8px; width: 8px; background-color: #10B981;"></span>
@@ -1521,28 +1521,18 @@
         // --- Real-time Auto-Update Engine ---
         let autoUpdateInterval = null;
         let countdown = 10;
-        let isAutoUpdatePaused = false;
         
         function initLiveAutoUpdate() {
-            const containers = document.querySelectorAll('.live-update-container');
             const badge = document.getElementById('live-update-badge');
-            if (containers.length === 0 || !badge) return;
+            if (!badge) return;
             
-            // Show badge
+            // Show badge on all pages
             badge.style.display = 'flex';
             
-            // Retrieve user preference from localStorage if set
-            const pausedPref = localStorage.getItem('live-update-paused') === 'true';
-            if (pausedPref) {
-                pauseLiveUpdate();
-            } else {
-                startLiveUpdateTimer();
-            }
+            startLiveUpdateTimer();
         }
         
         function startLiveUpdateTimer() {
-            isAutoUpdatePaused = false;
-            localStorage.setItem('live-update-paused', 'false');
             updateBadgeUI();
             
             if (autoUpdateInterval) clearInterval(autoUpdateInterval);
@@ -1550,30 +1540,14 @@
                 countdown--;
                 if (countdown <= 0) {
                     countdown = 10; // reset
-                    performLiveUpdate();
+                    const containers = document.querySelectorAll('.live-update-container');
+                    if (containers.length > 0) {
+                        performLiveUpdate();
+                    }
                 }
                 const cdEl = document.getElementById('live-update-countdown');
                 if (cdEl) cdEl.textContent = countdown + 's';
             }, 1000);
-        }
-        
-        function pauseLiveUpdate() {
-            isAutoUpdatePaused = true;
-            localStorage.setItem('live-update-paused', 'true');
-            if (autoUpdateInterval) {
-                clearInterval(autoUpdateInterval);
-                autoUpdateInterval = null;
-            }
-            updateBadgeUI();
-        }
-        
-        function toggleLiveUpdate() {
-            if (isAutoUpdatePaused) {
-                countdown = 10;
-                startLiveUpdateTimer();
-            } else {
-                pauseLiveUpdate();
-            }
         }
         
         function updateBadgeUI() {
@@ -1584,24 +1558,16 @@
             
             if (!badge) return;
             
-            if (isAutoUpdatePaused) {
-                badge.style.background = 'rgba(245, 158, 11, 0.08)';
-                badge.style.borderColor = 'rgba(245, 158, 11, 0.2)';
-                badge.style.color = '#F59E0B';
-                if (ping) ping.style.display = 'none';
-                if (dot) dot.style.backgroundColor = '#F59E0B';
-                if (textEl) textEl.innerHTML = 'Live: <span id="live-update-countdown" style="font-family: monospace; font-weight: 700;">Paused</span>';
-            } else {
-                badge.style.background = 'rgba(16, 185, 129, 0.08)';
-                badge.style.borderColor = 'rgba(16, 185, 129, 0.2)';
-                badge.style.color = '#10B981';
-                if (ping) {
-                    ping.style.display = 'inline-flex';
-                    ping.style.backgroundColor = '#10B981';
-                }
-                if (dot) dot.style.backgroundColor = '#10B981';
-                if (textEl) textEl.innerHTML = 'Live: <span id="live-update-countdown" style="font-family: monospace; font-weight: 700;">' + countdown + 's</span>';
+            // Always beautiful green styling
+            badge.style.background = 'rgba(16, 185, 129, 0.08)';
+            badge.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+            badge.style.color = '#10B981';
+            if (ping) {
+                ping.style.display = 'inline-flex';
+                ping.style.backgroundColor = '#10B981';
             }
+            if (dot) dot.style.backgroundColor = '#10B981';
+            if (textEl) textEl.innerHTML = 'Live Sync: <span id="live-update-countdown" style="font-family: monospace; font-weight: 700;">' + countdown + 's</span>';
         }
         
         async function performLiveUpdate() {

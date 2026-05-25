@@ -19,6 +19,10 @@ import jakarta.servlet.http.HttpSession;
 @Controller
 public class WebController {
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.bhspl.service.LeaveService leaveService;
+
+
     @GetMapping("/login")
     public String loginPage(HttpSession session) {
         try {
@@ -301,6 +305,20 @@ public class WebController {
         return res;
     }
 
+    @GetMapping("/api/system/status")
+    @ResponseBody
+    public Map<String, Object> systemStatus(HttpSession session) {
+        Map<String, Object> res = new HashMap<>();
+        if (session.getAttribute("user") == null) {
+            res.put("success", false);
+            return res;
+        }
+        res.put("success", true);
+        res.put("autoSyncActive", com.bhspl.service.SyncService.isRunning());
+        res.put("pushServiceActive", com.bhspl.service.PushService.isRunning());
+        return res;
+    }
+
     @GetMapping("/employees")
     public String employees(Model model,
             @RequestParam(name = "search", required = false) String search,
@@ -360,6 +378,11 @@ public class WebController {
             String desig = params.get("designation");
             String shift = params.get("shift");
             String status = params.get("status");
+
+            if (empId == null || !empId.matches("\\d+")) {
+                System.err.println("WebController: Invalid non-numeric Employee ID rejected: " + empId);
+                return "redirect:/employees";
+            }
 
             if ("false".equals(isEdit)) {
                 db.execute(
@@ -1072,6 +1095,19 @@ public class WebController {
             @RequestParam(value = "comment", required = false) String comment) {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
+            
+            // Fetch old request first to verify status and prevent duplicate actions
+            Map<String, Object> req = db.queryOne("SELECT * FROM leaves WHERE id=?", id);
+            if (req == null) {
+                return "redirect:/leave/requests";
+            }
+            
+            String oldStatus = DatabaseManager.str(req, "status");
+            if (status.equals(oldStatus)) {
+                System.out.println("processLeave: Request " + id + " is already " + status + ". Skipping processing.");
+                return "redirect:/leave/requests";
+            }
+
             // Try to add column if it doesn't exist (compatible with older MySQL)
             try {
                 db.execute("ALTER TABLE leaves ADD reject_reason TEXT");
@@ -1079,6 +1115,18 @@ public class WebController {
             }
 
             db.execute("UPDATE leaves SET status=?, reject_reason=? WHERE id=?", status, comment, id);
+
+            // Deduct or reverse leave balance on approval/rejection
+            String empId = req.get("emp_id").toString();
+            String type = req.get("leave_type").toString();
+            double days = DatabaseManager.dbl(req, "days");
+            int yr = java.time.LocalDate.parse(req.get("from_date").toString()).getYear();
+            
+            if ("Approved".equals(status) && !"Approved".equals(oldStatus)) {
+                leaveService.deductBalance(empId, type, yr, days, id, "Deducted upon approval of request ID: " + id);
+            } else if (("Rejected".equals(status) || "Pending".equals(status)) && "Approved".equals(oldStatus)) {
+                leaveService.reverseDeduction(empId, type, yr, days, id);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -1098,14 +1146,36 @@ public class WebController {
             String reason = params.get("reason");
             String status = params.get("status");
 
+            double daysVal = Double.parseDouble(days);
+            int yr = java.time.LocalDate.parse(from).getYear();
+
             if (id == null || id.isEmpty()) {
                 db.execute(
                         "INSERT INTO leaves (emp_id, leave_type, from_date, to_date, days, reason, status, applied_on) VALUES (?,?,?,?,?,?,?,NOW())",
                         empId, type, from, to, days, reason, status);
+                
+                // Get the newly generated ID if approved
+                if ("Approved".equals(status)) {
+                    Map<String, Object> newReq = db.queryOne("SELECT id FROM leaves WHERE emp_id=? AND leave_type=? AND from_date=? ORDER BY id DESC LIMIT 1", empId, type, from);
+                    if (newReq != null) {
+                        String newId = newReq.get("id").toString();
+                        leaveService.deductBalance(empId, type, yr, daysVal, newId, "Deducted upon direct creation of approved leave");
+                    }
+                }
             } else {
+                // Fetch old status to check for reversal
+                Map<String, Object> oldReq = db.queryOne("SELECT status FROM leaves WHERE id=?", id);
+                String oldStatus = (oldReq != null) ? DatabaseManager.str(oldReq, "status") : "";
+
                 db.execute(
                         "UPDATE leaves SET emp_id=?, leave_type=?, from_date=?, to_date=?, days=?, reason=?, status=? WHERE id=?",
                         empId, type, from, to, days, reason, status, id);
+                
+                if ("Approved".equals(status) && !"Approved".equals(oldStatus)) {
+                    leaveService.deductBalance(empId, type, yr, daysVal, id, "Deducted upon approved status update");
+                } else if (!"Approved".equals(status) && "Approved".equals(oldStatus)) {
+                    leaveService.reverseDeduction(empId, type, yr, daysVal, id);
+                }
             }
 
             // Desktop App Logic: Sync with attendance if approved
@@ -1128,7 +1198,24 @@ public class WebController {
     public String updateLeaveStatus(@RequestParam("id") String id, @RequestParam("status") String status) {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            db.execute("UPDATE leaves SET status=? WHERE id=?", status, id);
+
+            // Fetch old status
+            Map<String, Object> oldReq = db.queryOne("SELECT * FROM leaves WHERE id=?", id);
+            if (oldReq != null) {
+                String oldStatus = DatabaseManager.str(oldReq, "status");
+                String empId = oldReq.get("emp_id").toString();
+                String type = oldReq.get("leave_type").toString();
+                double days = DatabaseManager.dbl(oldReq, "days");
+                int yr = java.time.LocalDate.parse(oldReq.get("from_date").toString()).getYear();
+
+                db.execute("UPDATE leaves SET status=? WHERE id=?", status, id);
+
+                if ("Approved".equals(status) && !"Approved".equals(oldStatus)) {
+                    leaveService.deductBalance(empId, type, yr, days, id, "Deducted upon update to approved");
+                } else if (!"Approved".equals(status) && "Approved".equals(oldStatus)) {
+                    leaveService.reverseDeduction(empId, type, yr, days, id);
+                }
+            }
 
             // Sync with attendance if approved
             if ("Approved".equals(status)) {
@@ -1156,6 +1243,20 @@ public class WebController {
         try {
             System.out.println("Deleting leave request ID: " + id);
             DatabaseManager db = DatabaseManager.getInstance();
+
+            // Reverse leave balance deduction if approved before deleting
+            Map<String, Object> oldReq = db.queryOne("SELECT * FROM leaves WHERE id=?", id);
+            if (oldReq != null) {
+                String oldStatus = DatabaseManager.str(oldReq, "status");
+                if ("Approved".equals(oldStatus)) {
+                    String empId = oldReq.get("emp_id").toString();
+                    String type = oldReq.get("leave_type").toString();
+                    double days = DatabaseManager.dbl(oldReq, "days");
+                    int yr = java.time.LocalDate.parse(oldReq.get("from_date").toString()).getYear();
+                    leaveService.reverseDeduction(empId, type, yr, days, id);
+                }
+            }
+
             db.execute("DELETE FROM leaves WHERE id=?", id);
         } catch (Exception e) {
             System.err.println("Error deleting leave: " + e.getMessage());
@@ -1389,26 +1490,47 @@ public class WebController {
     }
 
     @PostMapping("/leave/balance/credit")
-    public String creditLeaves(@RequestParam("type") String type, @RequestParam("amount") double amount) {
+    public String creditLeaves(
+            @RequestParam(value = "dept", defaultValue = "All") String dept,
+            @RequestParam(value = "empId", defaultValue = "All") String empId,
+            @RequestParam("type") String type,
+            @RequestParam("amount") double amount,
+            @RequestParam(value = "remarks", defaultValue = "Batch Credit") String remarks) {
         try {
-            DatabaseManager db = DatabaseManager.getInstance();
-            int curY = java.time.LocalDate.now().getYear();
-            List<Map<String, Object>> emps = db.query("SELECT emp_id FROM employees WHERE status='Active'");
-            for (Map<String, Object> e : emps) {
-                String empId = e.get("emp_id").toString();
-                int rows = db.execute(
-                        "UPDATE leave_balance SET credited = credited + ?, closing_bal = closing_bal + ? WHERE emp_id=? AND leave_type=? AND year=?",
-                        amount, amount, empId, type, String.valueOf(curY));
-                if (rows == 0) {
-                    db.execute(
-                            "INSERT INTO leave_balance (emp_id, leave_type, year, opening_bal, credited, used, lapsed, closing_bal) VALUES (?, ?, ?, 0, ?, 0, 0, ?)",
-                            empId, type, String.valueOf(curY), amount, amount);
-                }
-            }
+            leaveService.creditLeavesBulk(dept, empId, type, amount, remarks);
         } catch (Exception e) {
             e.printStackTrace();
         }
         return "redirect:/leave/balance";
+    }
+
+    @PostMapping("/leave/balance/yearend")
+    public String processYearEnd(
+            @RequestParam("sourceYear") int sourceYear,
+            @RequestParam("targetYear") int targetYear) {
+        try {
+            leaveService.processYearEnd(sourceYear, targetYear);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "redirect:/leave/balance";
+    }
+
+    @GetMapping("/api/leave/balance/history")
+    @ResponseBody
+    public List<Map<String, Object>> getLeaveHistory(
+            @RequestParam("empId") String empId,
+            @RequestParam("type") String type,
+            @RequestParam("year") int year) {
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            return db.query(
+                    "SELECT *, DATE_FORMAT(transaction_date, '%Y-%m-%d %h:%i %p') as formatted_date FROM leave_transactions WHERE emp_id=? AND leave_type=? AND year=? ORDER BY transaction_date DESC",
+                    empId, type, year);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return List.of();
+        }
     }
 
     @PostMapping("/leave/balance/adjust")
@@ -1416,8 +1538,18 @@ public class WebController {
             @RequestParam("year") String year, @RequestParam("newBalance") double newBalance) {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
+            // Fetch old balance first
+            Map<String, Object> oldRow = db.queryOne("SELECT closing_bal FROM leave_balance WHERE emp_id=? AND leave_type=? AND year=?", empId, type, year);
+            double oldClosing = (oldRow != null) ? DatabaseManager.dbl(oldRow, "closing_bal") : 0.0;
+            double diff = newBalance - oldClosing;
+
             db.execute("UPDATE leave_balance SET closing_bal = ? WHERE emp_id=? AND leave_type=? AND year=?",
                     newBalance, empId, type, year);
+
+            // Record transaction
+            db.execute(
+                    "INSERT INTO leave_transactions (emp_id, leave_type, year, transaction_type, amount, reference_id, remarks) VALUES (?, ?, ?, 'Adjustment', ?, 'Manual Adjustment', ?)",
+                    empId, type, year, "Adjustment", diff, "Manual adjustment by Admin");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -1485,9 +1617,21 @@ public class WebController {
             }
             long totalActive = db.queryLong("SELECT COUNT(*) FROM employees WHERE status='Active'");
 
+            // Fetch active employees & charts for bulk credits & analytics
+            List<Map<String, Object>> employees = db.query("SELECT emp_id, emp_name FROM employees WHERE status='Active' ORDER BY emp_name");
+            List<Map<String, Object>> deptChart = db.query(
+                    "SELECT e.department, SUM(b.used) as used_days FROM leave_balance b JOIN employees e ON b.emp_id = e.emp_id WHERE b.year = ? GROUP BY e.department ORDER BY used_days DESC",
+                    filterYear);
+            List<Map<String, Object>> typeChart = db.query(
+                    "SELECT b.leave_type, SUM(b.used) as used_days FROM leave_balance b WHERE b.year = ? GROUP BY b.leave_type ORDER BY used_days DESC",
+                    filterYear);
+
             model.addAttribute("balances", balances);
             model.addAttribute("depts", depts);
             model.addAttribute("types", types);
+            model.addAttribute("employees", employees);
+            model.addAttribute("deptChart", deptChart);
+            model.addAttribute("typeChart", typeChart);
             model.addAttribute("selYear", filterYear);
             model.addAttribute("selDept", (dept != null) ? dept : "All");
             model.addAttribute("selType", (type != null) ? type : "All");

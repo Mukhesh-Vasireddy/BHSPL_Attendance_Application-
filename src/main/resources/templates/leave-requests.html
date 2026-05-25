@@ -217,10 +217,12 @@
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = '/leave/requests/process';
+                form.style.display = 'none';
 
                 const fields = { id, status, comment };
                 for (const [name, value] of Object.entries(fields)) {
                     const input = document.createElement('input');
+                    input.type = 'hidden';
                     input.name = name;
                     input.value = value;
                     form.appendChild(input);

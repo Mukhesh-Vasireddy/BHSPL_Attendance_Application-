@@ -101,7 +101,7 @@
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                             <div>
                                 <label class="form-group-label" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Employee ID <span style="color: #ef4444;">*</span></label>
-                                <input type="text" name="emp_id" id="form_emp_id" required class="form-control">
+                                <input type="text" name="emp_id" id="form_emp_id" required class="form-control" oninput="this.value = this.value.replace(/[^0-9]/g, '')" pattern="\d+" title="Employee ID must contain only numbers.">
                             </div>
                             <div>
                                 <label class="form-group-label" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Full Name <span style="color: #ef4444;">*</span></label>
