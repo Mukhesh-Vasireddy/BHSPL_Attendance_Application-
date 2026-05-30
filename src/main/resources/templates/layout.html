@@ -1572,6 +1572,20 @@
         
         async function performLiveUpdate() {
             try {
+                // Skip live updates if user is interacting with inputs or typing search queries
+                const activeEl = document.activeElement;
+                if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'SELECT' || activeEl.tagName === 'TEXTAREA')) {
+                    return;
+                }
+                const searchInput = document.getElementById('attendanceSearchInput');
+                if (searchInput) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const urlSearch = urlParams.get('search') || '';
+                    if (searchInput.value !== urlSearch) {
+                        return;
+                    }
+                }
+
                 const res = await fetch(window.location.href);
                 if (!res.ok) throw new Error('Network response was not OK');
                 const htmlText = await res.text();
@@ -1853,6 +1867,34 @@
                 
                 e.preventDefault();
                 navigateToSpa(targetUrl);
+            }
+        });
+
+        // Global search input clearing helper for Attendance Directory
+        window.handleSearchInput = function(inputEl) {
+            if (inputEl.value === '') {
+                const form = inputEl.closest('form');
+                if (form) {
+                    const action = form.getAttribute('action') || window.location.pathname;
+                    if (typeof window.navigateToSpa === 'function') {
+                        window.navigateToSpa(action);
+                    } else {
+                        form.submit();
+                    }
+                }
+            }
+        };
+
+        // Delegated listeners for maximum browser compatibility
+        document.addEventListener('input', function(e) {
+            if (e.target && e.target.id === 'attendanceSearchInput') {
+                window.handleSearchInput(e.target);
+            }
+        });
+
+        document.addEventListener('keyup', function(e) {
+            if (e.target && e.target.id === 'attendanceSearchInput' && e.key === 'Backspace') {
+                window.handleSearchInput(e.target);
             }
         });
 

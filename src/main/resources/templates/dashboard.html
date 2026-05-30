@@ -229,8 +229,10 @@
                             <div style="position: relative;">
                                 <i class="fas fa-search"
                                     style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
-                                <input type="text" name="search" th:value="${selSearch}" placeholder="Search logs..."
-                                    class="search-input" style="padding-left: 35px; width: 180px;">
+                                <input type="text" id="attendanceSearchInput" name="search" th:value="${selSearch}" placeholder="Search logs..."
+                                    class="search-input" style="padding-left: 35px; width: 180px;"
+                                    oninput="if(typeof window.handleSearchInput === 'function') { window.handleSearchInput(this); }"
+                                    onkeyup="if(event.key === 'Backspace' && typeof window.handleSearchInput === 'function') { window.handleSearchInput(this); }">
                             </div>
                             <button type="submit" class="btn-primary"
                                 style="padding: 10px 16px; border-radius: 10px;"><i

@@ -224,14 +224,28 @@ public class PushService {
             // Example line: 15241	2024-04-22 10:30:05	0	0	0	0
             String[] parts = line.split("\t");
             if (parts.length >= 2) {
-                String uid = parts[0];
-                String timeStr = parts[1];
+                String uid = parts[0].trim();
+                String timeStr = parts[1].trim();
+                if (uid.isEmpty() || "0".equals(uid) || !uid.matches("\\d+")) {
+                    System.out.println("PushService: Discarding invalid/failed attempt with UID: " + uid);
+                    continue;
+                }
                 int type = parts.length > 2 ? Integer.parseInt(parts[2]) : 0;
 
                 try {
                     // Clean time string (sometimes they have extra info)
                     if (timeStr.length() > 19) timeStr = timeStr.substring(0, 19);
                     
+                    // Check if duplicate swipe exists in raw_logs within 5 minutes
+                    long dupCount = db.queryLong(
+                        "SELECT COUNT(*) FROM raw_logs WHERE emp_id = ? AND punch_time >= DATE_SUB(?, INTERVAL 5 MINUTE) AND punch_time <= DATE_ADD(?, INTERVAL 5 MINUTE)",
+                        uid, timeStr, timeStr
+                    );
+                    if (dupCount > 0) {
+                        System.out.println("PushService: Skipping duplicate swipe log for emp_id " + uid + " at " + timeStr);
+                        continue;
+                    }
+
                     db.execute("INSERT IGNORE INTO raw_logs (device_id, emp_id, punch_time, punch_type, synced) VALUES (?,?,?,?,0)",
                             deviceId, uid, timeStr, type);
                     count++;

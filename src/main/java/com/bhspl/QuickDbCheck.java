@@ -16,16 +16,14 @@ public class QuickDbCheck {
         try {
             db.connect(cfg.get("host"), cfg.get("port"), cfg.get("user"), cfg.get("password"), cfg.get("database"));
             
-            System.out.println("Checking employees...");
-            List<Map<String, Object>> emps = db.query("SELECT emp_id, emp_name, device_enroll_id FROM employees");
-            for (Map<String, Object> e : emps) {
-                System.out.println("Emp: " + e.get("emp_id") + " | Name: " + e.get("emp_name") + " | EnrollID: " + e.get("device_enroll_id"));
-            }
-
-            System.out.println("\nChecking recent raw_logs...");
-            List<Map<String, Object>> logs = db.query("SELECT * FROM raw_logs ORDER BY id DESC LIMIT 10");
-            for (Map<String, Object> l : logs) {
-                System.out.println("Log: ID=" + l.get("id") + " | EmpID=" + l.get("emp_id") + " | Time=" + l.get("punch_time") + " | Synced=" + l.get("synced"));
+            System.out.println("Checking non-numeric emp_id formats in raw_logs...");
+            List<Map<String, Object>> nonNumeric = db.query(
+                "SELECT emp_id, COUNT(*) as cnt, MIN(punch_type) as min_p, MAX(punch_type) as max_p " +
+                "FROM raw_logs WHERE emp_id REGEXP '[^0-9]' GROUP BY emp_id"
+            );
+            for (Map<String, Object> nn : nonNumeric) {
+                System.out.println("EmpID: [" + nn.get("emp_id") + "] | Count: " + nn.get("cnt") + 
+                                   " | MinPunchType: " + nn.get("min_p") + " | MaxPunchType: " + nn.get("max_p"));
             }
 
         } catch (Exception e) {

@@ -143,9 +143,98 @@ public class SyncService {
                 if (records == null || records.isEmpty())
                     records = zk.fetchTailOnly(2000);
 
-                if (records != null) {
+                if (records != null && !records.isEmpty()) {
                     DatabaseManager dbInstance = DatabaseManager.getInstance();
                     try {
+                        // 1. Sort records by uid and punch_time ascending
+                        records = new ArrayList<>(records); // ensure mutable
+                        records.sort((r1, r2) -> {
+                            String u1 = (String) r1.get("uid");
+                            String u2 = (String) r2.get("uid");
+                            int comp = u1.compareTo(u2);
+                            if (comp != 0) return comp;
+                            LocalDateTime t1 = (LocalDateTime) r1.get("punch_time");
+                            LocalDateTime t2 = (LocalDateTime) r2.get("punch_time");
+                            return t1.compareTo(t2);
+                        });
+
+                        // 2. Perform rolling 5-minute duplicate swiping filtering in-memory
+                        List<Map<String, Object>> filteredRecords = new ArrayList<>();
+                        Map<String, LocalDateTime> lastPunches = new HashMap<>();
+                        for (Map<String, Object> rec : records) {
+                            String uid = (String) rec.get("uid");
+                            LocalDateTime time = (LocalDateTime) rec.get("punch_time");
+                            if (lastPunches.containsKey(uid)) {
+                                LocalDateTime lastTime = lastPunches.get(uid);
+                                long diffSeconds = java.time.Duration.between(lastTime, time).abs().getSeconds();
+                                if (diffSeconds < 300) { // 5 minutes = 300 seconds
+                                    continue;
+                                }
+                            }
+                            filteredRecords.add(rec);
+                            lastPunches.put(uid, time);
+                        }
+                        records = filteredRecords;
+
+                        // 3. Query existing logs in raw_logs to filter database duplicates within 5 minutes
+                        LocalDateTime minTime = null;
+                        LocalDateTime maxTime = null;
+                        for (Map<String, Object> rec : records) {
+                            LocalDateTime time = (LocalDateTime) rec.get("punch_time");
+                            if (minTime == null || time.isBefore(minTime)) minTime = time;
+                            if (maxTime == null || time.isAfter(maxTime)) maxTime = time;
+                        }
+
+                        if (minTime != null && maxTime != null) {
+                            String startRange = minTime.minusMinutes(5).toString().replace("T", " ");
+                            String endRange = maxTime.plusMinutes(5).toString().replace("T", " ");
+                            
+                            List<Map<String, Object>> existingList = dbInstance.query(
+                                "SELECT emp_id, punch_time FROM raw_logs WHERE punch_time >= ? AND punch_time <= ?",
+                                startRange, endRange
+                            );
+
+                            Map<String, List<LocalDateTime>> existingPunches = new HashMap<>();
+                            for (Map<String, Object> ex : existingList) {
+                                String empId = DatabaseManager.str(ex, "emp_id");
+                                Object pt = ex.get("punch_time");
+                                LocalDateTime exTime = null;
+                                if (pt instanceof LocalDateTime) {
+                                    exTime = (LocalDateTime) pt;
+                                } else if (pt instanceof java.sql.Timestamp) {
+                                    exTime = ((java.sql.Timestamp) pt).toLocalDateTime();
+                                } else if (pt != null) {
+                                    try {
+                                        exTime = LocalDateTime.parse(pt.toString().replace(" ", "T").split("\\.")[0]);
+                                    } catch (Exception ignored) {}
+                                }
+                                if (exTime != null) {
+                                    existingPunches.computeIfAbsent(empId, k -> new ArrayList<>()).add(exTime);
+                                }
+                            }
+
+                            List<Map<String, Object>> finalRecords = new ArrayList<>();
+                            for (Map<String, Object> rec : records) {
+                                String uid = (String) rec.get("uid");
+                                LocalDateTime time = (LocalDateTime) rec.get("punch_time");
+                                List<LocalDateTime> dbPunches = existingPunches.get(uid);
+                                boolean isDbDuplicate = false;
+                                if (dbPunches != null) {
+                                    for (LocalDateTime dbTime : dbPunches) {
+                                        long diffSeconds = java.time.Duration.between(dbTime, time).abs().getSeconds();
+                                        if (diffSeconds < 300) {
+                                            isDbDuplicate = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if (!isDbDuplicate) {
+                                    finalRecords.add(rec);
+                                }
+                            }
+                            records = finalRecords;
+                        }
+
                         List<Object[]> paramsList = new ArrayList<>();
                         for (Map<String, Object> rec : records) {
                             String uid = (String) rec.get("uid");

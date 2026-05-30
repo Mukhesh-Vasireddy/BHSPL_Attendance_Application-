@@ -558,6 +558,89 @@ public class DatabaseManager {
             System.err.println("Database Migration Warning for leave_transactions table: " + e.getMessage());
             try { conn.rollback(); } catch (Exception ignored) {}
         }
+
+        // Self-healing migration to clean up historical non-numeric failed fingerprint attempts in raw_logs
+        try {
+            int deleted = execute("DELETE FROM raw_logs WHERE emp_id REGEXP '[^0-9]'");
+            if (deleted > 0) {
+                System.out.println("Database: Cleaned up " + deleted + " historical invalid raw logs (non-numeric emp_id).");
+            }
+            conn.commit();
+        } catch (Exception e) {
+            System.err.println("Database Migration Warning for cleaning up raw_logs: " + e.getMessage());
+            try { conn.rollback(); } catch (Exception ignored) {}
+        }
+
+        // Self-healing migration to clean up historical duplicate raw logs within 5 minutes
+        try {
+            List<Map<String, Object>> allLogs = query("SELECT id, emp_id, punch_time FROM raw_logs ORDER BY emp_id, punch_time ASC");
+            List<Integer> idsToDelete = new ArrayList<>();
+            Map<String, Set<String>> affectedDates = new HashMap<>(); // empId -> Set of dates
+            Map<String, java.time.LocalDateTime> lastTimes = new HashMap<>();
+            
+            for (Map<String, Object> log : allLogs) {
+                int id = (int) log.get("id");
+                String empId = (String) log.get("emp_id");
+                Object pt = log.get("punch_time");
+                java.time.LocalDateTime time = null;
+                if (pt instanceof java.time.LocalDateTime) {
+                    time = (java.time.LocalDateTime) pt;
+                } else if (pt instanceof java.sql.Timestamp) {
+                    time = ((java.sql.Timestamp) pt).toLocalDateTime();
+                } else if (pt != null) {
+                    try {
+                        time = java.time.LocalDateTime.parse(pt.toString().replace(" ", "T").split("\\.")[0]);
+                    } catch (Exception ignored) {}
+                }
+                
+                if (time == null) continue;
+                
+                if (lastTimes.containsKey(empId)) {
+                    java.time.LocalDateTime lastTime = lastTimes.get(empId);
+                    long diffSeconds = java.time.Duration.between(lastTime, time).abs().getSeconds();
+                    if (diffSeconds < 300) { // 5 minutes rolling window
+                        idsToDelete.add(id);
+                        String dateStr = time.toLocalDate().toString();
+                        affectedDates.computeIfAbsent(empId, k -> new HashSet<>()).add(dateStr);
+                        continue;
+                    }
+                }
+                lastTimes.put(empId, time);
+            }
+            
+            if (!idsToDelete.isEmpty()) {
+                System.out.println("Database: Found " + idsToDelete.size() + " historical duplicate raw logs within 5 minutes.");
+                
+                // 1. Delete the duplicate logs
+                int chunkSize = 1000;
+                for (int i = 0; i < idsToDelete.size(); i += chunkSize) {
+                    List<Integer> chunk = idsToDelete.subList(i, Math.min(i + chunkSize, idsToDelete.size()));
+                    StringBuilder sb = new StringBuilder();
+                    for (int id : chunk) {
+                        if (sb.length() > 0) sb.append(",");
+                        sb.append(id);
+                    }
+                    execute("DELETE FROM raw_logs WHERE id IN (" + sb.toString() + ")");
+                }
+                System.out.println("Database: Successfully cleaned up all " + idsToDelete.size() + " historical duplicate raw logs.");
+                
+                // 2. Set affected days as unsynced in raw_logs and clear incorrect summaries
+                int resetCount = 0;
+                for (Map.Entry<String, Set<String>> entry : affectedDates.entrySet()) {
+                    String empId = entry.getKey();
+                    for (String dateStr : entry.getValue()) {
+                        execute("UPDATE raw_logs SET synced = 0 WHERE emp_id = ? AND DATE(punch_time) = ?", empId, dateStr);
+                        execute("DELETE FROM attendance WHERE emp_id = ? AND punch_date = ? AND punch_type = 'Device'", empId, dateStr);
+                        resetCount++;
+                    }
+                }
+                System.out.println("Database: Set " + resetCount + " affected employee-date combos as unsynced for recalculation.");
+                conn.commit();
+            }
+        } catch (Exception e) {
+            System.err.println("Database Migration Warning for cleaning up raw_logs duplicates: " + e.getMessage());
+            try { conn.rollback(); } catch (Exception ignored) {}
+        }
     }
 
     // ── Query helpers ─────────────────────────────────────────────────────────
