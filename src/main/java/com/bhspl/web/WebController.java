@@ -14,7 +14,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.http.ResponseEntity;
 import jakarta.servlet.http.HttpSession;
+import java.util.HashSet;
+import java.util.Set;
 
 @Controller
 public class WebController {
@@ -361,6 +365,12 @@ public class WebController {
                 CacheManager.getInstance().put("list_departments", cachedDepts, 3600000); // 1 hour
             }
             model.addAttribute("depts", cachedDepts);
+            
+            // Fetch active biometric devices and shifts for the Device Import feature
+            List<Map<String, Object>> activeDevices = db.query("SELECT device_id, device_name, serial_number FROM devices WHERE status='Active'");
+            model.addAttribute("activeDevices", activeDevices);
+            List<Map<String, Object>> shiftsList = db.query("SELECT shift_name FROM shifts WHERE status='Active' ORDER BY shift_name");
+            model.addAttribute("shifts", shiftsList);
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
         }
@@ -410,7 +420,207 @@ public class WebController {
         return "redirect:/employees";
     }
 
+    @GetMapping("/api/employees/import-device-preview")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> importDevicePreview(
+            @RequestParam("deviceId") int deviceId,
+            HttpSession session) {
+        
+        Map<String, Object> response = new HashMap<>();
+        if (session.getAttribute("user") == null) {
+            response.put("status", "error");
+            response.put("message", "Unauthorized. Please log in.");
+            return ResponseEntity.status(401).body(response);
+        }
+
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            
+            // Fetch device details
+            Map<String, Object> dev = db.fetchOne(
+                "SELECT * FROM devices WHERE device_id=? AND status='Active'", deviceId
+            );
+            if (dev == null) {
+                response.put("status", "error");
+                response.put("message", "Active device not found or offline.");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            String ip = (String) dev.get("ip_address");
+            int port = (int) dev.get("port");
+            int pwd = (int) dev.get("comm_password");
+
+            // Connect to device and fetch users
+            com.bhspl.util.ZkProtocol zk = new com.bhspl.util.ZkProtocol(ip, port, 4000);
+            zk.setPassword(pwd);
+            
+            if (!zk.connect()) {
+                response.put("status", "error");
+                response.put("message", "Failed to connect to device at " + ip + ":" + port + ". Please ensure it is online.");
+                return ResponseEntity.status(504).body(response);
+            }
+
+            List<Map<String, String>> deviceUsers;
+            try {
+                deviceUsers = zk.getUsers();
+            } finally {
+                zk.disconnect();
+            }
+
+            if (deviceUsers == null) {
+                deviceUsers = new ArrayList<>();
+            }
+
+            // Fetch existing database employees
+            List<Map<String, Object>> employees = db.query(
+                "SELECT emp_id, device_enroll_id FROM employees"
+            );
+            
+            Set<String> existingCodes = new HashSet<>();
+            for (Map<String, Object> emp : employees) {
+                String empId = DatabaseManager.str(emp, "emp_id").trim();
+                String enrollId = DatabaseManager.str(emp, "device_enroll_id").trim();
+                if (!empId.isEmpty()) {
+                    existingCodes.add(empId);
+                    try {
+                        existingCodes.add(String.valueOf(Long.parseLong(empId)));
+                    } catch (Exception ignored) {}
+                }
+                if (!enrollId.isEmpty()) {
+                    existingCodes.add(enrollId);
+                    try {
+                        existingCodes.add(String.valueOf(Long.parseLong(enrollId)));
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            // Filter new/unmatched users
+            List<Map<String, String>> newUsers = new ArrayList<>();
+            for (Map<String, String> u : deviceUsers) {
+                String userId = u.get("user_id").trim();
+                if (userId.isEmpty() || "0".equals(userId)) {
+                    continue; // Skip invalid or system IDs
+                }
+
+                // Check standard match and normalized match
+                boolean exists = existingCodes.contains(userId);
+                if (!exists) {
+                    try {
+                        String norm = String.valueOf(Long.parseLong(userId));
+                        exists = existingCodes.contains(norm);
+                    } catch (Exception ignored) {}
+                }
+
+                if (!exists) {
+                    newUsers.add(u);
+                }
+            }
+
+            response.put("status", "success");
+            response.put("newUsers", newUsers);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.put("status", "error");
+            response.put("message", "System Error: " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
+    }
+
+    @PostMapping("/api/employees/import-device-save")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> importDeviceSave(
+            @RequestBody List<Map<String, String>> employeesToImport,
+            HttpSession session) {
+        
+        Map<String, Object> response = new HashMap<>();
+        if (session.getAttribute("user") == null) {
+            response.put("status", "error");
+            response.put("message", "Unauthorized. Please log in.");
+            return ResponseEntity.status(401).body(response);
+        }
+
+        if (employeesToImport == null || employeesToImport.isEmpty()) {
+            response.put("status", "error");
+            response.put("message", "No employees selected for import.");
+            return ResponseEntity.badRequest().body(response);
+        }
+
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            
+            // Validate all inputs first (Pre-validation check)
+            for (Map<String, String> emp : employeesToImport) {
+                String empId = emp.get("emp_id");
+                String name = emp.get("emp_name");
+                
+                if (empId == null || empId.trim().isEmpty() || !empId.matches("\\d+")) {
+                    response.put("status", "error");
+                    response.put("message", "Invalid or missing Employee ID: " + empId + ". Employee Code must contain only numbers.");
+                    return ResponseEntity.badRequest().body(response);
+                }
+                if (name == null || name.trim().isEmpty()) {
+                    response.put("status", "error");
+                    response.put("message", "Employee Name cannot be empty.");
+                    return ResponseEntity.badRequest().body(response);
+                }
+
+                // Check if employee already exists in DB
+                long count = db.queryLong("SELECT COUNT(*) FROM employees WHERE emp_id=?", empId.trim());
+                if (count > 0) {
+                    response.put("status", "error");
+                    response.put("message", "Employee Code '" + empId + "' already exists in the database.");
+                    return ResponseEntity.badRequest().body(response);
+                }
+            }
+
+            // Execute transactional insertions
+            db.setAutoCommit(false);
+            try {
+                for (Map<String, String> emp : employeesToImport) {
+                    String empId = emp.get("emp_id").trim();
+                    String name = emp.get("emp_name").trim();
+                    String dept = emp.get("department");
+                    if (dept != null) dept = dept.trim();
+                    String desig = emp.get("designation");
+                    if (desig != null) desig = desig.trim();
+                    String shift = emp.get("shift");
+                    if (shift != null) shift = shift.trim();
+                    String status = emp.get("status");
+                    if (status != null) status = status.trim();
+                    String enrollId = emp.get("device_enroll_id");
+                    if (enrollId != null) enrollId = enrollId.trim();
+
+                    db.execute(
+                        "INSERT INTO employees (emp_id, emp_name, department, designation, shift, status, device_enroll_id) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        empId, name, dept, desig, shift, status, enrollId
+                    );
+                }
+                db.commit();
+                CacheManager.getInstance().clear(); // Invalidate all cached stats and dashboard caches
+            } catch (Exception e) {
+                db.rollback();
+                throw e;
+            } finally {
+                db.setAutoCommit(true);
+            }
+
+            response.put("status", "success");
+            response.put("message", "Successfully imported " + employeesToImport.size() + " employee(s).");
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.put("status", "error");
+            response.put("message", "System Error: " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
+    }
+
     @GetMapping("/attendance")
+
     public String attendance(Model model,
             @RequestParam(name = "date", required = false) String date,
             @RequestParam(name = "status", required = false) String status,
@@ -503,6 +713,25 @@ public class WebController {
         return "redirect:/reports/daily";
     }
 
+    private static java.time.LocalDateTime parseDateTime(Object val) {
+        if (val == null) return null;
+        if (val instanceof java.time.LocalDateTime) return (java.time.LocalDateTime) val;
+        if (val instanceof java.sql.Timestamp) return ((java.sql.Timestamp) val).toLocalDateTime();
+        try {
+            String s = val.toString().trim().replace(" ", "T");
+            if (s.contains(".")) {
+                s = s.split("\\.")[0];
+            }
+            if (s.length() >= 16) {
+                if (s.length() == 16) {
+                    s = s + ":00";
+                }
+                return java.time.LocalDateTime.parse(s.substring(0, 19));
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
     @GetMapping("/reports/daily")
     public String reportsDaily(Model model,
             @RequestParam(name = "date", required = false) String date,
@@ -538,8 +767,137 @@ public class WebController {
 
             data = db.query(sql, filterDate);
 
+            // Build employee biometric enrollment map
+            Map<String, String> enrollMap = new HashMap<>();
+            try {
+                List<Map<String, Object>> activeEmpsList = db.query("SELECT emp_id, device_enroll_id FROM employees WHERE status='Active'");
+                for (Map<String, Object> e : activeEmpsList) {
+                    String sid = DatabaseManager.str(e, "emp_id");
+                    String eid = DatabaseManager.str(e, "device_enroll_id");
+                    enrollMap.put(sid, sid);
+                    if (eid != null && !eid.isEmpty()) {
+                        enrollMap.put(eid, sid);
+                    }
+                    try {
+                        enrollMap.put(String.valueOf(Long.parseLong(sid)), sid);
+                        if (eid != null && !eid.isEmpty()) {
+                            enrollMap.put(String.valueOf(Long.parseLong(eid)), sid);
+                        }
+                    } catch (Exception ignored) {}
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+
+            // Fetch day raw logs for Break Time and Productive Time calculations (respecting punch_type)
+            Map<String, List<Map<String, Object>>> empPunches = new HashMap<>();
+            try {
+                List<Map<String, Object>> dayRawLogs = db.query(
+                        "SELECT emp_id, punch_time, punch_type FROM raw_logs WHERE DATE(punch_time) = ? ORDER BY punch_time ASC", filterDate);
+                for (Map<String, Object> log : dayRawLogs) {
+                    Object eidObj = log.get("emp_id");
+                    if (eidObj == null) continue;
+                    String rawEid = eidObj.toString().trim();
+                    if (rawEid.isEmpty()) continue;
+
+                    String matchedSid = enrollMap.get(rawEid);
+                    if (matchedSid == null) {
+                        try {
+                            matchedSid = enrollMap.get(String.valueOf(Long.parseLong(rawEid)));
+                        } catch (Exception ignored) {}
+                    }
+                    if (matchedSid != null) {
+                        Object pt = log.get("punch_time");
+                        int type = log.get("punch_type") != null ? (int) log.get("punch_type") : 0;
+                        java.time.LocalDateTime ldt = null;
+                        if (pt instanceof java.time.LocalDateTime) {
+                            ldt = (java.time.LocalDateTime) pt;
+                        } else if (pt instanceof java.sql.Timestamp) {
+                            ldt = ((java.sql.Timestamp) pt).toLocalDateTime();
+                        } else if (pt != null) {
+                            try {
+                                ldt = java.time.LocalDateTime.parse(pt.toString().replace(" ", "T").split("\\.")[0]);
+                            } catch (Exception ignored) {}
+                        }
+                        if (ldt != null) {
+                            Map<String, Object> pMap = new HashMap<>();
+                            pMap.put("time", ldt);
+                            pMap.put("type", type);
+                            empPunches.computeIfAbsent(matchedSid, k -> new ArrayList<>()).add(pMap);
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+
             java.time.format.DateTimeFormatter timeFmt = java.time.format.DateTimeFormatter.ofPattern("hh:mm a");
             for (Map<String, Object> r : data) {
+                String empId = r.get("emp_id").toString();
+                List<Map<String, Object>> punches = empPunches.get(empId);
+                
+                long breakMins = 0;
+                long productiveMins = 0;
+                
+                if (punches != null && !punches.isEmpty()) {
+                    java.time.LocalDateTime activeIn = null;
+                    java.time.LocalDateTime activeOut = null;
+                    
+                    for (Map<String, Object> p : punches) {
+                        java.time.LocalDateTime t = (java.time.LocalDateTime) p.get("time");
+                        int type = (int) p.get("type");
+                        
+                        if (type == 0) { // IN punch
+                            if (activeOut != null && t.isAfter(activeOut)) {
+                                long bMins = java.time.Duration.between(activeOut, t).toMinutes();
+                                if (bMins > 0) breakMins += bMins;
+                            }
+                            activeIn = t;
+                            activeOut = null;
+                        } else { // OUT punch
+                            if (activeIn != null && t.isAfter(activeIn)) {
+                                long pMins = java.time.Duration.between(activeIn, t).toMinutes();
+                                if (pMins > 0) productiveMins += pMins;
+                                activeOut = t;
+                                activeIn = null;
+                            } else {
+                                activeOut = t;
+                            }
+                        }
+                    }
+                    
+                    if (productiveMins == 0 && punches.size() >= 2) {
+                        java.time.LocalDateTime first = (java.time.LocalDateTime) punches.get(0).get("time");
+                        java.time.LocalDateTime last = (java.time.LocalDateTime) punches.get(punches.size() - 1).get("time");
+                        productiveMins = java.time.Duration.between(first, last).toMinutes();
+                    }
+                } else {
+                    // Fallback to attendance record punch_in and punch_out if raw logs are not present or insufficient
+                    java.time.LocalDateTime firstIn = parseDateTime(r.get("punch_in"));
+                    java.time.LocalDateTime lastOut = parseDateTime(r.get("punch_out"));
+                    
+                    if (firstIn != null && lastOut != null) {
+                        long totalMins = java.time.Duration.between(firstIn, lastOut).toMinutes();
+                        if (totalMins > 0) {
+                            productiveMins = Math.max(0, totalMins - breakMins); // breakMins is 0
+                        }
+                    } else {
+                        // Fallback to work_hours if datetimes are not present or invalid
+                        double workHours = DatabaseManager.dbl(r, "work_hours");
+                        productiveMins = Math.round(workHours * 60.0);
+                    }
+                    breakMins = 0;
+                }
+                
+                double breakHours = breakMins / 60.0;
+                double productiveHours = productiveMins / 60.0;
+                
+                String formattedNetWorkingHours = com.bhspl.util.AttendanceCalculator.formatDuration(productiveHours);
+                System.out.println("DEBUG: EmpId: " + empId + " | punches size: " + (punches != null ? punches.size() : "null") + " | breakMins: " + breakMins + " | productiveMins: " + productiveMins + " | breakHours: " + breakHours + " | productiveHours: " + productiveHours + " | netWorkingHours: " + formattedNetWorkingHours);
+                r.put("break_time", com.bhspl.util.AttendanceCalculator.formatDuration(breakHours));
+                r.put("productive_time", formattedNetWorkingHours);
+                r.put("net_working_hours", formattedNetWorkingHours);
+
                 Object inVal = r.get("punch_in");
                 if (inVal != null) {
                     if (inVal instanceof java.sql.Timestamp) {

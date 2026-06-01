@@ -571,17 +571,19 @@ public class DatabaseManager {
             try { conn.rollback(); } catch (Exception ignored) {}
         }
 
-        // Self-healing migration to clean up historical duplicate raw logs within 5 minutes
+        // Self-healing migration to clean up historical duplicate raw logs within 5 minutes (respecting punch_type)
         try {
-            List<Map<String, Object>> allLogs = query("SELECT id, emp_id, punch_time FROM raw_logs ORDER BY emp_id, punch_time ASC");
+            List<Map<String, Object>> allLogs = query("SELECT id, emp_id, punch_time, punch_type FROM raw_logs ORDER BY emp_id, punch_time ASC");
             List<Integer> idsToDelete = new ArrayList<>();
             Map<String, Set<String>> affectedDates = new HashMap<>(); // empId -> Set of dates
             Map<String, java.time.LocalDateTime> lastTimes = new HashMap<>();
+            Map<String, Integer> lastTypes = new HashMap<>();
             
             for (Map<String, Object> log : allLogs) {
                 int id = (int) log.get("id");
                 String empId = (String) log.get("emp_id");
                 Object pt = log.get("punch_time");
+                int pType = log.get("punch_type") != null ? (int) log.get("punch_type") : 0;
                 java.time.LocalDateTime time = null;
                 if (pt instanceof java.time.LocalDateTime) {
                     time = (java.time.LocalDateTime) pt;
@@ -597,8 +599,9 @@ public class DatabaseManager {
                 
                 if (lastTimes.containsKey(empId)) {
                     java.time.LocalDateTime lastTime = lastTimes.get(empId);
+                    int lastType = lastTypes.containsKey(empId) ? lastTypes.get(empId) : 0;
                     long diffSeconds = java.time.Duration.between(lastTime, time).abs().getSeconds();
-                    if (diffSeconds < 300) { // 5 minutes rolling window
+                    if (diffSeconds < 60 && lastType == pType) { // 1 minute rolling window, identical type
                         idsToDelete.add(id);
                         String dateStr = time.toLocalDate().toString();
                         affectedDates.computeIfAbsent(empId, k -> new HashSet<>()).add(dateStr);
@@ -606,6 +609,7 @@ public class DatabaseManager {
                     }
                 }
                 lastTimes.put(empId, time);
+                lastTypes.put(empId, pType);
             }
             
             if (!idsToDelete.isEmpty()) {
@@ -636,6 +640,15 @@ public class DatabaseManager {
                 }
                 System.out.println("Database: Set " + resetCount + " affected employee-date combos as unsynced for recalculation.");
                 conn.commit();
+            }
+            
+            // Force dynamic recalculation on startup by resetting synced flag for the last 30 days
+            try {
+                execute("UPDATE raw_logs SET synced = 0 WHERE punch_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)");
+                conn.commit();
+                System.out.println("Database: Triggered historical raw logs recalculation for the last 30 days.");
+            } catch (Exception e) {
+                System.err.println("Database Migration Warning for triggering recalculation: " + e.getMessage());
             }
         } catch (Exception e) {
             System.err.println("Database Migration Warning for cleaning up raw_logs duplicates: " + e.getMessage());

@@ -236,13 +236,48 @@ public class PushService {
                     // Clean time string (sometimes they have extra info)
                     if (timeStr.length() > 19) timeStr = timeStr.substring(0, 19);
                     
-                    // Check if duplicate swipe exists in raw_logs within 5 minutes
-                    long dupCount = db.queryLong(
-                        "SELECT COUNT(*) FROM raw_logs WHERE emp_id = ? AND punch_time >= DATE_SUB(?, INTERVAL 5 MINUTE) AND punch_time <= DATE_ADD(?, INTERVAL 5 MINUTE)",
+                    // Check if duplicate swipe exists in raw_logs within 1 minute (respecting punch_type)
+                    List<Map<String, Object>> nearbyList = db.query(
+                        "SELECT punch_time, punch_type FROM raw_logs WHERE emp_id = ? AND punch_time >= DATE_SUB(?, INTERVAL 1 MINUTE) AND punch_time <= DATE_ADD(?, INTERVAL 1 MINUTE)",
                         uid, timeStr, timeStr
                     );
-                    if (dupCount > 0) {
-                        System.out.println("PushService: Skipping duplicate swipe log for emp_id " + uid + " at " + timeStr);
+                    
+                    boolean isDuplicate = false;
+                    if (nearbyList != null && !nearbyList.isEmpty()) {
+                        java.time.LocalDateTime incomingTime = java.time.LocalDateTime.parse(timeStr.replace(" ", "T"));
+                        long minDiffSeconds = Long.MAX_VALUE;
+                        int closestType = -1;
+                        
+                        for (Map<String, Object> nearby : nearbyList) {
+                            Object pt = nearby.get("punch_time");
+                            int exType = nearby.get("punch_type") != null ? (int) nearby.get("punch_type") : 0;
+                            java.time.LocalDateTime exTime = null;
+                            if (pt instanceof java.time.LocalDateTime) {
+                                exTime = (java.time.LocalDateTime) pt;
+                            } else if (pt instanceof java.sql.Timestamp) {
+                                exTime = ((java.sql.Timestamp) pt).toLocalDateTime();
+                            } else if (pt != null) {
+                                try {
+                                    exTime = java.time.LocalDateTime.parse(pt.toString().replace(" ", "T").split("\\.")[0]);
+                                } catch (Exception ignored) {}
+                            }
+                            
+                            if (exTime != null) {
+                                long diff = Math.abs(java.time.Duration.between(exTime, incomingTime).getSeconds());
+                                if (diff < minDiffSeconds) {
+                                    minDiffSeconds = diff;
+                                    closestType = exType;
+                                }
+                            }
+                        }
+                        
+                        if (minDiffSeconds < 60 && closestType == type) {
+                            isDuplicate = true;
+                        }
+                    }
+                    
+                    if (isDuplicate) {
+                        System.out.println("PushService: Skipping duplicate swipe log for emp_id " + uid + " at " + timeStr + " (Type: " + type + ")");
                         continue;
                     }
 

@@ -161,18 +161,22 @@ public class SyncService {
                         // 2. Perform rolling 5-minute duplicate swiping filtering in-memory
                         List<Map<String, Object>> filteredRecords = new ArrayList<>();
                         Map<String, LocalDateTime> lastPunches = new HashMap<>();
+                        Map<String, Integer> lastTypes = new HashMap<>();
                         for (Map<String, Object> rec : records) {
                             String uid = (String) rec.get("uid");
                             LocalDateTime time = (LocalDateTime) rec.get("punch_time");
+                            int pType = rec.get("punch_type") != null ? (int) rec.get("punch_type") : 0;
                             if (lastPunches.containsKey(uid)) {
                                 LocalDateTime lastTime = lastPunches.get(uid);
+                                int lastType = lastTypes.containsKey(uid) ? lastTypes.get(uid) : 0;
                                 long diffSeconds = java.time.Duration.between(lastTime, time).abs().getSeconds();
-                                if (diffSeconds < 300) { // 5 minutes = 300 seconds
+                                if (diffSeconds < 60 && lastType == pType) { // 1 minute = 60 seconds, identical type
                                     continue;
                                 }
                             }
                             filteredRecords.add(rec);
                             lastPunches.put(uid, time);
+                            lastTypes.put(uid, pType);
                         }
                         records = filteredRecords;
 
@@ -186,18 +190,19 @@ public class SyncService {
                         }
 
                         if (minTime != null && maxTime != null) {
-                            String startRange = minTime.minusMinutes(5).toString().replace("T", " ");
-                            String endRange = maxTime.plusMinutes(5).toString().replace("T", " ");
+                            String startRange = minTime.minusMinutes(1).toString().replace("T", " ");
+                            String endRange = maxTime.plusMinutes(1).toString().replace("T", " ");
                             
                             List<Map<String, Object>> existingList = dbInstance.query(
-                                "SELECT emp_id, punch_time FROM raw_logs WHERE punch_time >= ? AND punch_time <= ?",
+                                "SELECT emp_id, punch_time, punch_type FROM raw_logs WHERE punch_time >= ? AND punch_time <= ?",
                                 startRange, endRange
                             );
 
-                            Map<String, List<LocalDateTime>> existingPunches = new HashMap<>();
+                            Map<String, List<Map<String, Object>>> existingPunches = new HashMap<>();
                             for (Map<String, Object> ex : existingList) {
                                 String empId = DatabaseManager.str(ex, "emp_id");
                                 Object pt = ex.get("punch_time");
+                                int exType = ex.get("punch_type") != null ? (int) ex.get("punch_type") : 0;
                                 LocalDateTime exTime = null;
                                 if (pt instanceof LocalDateTime) {
                                     exTime = (LocalDateTime) pt;
@@ -209,7 +214,10 @@ public class SyncService {
                                     } catch (Exception ignored) {}
                                 }
                                 if (exTime != null) {
-                                    existingPunches.computeIfAbsent(empId, k -> new ArrayList<>()).add(exTime);
+                                    Map<String, Object> punchInfo = new HashMap<>();
+                                    punchInfo.put("time", exTime);
+                                    punchInfo.put("type", exType);
+                                    existingPunches.computeIfAbsent(empId, k -> new ArrayList<>()).add(punchInfo);
                                 }
                             }
 
@@ -217,12 +225,15 @@ public class SyncService {
                             for (Map<String, Object> rec : records) {
                                 String uid = (String) rec.get("uid");
                                 LocalDateTime time = (LocalDateTime) rec.get("punch_time");
-                                List<LocalDateTime> dbPunches = existingPunches.get(uid);
+                                int pType = rec.get("punch_type") != null ? (int) rec.get("punch_type") : 0;
+                                List<Map<String, Object>> dbPunches = existingPunches.get(uid);
                                 boolean isDbDuplicate = false;
                                 if (dbPunches != null) {
-                                    for (LocalDateTime dbTime : dbPunches) {
+                                    for (Map<String, Object> dbPunch : dbPunches) {
+                                        LocalDateTime dbTime = (LocalDateTime) dbPunch.get("time");
+                                        int dbType = (int) dbPunch.get("type");
                                         long diffSeconds = java.time.Duration.between(dbTime, time).abs().getSeconds();
-                                        if (diffSeconds < 300) {
+                                        if (diffSeconds < 60 && dbType == pType) {
                                             isDbDuplicate = true;
                                             break;
                                         }
@@ -394,7 +405,7 @@ public class SyncService {
                     sqlParams.add(endRange);
 
                     List<Map<String, Object>> matched = db.fetchAll(
-                            "SELECT punch_time FROM raw_logs WHERE " + filter
+                            "SELECT punch_time, punch_type FROM raw_logs WHERE " + filter
                                     + " AND (punch_time >= ? AND punch_time < ?) ORDER BY punch_time ASC",
                             sqlParams.toArray());
                     if (matched.isEmpty())
@@ -422,8 +433,10 @@ public class SyncService {
 
                     final String dStr = date;
                     final boolean isOvernight = overnightFlag;
-                    List<LocalDateTime> list = matched.stream().map(m -> {
+                    List<Map<String, Object>> list = matched.stream().map(m -> {
                         Object o = m.get("punch_time");
+                        Object ptObj = m.get("punch_type");
+                        int type = ptObj != null ? (int) ptObj : 0;
                         try {
                             LocalDateTime ldt;
                             if (o instanceof LocalDateTime) ldt = (LocalDateTime) o;
@@ -431,26 +444,68 @@ public class SyncService {
                             else ldt = LocalDateTime.parse(o.toString().replace(" ", "T").split("\\.")[0]);
                             
                             if (!isOvernight && !ldt.toLocalDate().toString().equals(dStr)) return null;
-                            return ldt;
+                            
+                            Map<String, Object> pMap = new HashMap<>();
+                            pMap.put("time", ldt);
+                            pMap.put("type", type);
+                            return pMap;
                         } catch (Exception e) { return null; }
-                    }).filter(Objects::nonNull).sorted().collect(Collectors.toList());
+                    }).filter(Objects::nonNull).sorted((p1, p2) -> {
+                        return ((LocalDateTime) p1.get("time")).compareTo((LocalDateTime) p2.get("time"));
+                    }).collect(Collectors.toList());
 
                     if (list.isEmpty()) continue;
 
-                    // SIMPLE FIRST-IN / LAST-OUT LOGIC
-                    LocalDateTime firstIn = list.get(0);
-                    LocalDateTime lastOut = (list.size() > 1) ? list.get(list.size() - 1) : null;
+                    LocalDateTime firstIn = null;
+                    LocalDateTime lastOut = null;
+                    for (Map<String, Object> p : list) {
+                        LocalDateTime t = (LocalDateTime) p.get("time");
+                        int type = (int) p.get("type");
+                        if (type == 0 && firstIn == null) {
+                            firstIn = t;
+                        }
+                        if (type == 1) {
+                            lastOut = t;
+                        }
+                    }
+                    if (firstIn == null) firstIn = (LocalDateTime) list.get(0).get("time");
+                    if (lastOut == null) lastOut = (LocalDateTime) list.get(list.size() - 1).get("time");
+
+                    long productiveMins = 0;
+                    long breakMins = 0;
                     
-                    // Sanity check: if there's only one punch, it's just an IN.
-                    // If the "last" punch is within 1 minute of the "first", ignore it as a double-swipe.
-                    if (lastOut != null && Duration.between(firstIn, lastOut).toMinutes() < 1) {
-                        lastOut = null;
+                    LocalDateTime activeIn = null;
+                    LocalDateTime activeOut = null;
+                    for (Map<String, Object> p : list) {
+                        LocalDateTime t = (LocalDateTime) p.get("time");
+                        int type = (int) p.get("type");
+                        
+                        if (type == 0) { // IN punch
+                            if (activeOut != null && t.isAfter(activeOut)) {
+                                long bMins = java.time.Duration.between(activeOut, t).toMinutes();
+                                if (bMins > 0) breakMins += bMins;
+                            }
+                            activeIn = t;
+                            activeOut = null;
+                        } else { // OUT punch
+                            if (activeIn != null && t.isAfter(activeIn)) {
+                                long pMins = java.time.Duration.between(activeIn, t).toMinutes();
+                                if (pMins > 0) productiveMins += pMins;
+                                activeOut = t;
+                                activeIn = null;
+                            } else {
+                                activeOut = t;
+                            }
+                        }
                     }
                     
-                    double totalDuration = 0;
-                    if (lastOut != null) {
-                        totalDuration = Duration.between(firstIn, lastOut).toMinutes() / 60.0;
+                    if (productiveMins == 0 && list.size() >= 2) {
+                        LocalDateTime first = (LocalDateTime) list.get(0).get("time");
+                        LocalDateTime last = (LocalDateTime) list.get(list.size() - 1).get("time");
+                        productiveMins = java.time.Duration.between(first, last).toMinutes();
                     }
+                    
+                    double totalDuration = productiveMins / 60.0;
 
                     // Saving the daily record
                     com.bhspl.util.AttendanceCalculator.Metrics met = com.bhspl.util.AttendanceCalculator.calculate(firstIn, lastOut, shift);

@@ -37,6 +37,13 @@ public class ZkProtocol {
     private int replyId = 0;
     private int password = 0;
 
+    // Global static fair locks to coordinate multi-threaded access to physical device IPs
+    private static final Map<String, java.util.concurrent.locks.ReentrantLock> deviceLocks = new HashMap<>();
+
+    private static synchronized java.util.concurrent.locks.ReentrantLock getLockForDevice(String ip) {
+        return deviceLocks.computeIfAbsent(ip, k -> new java.util.concurrent.locks.ReentrantLock(true));
+    }
+
     public ZkProtocol(String ip, int port, int timeoutMs) {
         this.ip = ip;
         this.port = port;
@@ -53,6 +60,19 @@ public class ZkProtocol {
     }
 
     public boolean connect() {
+        java.util.concurrent.locks.ReentrantLock deviceLock = getLockForDevice(ip);
+        try {
+            // Attempt to acquire lock for up to 25 seconds in case background poll is active
+            if (!deviceLock.tryLock(25, java.util.concurrent.TimeUnit.SECONDS)) {
+                System.err.println("ZkProtocol: Could not acquire lock for device " + ip + " within 25 seconds (Device busy).");
+                return false;
+            }
+        } catch (InterruptedException e) {
+            System.err.println("ZkProtocol: Connection lock acquisition interrupted for device " + ip);
+            return false;
+        }
+
+        boolean success = false;
         try {
             if (socket == null || socket.isClosed()) {
                 socket = new DatagramSocket();
@@ -62,17 +82,23 @@ public class ZkProtocol {
             session = 0;
             replyId = 0;
 
+            // Connection retry loop: attempt 3 times with 800ms delays
+            byte[] resp = null;
             byte[] pkt = makePacket(ZK_CMD_CONNECT, 0, 0, null);
-            send(pkt);
-            byte[] resp = recv();
-
-            if (resp == null) {
-                send(pkt); // Retry
+            for (int attempt = 1; attempt <= 3; attempt++) {
+                System.out.println("ZkProtocol: Connection handshake to " + ip + ":" + port + " (Attempt " + attempt + "/3)...");
+                send(pkt);
                 resp = recv();
+                if (resp != null) {
+                    break;
+                }
+                try { Thread.sleep(800); } catch (Exception ignored) {}
             }
 
-            if (resp == null)
+            if (resp == null) {
+                System.err.println("ZkProtocol: Handshake failed (No response from device " + ip + ").");
                 return false;
+            }
 
             // Legacy packets have CMD at index 0, session at 4, reply at 6
             int cmd = getShortLE(resp, 0);
@@ -88,8 +114,10 @@ public class ZkProtocol {
                 putIntLE(pwdData, 0, code);
 
                 byte[] authResp = sendAndReceive(ZK_CMD_AUTH, pwdData);
-                if (authResp == null)
+                if (authResp == null) {
+                    System.err.println("ZkProtocol: AUTH failed (No response).");
                     return false;
+                }
 
                 int authCmd = getShortLE(authResp, 0);
                 if (authCmd != ZK_CMD_ACK_OK) {
@@ -97,10 +125,26 @@ public class ZkProtocol {
                     return false;
                 }
             }
+            success = true;
             return true;
         } catch (Exception e) {
-            System.err.println("ZkProtocol: Connect error: " + e.getMessage());
+            System.err.println("ZkProtocol: Connect error for " + ip + ": " + e.getMessage());
             return false;
+        } finally {
+            if (!success) {
+                // Connection failed - release socket and release the lock immediately
+                if (socket != null) {
+                    socket.close();
+                    socket = null;
+                }
+                session = 0;
+                try {
+                    if (deviceLock.isHeldByCurrentThread()) {
+                        deviceLock.unlock();
+                        System.out.println("ZkProtocol: Released lock for " + ip + " after failed connection.");
+                    }
+                } catch (Exception ignored) {}
+            }
         }
     }
 
@@ -134,6 +178,15 @@ public class ZkProtocol {
                 socket = null;
             }
             session = 0;
+            
+            // Release the lock when disconnecting
+            try {
+                java.util.concurrent.locks.ReentrantLock deviceLock = getLockForDevice(ip);
+                if (deviceLock.isHeldByCurrentThread()) {
+                    deviceLock.unlock();
+                    System.out.println("ZkProtocol: Released lock for " + ip + " after active session disconnect.");
+                }
+            } catch (Exception ignored) {}
         }
     }
 
