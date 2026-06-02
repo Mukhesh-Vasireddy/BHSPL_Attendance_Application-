@@ -4,6 +4,7 @@ import com.bhspl.db.DatabaseManager;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -18,15 +19,61 @@ public class AttendanceCalculator {
         public int lateMins = 0;
         public int earlyMins = 0;
         public String status = "Present";
+        public double breakHours = 0;
+        public LocalDateTime firstIn = null;
+        public LocalDateTime lastOut = null;
     }
 
-    /**
-     * Calculates metrics for a single session based on shift rules.
-     */
-    public static Metrics calculate(LocalDateTime in, LocalDateTime out, Map<String, Object> shift) {
-        Metrics m = new Metrics();
-        if (in == null) return m;
+    public static void calculateFromPunches(List<LocalDateTime> punches, Map<String, Object> shift, Metrics m) {
+        if (punches == null || punches.isEmpty()) return;
 
+        // 1. Filter duplicates (within 60 seconds)
+        List<LocalDateTime> filtered = new java.util.ArrayList<>();
+        LocalDateTime lastTime = null;
+        for (LocalDateTime t : punches) {
+            if (lastTime != null) {
+                long diff = Duration.between(lastTime, t).abs().getSeconds();
+                if (diff < 60) continue; // skip duplicate within 60s
+            }
+            filtered.add(t);
+            lastTime = t;
+        }
+
+        if (filtered.isEmpty()) return;
+
+        m.firstIn = filtered.get(0);
+        m.lastOut = filtered.get(filtered.size() - 1);
+
+        long breakMins = 0;
+
+        // Pair 2nd (index 1) and 3rd (index 2) -> Break
+        // Pair 4th (index 3) and 5th (index 4) -> Break
+        for (int i = 1; i < filtered.size() - 1; i += 2) {
+            LocalDateTime bOut = filtered.get(i);
+            LocalDateTime bIn = filtered.get(i + 1);
+            breakMins += Duration.between(bOut, bIn).toMinutes();
+        }
+
+        m.breakHours = breakMins / 60.0;
+
+        long totalMins = Duration.between(m.firstIn, m.lastOut).toMinutes();
+        long netMins = totalMins - breakMins;
+        if (netMins < 0) netMins = 0;
+
+        m.workHours = netMins / 60.0;
+        m.duration = totalMins / 60.0;
+
+        // Sanity: Cap duration to 14 hours for same-day shifts
+        if (m.lastOut.toLocalDate().equals(m.firstIn.toLocalDate()) && m.workHours > 14.0) {
+            m.workHours = 14.0;
+        }
+
+        calculateShiftMetrics(m, shift);
+    }
+
+    private static void calculateShiftMetrics(Metrics m, Map<String, Object> shift) {
+        if (m.firstIn == null) return;
+        
         // Shift Parameters
         LocalTime schedIn = LocalTime.of(9, 0);
         LocalTime schedOut = LocalTime.of(18, 0);
@@ -61,39 +108,46 @@ public class AttendanceCalculator {
         }
 
         // 1. Lateness
-        if (in.toLocalTime().isAfter(schedIn.plusMinutes(grace))) {
-            m.lateMins = (int) Duration.between(schedIn, in.toLocalTime()).toMinutes();
+        if (m.firstIn.toLocalTime().isAfter(schedIn.plusMinutes(grace))) {
+            m.lateMins = (int) Duration.between(schedIn, m.firstIn.toLocalTime()).toMinutes();
             m.status = "Late";
         }
 
-        if (out != null) {
-            // 2. Work Hours (Subtotal)
-            if (out.isBefore(in)) {
-                // Sanity: OUT before IN
-                m.workHours = 0;
-                m.duration = 0;
-            } else {
-                double duration = Duration.between(in, out).toMinutes() / 60.0;
-                
-                // Sanity: Cap duration to 14 hours for same-day shifts to avoid pairing errors
-                if (out.toLocalDate().equals(in.toLocalDate()) && duration > 14.0) {
-                    duration = 14.0;
-                }
-                
-                m.duration = duration;
-                m.workHours = duration;
-            }
-
-            // 4. Overtime
+        if (m.lastOut != null && !m.lastOut.equals(m.firstIn)) {
             if (m.workHours > otThreshold) {
                 m.overtime = m.workHours - otThreshold;
             }
 
-            // 5. Early Out
-            if (out.toLocalTime().isBefore(schedOut) && out.toLocalDate().equals(in.toLocalDate())) {
-                m.earlyMins = (int) Duration.between(out.toLocalTime(), schedOut).toMinutes();
+            if (m.lastOut.toLocalTime().isBefore(schedOut) && m.lastOut.toLocalDate().equals(m.firstIn.toLocalDate())) {
+                m.earlyMins = (int) Duration.between(m.lastOut.toLocalTime(), schedOut).toMinutes();
             }
         }
+    }
+
+    /**
+     * Calculates metrics for a single session based on shift rules.
+     */
+    public static Metrics calculate(LocalDateTime in, LocalDateTime out, Map<String, Object> shift) {
+        Metrics m = new Metrics();
+        if (in == null) return m;
+        m.firstIn = in;
+        m.lastOut = out;
+
+        if (out != null) {
+            if (out.isBefore(in)) {
+                m.workHours = 0;
+                m.duration = 0;
+            } else {
+                double duration = Duration.between(in, out).toMinutes() / 60.0;
+                if (out.toLocalDate().equals(in.toLocalDate()) && duration > 14.0) {
+                    duration = 14.0;
+                }
+                m.duration = duration;
+                m.workHours = duration;
+            }
+        }
+        
+        calculateShiftMetrics(m, shift);
         return m;
     }
 

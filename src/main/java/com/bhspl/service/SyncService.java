@@ -456,75 +456,19 @@ public class SyncService {
 
                     if (list.isEmpty()) continue;
 
-                    LocalDateTime firstIn = null;
-                    LocalDateTime lastOut = null;
-                    for (Map<String, Object> p : list) {
-                        LocalDateTime t = (LocalDateTime) p.get("time");
-                        int type = (int) p.get("type");
-                        if (type == 0 && firstIn == null) {
-                            firstIn = t;
-                        }
-                        if (type == 1) {
-                            lastOut = t;
-                        }
-                    }
-                    if (firstIn == null) firstIn = (LocalDateTime) list.get(0).get("time");
-                    if (lastOut == null) lastOut = (LocalDateTime) list.get(list.size() - 1).get("time");
-
-                    long productiveMins = 0;
-                    long breakMins = 0;
+                    List<LocalDateTime> punchTimes = list.stream().map(p -> (LocalDateTime) p.get("time")).collect(Collectors.toList());
+                    com.bhspl.util.AttendanceCalculator.Metrics met = new com.bhspl.util.AttendanceCalculator.Metrics();
+                    com.bhspl.util.AttendanceCalculator.calculateFromPunches(punchTimes, shift, met);
                     
-                    LocalDateTime activeIn = null;
-                    LocalDateTime activeOut = null;
-                    for (Map<String, Object> p : list) {
-                        LocalDateTime t = (LocalDateTime) p.get("time");
-                        int type = (int) p.get("type");
-                        
-                        if (type == 0) { // IN punch
-                            if (activeOut != null && t.isAfter(activeOut)) {
-                                long bMins = java.time.Duration.between(activeOut, t).toMinutes();
-                                if (bMins > 0) breakMins += bMins;
-                            }
-                            activeIn = t;
-                            activeOut = null;
-                        } else { // OUT punch
-                            if (activeIn != null && t.isAfter(activeIn)) {
-                                long pMins = java.time.Duration.between(activeIn, t).toMinutes();
-                                if (pMins > 0) productiveMins += pMins;
-                                activeOut = t;
-                                activeIn = null;
-                            } else {
-                                activeOut = t;
-                            }
-                        }
-                    }
-                    
-                    if (productiveMins == 0 && list.size() >= 2) {
-                        LocalDateTime first = (LocalDateTime) list.get(0).get("time");
-                        LocalDateTime last = (LocalDateTime) list.get(list.size() - 1).get("time");
-                        productiveMins = java.time.Duration.between(first, last).toMinutes();
-                    }
-                    
-                    double totalDuration = productiveMins / 60.0;
-
-                    // Saving the daily record
-                    com.bhspl.util.AttendanceCalculator.Metrics met = com.bhspl.util.AttendanceCalculator.calculate(firstIn, lastOut, shift);
-                    
-                    double otThreshold = 9.0;
-                    if (shift != null) {
-                        otThreshold = DatabaseManager.dbl(shift, "overtime_after");
-                        if (otThreshold <= 0) otThreshold = DatabaseManager.dbl(shift, "work_hours");
-                        if (otThreshold <= 0) otThreshold = 9.0;
-                    }
-                    double totalOT = Math.max(0, totalDuration - otThreshold);
+                    if (met.firstIn == null) continue;
 
                     db.execute(
                             "INSERT INTO attendance (emp_id, punch_date, in_time, out_time, status, work_hours, overtime, late_mins, early_mins, punch_type) "
                                     + "VALUES (?,?,?,?,?,?,?,?,?, 'Device') ON DUPLICATE KEY UPDATE in_time=VALUES(in_time), out_time=VALUES(out_time), "
                                     + "work_hours=VALUES(work_hours), overtime=VALUES(overtime), late_mins=VALUES(late_mins), early_mins=VALUES(early_mins), status=VALUES(status)",
-                            empId, date, java.sql.Timestamp.valueOf(firstIn),
-                            (lastOut != null ? java.sql.Timestamp.valueOf(lastOut) : null),
-                            met.status, totalDuration, totalOT, met.lateMins, met.earlyMins);
+                            empId, date, java.sql.Timestamp.valueOf(met.firstIn),
+                            (met.lastOut != null ? java.sql.Timestamp.valueOf(met.lastOut) : null),
+                            met.status, met.workHours, met.overtime, met.lateMins, met.earlyMins);
                 } catch (Exception e) {
                     if (logConsumer != null)
                         logConsumer.accept("Error: " + e.getMessage());

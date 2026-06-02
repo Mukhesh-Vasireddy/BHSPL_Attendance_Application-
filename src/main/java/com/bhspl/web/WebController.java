@@ -836,41 +836,22 @@ public class WebController {
                 String empId = r.get("emp_id").toString();
                 List<Map<String, Object>> punches = empPunches.get(empId);
                 
-                long breakMins = 0;
-                long productiveMins = 0;
+                double breakHours = 0;
+                double productiveHours = 0;
                 
                 if (punches != null && !punches.isEmpty()) {
-                    java.time.LocalDateTime activeIn = null;
-                    java.time.LocalDateTime activeOut = null;
-                    
+                    List<java.time.LocalDateTime> punchTimes = new ArrayList<>();
                     for (Map<String, Object> p : punches) {
-                        java.time.LocalDateTime t = (java.time.LocalDateTime) p.get("time");
-                        int type = (int) p.get("type");
-                        
-                        if (type == 0) { // IN punch
-                            if (activeOut != null && t.isAfter(activeOut)) {
-                                long bMins = java.time.Duration.between(activeOut, t).toMinutes();
-                                if (bMins > 0) breakMins += bMins;
-                            }
-                            activeIn = t;
-                            activeOut = null;
-                        } else { // OUT punch
-                            if (activeIn != null && t.isAfter(activeIn)) {
-                                long pMins = java.time.Duration.between(activeIn, t).toMinutes();
-                                if (pMins > 0) productiveMins += pMins;
-                                activeOut = t;
-                                activeIn = null;
-                            } else {
-                                activeOut = t;
-                            }
-                        }
+                        punchTimes.add((java.time.LocalDateTime) p.get("time"));
                     }
+                    com.bhspl.util.AttendanceCalculator.Metrics met = new com.bhspl.util.AttendanceCalculator.Metrics();
+                    com.bhspl.util.AttendanceCalculator.calculateFromPunches(punchTimes, null, met);
                     
-                    if (productiveMins == 0 && punches.size() >= 2) {
-                        java.time.LocalDateTime first = (java.time.LocalDateTime) punches.get(0).get("time");
-                        java.time.LocalDateTime last = (java.time.LocalDateTime) punches.get(punches.size() - 1).get("time");
-                        productiveMins = java.time.Duration.between(first, last).toMinutes();
-                    }
+                    breakHours = met.breakHours;
+                    productiveHours = met.workHours;
+                    
+                    if (met.firstIn != null) r.put("punch_in", met.firstIn);
+                    if (met.lastOut != null) r.put("punch_out", met.lastOut);
                 } else {
                     // Fallback to attendance record punch_in and punch_out if raw logs are not present or insufficient
                     java.time.LocalDateTime firstIn = parseDateTime(r.get("punch_in"));
@@ -879,21 +860,17 @@ public class WebController {
                     if (firstIn != null && lastOut != null) {
                         long totalMins = java.time.Duration.between(firstIn, lastOut).toMinutes();
                         if (totalMins > 0) {
-                            productiveMins = Math.max(0, totalMins - breakMins); // breakMins is 0
+                            productiveHours = Math.max(0, totalMins) / 60.0;
                         }
                     } else {
                         // Fallback to work_hours if datetimes are not present or invalid
-                        double workHours = DatabaseManager.dbl(r, "work_hours");
-                        productiveMins = Math.round(workHours * 60.0);
+                        productiveHours = DatabaseManager.dbl(r, "work_hours");
                     }
-                    breakMins = 0;
                 }
-                
-                double breakHours = breakMins / 60.0;
-                double productiveHours = productiveMins / 60.0;
+
                 
                 String formattedNetWorkingHours = com.bhspl.util.AttendanceCalculator.formatDuration(productiveHours);
-                System.out.println("DEBUG: EmpId: " + empId + " | punches size: " + (punches != null ? punches.size() : "null") + " | breakMins: " + breakMins + " | productiveMins: " + productiveMins + " | breakHours: " + breakHours + " | productiveHours: " + productiveHours + " | netWorkingHours: " + formattedNetWorkingHours);
+                System.out.println("DEBUG: EmpId: " + empId + " | punches size: " + (punches != null ? punches.size() : "null") + " | breakHours: " + breakHours + " | productiveHours: " + productiveHours + " | netWorkingHours: " + formattedNetWorkingHours);
                 r.put("break_time", com.bhspl.util.AttendanceCalculator.formatDuration(breakHours));
                 r.put("productive_time", formattedNetWorkingHours);
                 r.put("net_working_hours", formattedNetWorkingHours);
