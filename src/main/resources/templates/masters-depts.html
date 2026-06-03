@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" 
-      th:replace="~{layout :: main-layout(~{::section}, 'Department Structure', 'masters')}">
+      th:replace="~{layout :: main-layout(~{::section}, 'Departments', 'masters')}">
 <body>
     <section>
         <!-- Toolbar -->
         <div class="card" style="margin-bottom: 15px; padding: 15px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; color: var(--accent-purple);"><i class="fas fa-sitemap"></i> Department Structure</h3>
+                <h3 style="margin: 0; color: var(--accent-purple);"><i class="fas fa-sitemap"></i> Departments</h3>
                 <div style="display: flex; gap: 10px;">
                     <button class="btn-primary" style="background: #10B981;" onclick="openDeptModal()"><i class="fas fa-plus"></i> Add Dept</button>
                     <button class="btn-primary" style="background: rgba(51, 65, 85, 0.1); color: #334155; border: 1px solid rgba(51, 65, 85, 0.2);" onclick="exportTableToExcel('Departments.xls')"><i class="fas fa-file-excel"></i> Export</button>

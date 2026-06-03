@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{layout :: main-layout(~{::section}, 'Attendance Exceptions', 'reports')}">
+<body>
+    <section>
+        <!-- Filter Header -->
+        <div class="card" style="margin-bottom: 20px; padding: 20px;">
+            <form action="/reports/exceptions" method="get" style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
+                <input type="hidden" name="size" th:value="${pageSize != null ? pageSize : 10}">
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase;">Select Date</label>
+                    <input type="date" name="date" th:value="${selDate}" class="form-control" style="width: 200px;">
+                </div>
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase;">Department</label>
+                    <select name="dept" class="form-control" style="width: 200px;">
+                        <option>All</option>
+                        <option th:each="d : ${depts}" th:value="${d['dept_name']}" th:text="${d['dept_name']}" th:selected="${selDept == d['dept_name']}"></option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase;">Search</label>
+                    <input type="text" name="search" th:value="${selSearch}" class="form-control" style="width: 200px;" placeholder="Emp ID or Name...">
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button type="submit" class="btn-primary" style="background: var(--accent-primary);"><i class="fas fa-filter"></i> Filter Exceptions</button>
+                    
+                    <button type="button" onclick="exportTableToCSV('Attendance_Exceptions.csv')" class="btn-primary" style="background: #0d9488; color: #fff;">
+                        <i class="fas fa-file-csv"></i> Export CSV
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Report Results -->
+        <div class="card" style="padding: 0; overflow-x: auto;">
+            <table id="mainDataTable" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f8fafc;">
+                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Date</th>
+                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Emp ID</th>
+                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Employee Name</th>
+                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Department</th>
+                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">First In</th>
+                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Last Out</th>
+                        <th style="padding: 15px 20px; font-weight: 700; color: #EF4444; font-size: 11px; text-transform: uppercase;">Exception Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="r : ${data}" style="border-bottom: 1px solid var(--glass-border);">
+                        <td th:text="${#strings.substring(r['punch_date'], 0, 10)}" style="padding: 15px 20px; font-weight: 600; color: var(--text-main);">2026-05-11</td>
+                        <td th:text="${r['emp_id']}" style="padding: 15px 20px; font-weight: 500; color: var(--text-muted);">101</td>
+                        <td th:text="${r['emp_name']}" style="padding: 15px 20px; font-weight: 600; color: var(--text-main);">John Doe</td>
+                        <td th:text="${r['department']}" style="padding: 15px 20px; color: var(--text-muted);">Development</td>
+                        <td th:text="${r['in_time'] != null ? #strings.substring(r['in_time'], 11, 16) : '--'}" style="padding: 15px 20px; color: #10B981; font-weight: 600;">09:00</td>
+                        <td th:text="${r['out_time'] != null ? #strings.substring(r['out_time'], 11, 16) : '--'}" style="padding: 15px 20px; color: #60A5FA; font-weight: 600;">18:00</td>
+                        <td style="padding: 15px 20px;">
+                            <span style="display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; background: #FEE2E2; color: #DC2626; border: 1px solid #FCA5A5;">
+                                <i class="fas fa-exclamation-triangle"></i> <span th:text="${r['exceptions']}">Missing IN</span>
+                            </span>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(data)}">
+                        <td colspan="7" style="padding: 60px; text-align: center; color: #94A3B8;">
+                            <i class="fas fa-check-circle" style="font-size: 48px; margin-bottom: 15px; display: block; opacity: 0.5; color: #10B981;"></i>
+                            No attendance exceptions found for this criteria!
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/reports/exceptions')}"></div>
+        </div>
+    </section>
+</body>
+</html>

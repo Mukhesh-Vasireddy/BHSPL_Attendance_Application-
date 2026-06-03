@@ -431,6 +431,7 @@ public class DatabaseManager {
             {"leave_policy", "description",      "VARCHAR(255)"},
             {"leave_policy", "pro_rata",         "TINYINT DEFAULT 1"},
             {"leave_policy", "applicable_gender","VARCHAR(15) DEFAULT 'All'"},
+            {"attendance", "exceptions",         "VARCHAR(255) DEFAULT ''"},
         };
         
         // Custom migration to drop old attendance unique key if present

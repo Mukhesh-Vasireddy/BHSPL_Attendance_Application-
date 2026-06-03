@@ -456,19 +456,18 @@ public class SyncService {
 
                     if (list.isEmpty()) continue;
 
-                    List<LocalDateTime> punchTimes = list.stream().map(p -> (LocalDateTime) p.get("time")).collect(Collectors.toList());
                     com.bhspl.util.AttendanceCalculator.Metrics met = new com.bhspl.util.AttendanceCalculator.Metrics();
-                    com.bhspl.util.AttendanceCalculator.calculateFromPunches(punchTimes, shift, met);
+                    com.bhspl.util.AttendanceCalculator.calculateFromPunches(list, shift, met);
                     
                     if (met.firstIn == null) continue;
 
                     db.execute(
-                            "INSERT INTO attendance (emp_id, punch_date, in_time, out_time, status, work_hours, overtime, late_mins, early_mins, punch_type) "
-                                    + "VALUES (?,?,?,?,?,?,?,?,?, 'Device') ON DUPLICATE KEY UPDATE in_time=VALUES(in_time), out_time=VALUES(out_time), "
-                                    + "work_hours=VALUES(work_hours), overtime=VALUES(overtime), late_mins=VALUES(late_mins), early_mins=VALUES(early_mins), status=VALUES(status)",
+                            "INSERT INTO attendance (emp_id, punch_date, in_time, out_time, status, work_hours, overtime, late_mins, early_mins, punch_type, exceptions) "
+                                    + "VALUES (?,?,?,?,?,?,?,?,?, 'Device', ?) ON DUPLICATE KEY UPDATE in_time=VALUES(in_time), out_time=VALUES(out_time), "
+                                    + "work_hours=VALUES(work_hours), overtime=VALUES(overtime), late_mins=VALUES(late_mins), early_mins=VALUES(early_mins), status=VALUES(status), exceptions=VALUES(exceptions)",
                             empId, date, java.sql.Timestamp.valueOf(met.firstIn),
                             (met.lastOut != null ? java.sql.Timestamp.valueOf(met.lastOut) : null),
-                            met.status, met.workHours, met.overtime, met.lateMins, met.earlyMins);
+                            met.status, met.workHours, met.overtime, met.lateMins, met.earlyMins, met.exceptions);
                 } catch (Exception e) {
                     if (logConsumer != null)
                         logConsumer.accept("Error: " + e.getMessage());

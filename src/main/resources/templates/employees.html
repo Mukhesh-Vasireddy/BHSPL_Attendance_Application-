@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org"
-    th:replace="~{layout :: main-layout(~{::section}, 'Employee Master', 'employees')}">
+    th:replace="~{layout :: main-layout(~{::section}, 'Employee Directory', 'employees')}">
 
 <body>
     <section>
@@ -62,7 +62,23 @@
                 <tbody>
                     <tr th:each="emp : ${employees}" style="border-bottom: 1px solid #eee;">
                         <td th:text="${emp['emp_id']}" style="padding: 12px;">001</td>
-                        <td th:text="${emp['emp_name']}" style="padding: 12px; font-weight: bold;">Employee Name</td>
+                        <td style="padding: 12px; font-weight: bold;">
+                            <a href="javascript:void(0)" 
+                               th:attr="data-id=${emp['emp_id']},
+                                        data-name=${emp['emp_name']},
+                                        data-dept=${emp['department']},
+                                        data-desig=${emp['designation']},
+                                        data-phone=${emp['phone']},
+                                        data-blood=${emp['blood_group']},
+                                        data-emergency=${emp['emergency_contact']},
+                                        data-photo=${emp['photo_path']}"
+                               onclick="showIdCardModal(this)"
+                               style="color: var(--accent-primary); text-decoration: none; transition: color 0.2s;"
+                               onmouseover="this.style.color='var(--accent-secondary)'"
+                               onmouseout="this.style.color='var(--accent-primary)'">
+                               <span th:text="${emp['emp_name']}"></span>
+                            </a>
+                        </td>
                         <td th:text="${emp['department']}" style="padding: 12px;">Department</td>
                         <td th:text="${emp['designation']}" style="padding: 12px;">Designation</td>
                         <td style="padding: 12px;">
@@ -508,6 +524,282 @@
                     btnSubmit.disabled = false;
                 }
             }
+        </script>
+
+        <!-- ID Card Modal -->
+        <style>
+            .id-card-backdrop {
+                display: none;
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(15, 23, 42, 0.7);
+                backdrop-filter: blur(8px);
+                z-index: 10000;
+                justify-content: center; align-items: center;
+                animation: fadeIn 0.3s ease-out;
+            }
+            .id-card-scene {
+                width: 360px; height: 580px;
+                perspective: 1000px;
+                animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                position: relative;
+            }
+            .id-card-inner {
+                width: 100%; height: 100%;
+                position: relative;
+                transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+                transform-style: preserve-3d;
+                box-shadow: 0 25px 50px -12px rgba(0,0,0,0.3);
+                border-radius: 20px;
+            }
+            .id-card-scene.is-flipped .id-card-inner {
+                transform: rotateY(180deg);
+            }
+            .id-card-face {
+                position: absolute;
+                width: 100%; height: 100%;
+                backface-visibility: hidden;
+                border-radius: 20px;
+                background: #ffffff;
+                overflow: hidden;
+                display: flex; flex-direction: column;
+            }
+            .id-card-back {
+                transform: rotateY(180deg);
+                background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+            }
+            
+            /* Removed Decorative Graphics as per user request */
+
+            .id-content { position: relative; z-index: 1; flex: 1; display: flex; flex-direction: column; padding: 25px; }
+            .id-header { display: flex; flex-direction: column; align-items: center; margin-top: 10px; }
+            .id-logo-container { display: flex; align-items: center; justify-content: center; gap: 10px; }
+            .bavya-logo-icon { display: grid; grid-template-columns: 14px 14px; grid-template-rows: 14px 14px; gap: 3px; }
+            .bavya-logo-icon div { border-radius: 3px; }
+            .bavya-logo-tl { background: #eab308; border-top-left-radius: 7px !important; }
+            .bavya-logo-tr { background: #8b3d88; border-top-right-radius: 7px !important; }
+            .bavya-logo-bl { background: #d51b53; border-bottom-left-radius: 7px !important; }
+            .bavya-logo-br { background: #f97316; border-bottom-right-radius: 7px !important; }
+            .id-logo-text { font-size: 32px; font-weight: 800; margin: 0; letter-spacing: 1.5px; display: flex; align-items: center; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+            .id-logo-text span.purple { color: #8b3d88; }
+            .id-logo-text span.orange { color: #f97316; }
+            .id-logo-sub { font-size: 9px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+            
+            .id-photo-container { position: relative; margin: 25px auto 15px; width: 140px; height: 140px; }
+            .id-photo { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 4px solid #ffffff; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); background: #e2e8f0; }
+            .id-photo-upload-btn { position: absolute; bottom: -12px; left: 50%; transform: translateX(-50%); background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 6px 14px; font-size: 12px; color: #8b3d88; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 6px; font-weight: 600; white-space: nowrap; transition: all 0.2s; }
+            .id-photo-upload-btn:hover { background: #f8fafc; transform: translateX(-50%) translateY(-2px); }
+
+            .id-details { margin-top: auto; margin-bottom: 25px; display: flex; flex-direction: column; gap: 14px; }
+            .id-row { display: flex; align-items: center; font-size: 13px; }
+            .id-label { width: 130px; color: #475569; font-weight: 600; display: flex; align-items: center; gap: 8px; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;}
+            .id-colon { margin-right: 15px; color: #94a3b8; }
+            .id-val { color: #0f172a; font-weight: 700; flex: 1; }
+
+            .id-close { position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.8); border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #64748b; z-index: 10; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+            .id-close:hover { background: #fee2e2; color: #ef4444; }
+
+            .id-flip-btn { position: absolute; top: 15px; left: 15px; background: rgba(255,255,255,0.8); border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #0284c7; z-index: 10; transition: all 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+            .id-flip-btn:hover { background: #e0f2fe; transform: rotate(180deg); }
+
+            /* Back Side Content */
+            .id-back-content { padding: 40px 30px; display: flex; flex-direction: column; height: 100%; text-align: center; }
+            .id-back-header { font-size: 18px; font-weight: 800; color: #8b3d88; margin-bottom: 30px; border-bottom: 2px solid #f1f5f9; padding-bottom: 15px; }
+            .id-back-details { display: flex; flex-direction: column; gap: 20px; flex: 1; }
+            .id-back-box { background: rgba(241, 245, 249, 0.7); padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; }
+            .id-back-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; margin-bottom: 5px; }
+            .id-back-val { font-size: 15px; color: #0f172a; font-weight: 700; }
+            .id-back-footer { margin-top: auto; font-size: 10px; color: #64748b; line-height: 1.5; font-weight: 500; }
+        </style>
+
+        <div id="idCardModal" class="id-card-backdrop">
+            <div class="id-card-scene" id="idCardScene">
+                <button class="id-close" onclick="closeIdCard()"><i class="fas fa-times"></i></button>
+                <button class="id-flip-btn" onclick="flipIdCard()" title="Flip Card"><i class="fas fa-sync-alt"></i></button>
+                
+                <div class="id-card-inner">
+                    <!-- Front -->
+                    <div class="id-card-face">
+                        <div class="id-content">
+                            <div class="id-header">
+                                <div class="id-logo-container">
+                                    <div class="bavya-logo-icon">
+                                        <div class="bavya-logo-tl"></div>
+                                        <div class="bavya-logo-tr"></div>
+                                        <div class="bavya-logo-bl"></div>
+                                        <div class="bavya-logo-br"></div>
+                                    </div>
+                                    <h1 class="id-logo-text">
+                                        <span class="purple">BAVY</span><span class="orange">A</span>
+                                    </h1>
+                                </div>
+                                <div class="id-logo-sub">Bavya Health Services Pvt. Ltd.</div>
+                            </div>
+                            
+                            <div class="id-photo-container">
+                                <img id="idCardPhoto" src="/images/avatar-placeholder.png" onerror="this.src='https://ui-avatars.com/api/?name=User&background=e2e8f0&color=64748b'" class="id-photo" alt="Employee Photo">
+                                <label class="id-photo-upload-btn">
+                                    <i class="fas fa-upload"></i> Upload Photo
+                                    <input type="file" id="photoUploadInput" style="display: none;" accept="image/png, image/jpeg, image/jpg" onchange="handlePhotoUpload(this)">
+                                </label>
+                            </div>
+
+                            <div class="id-details">
+                                <div class="id-row">
+                                    <div class="id-label"><i class="fas fa-id-badge" style="font-size:14px; width:16px;"></i> EMP ID</div>
+                                    <div class="id-colon">:</div>
+                                    <div class="id-val" id="idCardEmpId">HR-EMP-000</div>
+                                </div>
+                                <div class="id-row">
+                                    <div class="id-label"><i class="fas fa-user" style="font-size:14px; width:16px;"></i> NAME</div>
+                                    <div class="id-colon">:</div>
+                                    <div class="id-val" id="idCardName" style="font-size:15px;">Employee Name</div>
+                                </div>
+                                <div class="id-row">
+                                    <div class="id-label"><i class="fas fa-building" style="font-size:14px; width:16px;"></i> DEPARTMENT</div>
+                                    <div class="id-colon">:</div>
+                                    <div class="id-val" id="idCardDept">Department</div>
+                                </div>
+                                <div class="id-row">
+                                    <div class="id-label"><i class="fas fa-briefcase" style="font-size:14px; width:16px;"></i> DESIGNATION</div>
+                                    <div class="id-colon">:</div>
+                                    <div class="id-val" id="idCardDesig">Designation</div>
+                                </div>
+                                <div class="id-row">
+                                    <div class="id-label"><i class="fas fa-phone-alt" style="font-size:14px; width:16px;"></i> PHONE</div>
+                                    <div class="id-colon">:</div>
+                                    <div class="id-val" id="idCardPhone">0000000000</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Back -->
+                    <div class="id-card-face id-card-back">
+                        <div class="id-back-content">
+                            <div class="id-back-header">Employee Details</div>
+                            
+                            <div class="id-back-details">
+                                <div class="id-back-box">
+                                    <div class="id-back-label"><i class="fas fa-tint" style="color:#ef4444;"></i> Blood Group</div>
+                                    <div class="id-back-val" id="idCardBlood">O+</div>
+                                </div>
+                                <div class="id-back-box">
+                                    <div class="id-back-label"><i class="fas fa-ambulance" style="color:#f59e0b;"></i> Emergency Contact</div>
+                                    <div class="id-back-val" id="idCardEmergency">N/A</div>
+                                </div>
+                                <div class="id-back-box">
+                                    <div class="id-back-label"><i class="fas fa-map-marker-alt" style="color:#10b981;"></i> Company Address</div>
+                                    <div class="id-back-val" style="font-size: 13px; font-weight: 600; line-height: 1.4; color: #475569;">
+                                        Bavya Health Services Pvt. Ltd.<br/>
+                                        Corporate Office, Main Building<br/>
+                                        City, State - PIN
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="id-back-footer">
+                                <strong>If found, please return to:</strong><br/>
+                                HR Department, Bavya Health Services Pvt. Ltd.<br/>
+                                Contact: +91-XXXXXXXXXX
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            let currentIdCardEmpId = null;
+
+            function showIdCardModal(element) {
+                const empId = element.getAttribute('data-id') || 'N/A';
+                currentIdCardEmpId = empId;
+                
+                document.getElementById('idCardEmpId').innerText = empId;
+                document.getElementById('idCardName').innerText = element.getAttribute('data-name') || 'N/A';
+                document.getElementById('idCardDept').innerText = element.getAttribute('data-dept') || 'N/A';
+                document.getElementById('idCardDesig').innerText = element.getAttribute('data-desig') || 'N/A';
+                document.getElementById('idCardPhone').innerText = element.getAttribute('data-phone') || 'N/A';
+                
+                document.getElementById('idCardBlood').innerText = element.getAttribute('data-blood') || 'N/A';
+                document.getElementById('idCardEmergency').innerText = element.getAttribute('data-emergency') || 'N/A';
+
+                const photoPath = element.getAttribute('data-photo');
+                const photoEl = document.getElementById('idCardPhoto');
+                if (photoPath && photoPath !== 'null') {
+                    // Force refresh with timestamp
+                    photoEl.src = `/employees/photo/${empId}?t=${new Date().getTime()}`;
+                } else {
+                    const fallbackName = encodeURIComponent(element.getAttribute('data-name') || 'User');
+                    photoEl.src = `https://ui-avatars.com/api/?name=${fallbackName}&background=e2e8f0&color=64748b&size=200`;
+                }
+
+                // Reset flip state
+                document.getElementById('idCardScene').classList.remove('is-flipped');
+                
+                const modal = document.getElementById('idCardModal');
+                modal.style.display = 'flex';
+            }
+
+            function closeIdCard() {
+                const modal = document.getElementById('idCardModal');
+                modal.style.opacity = '0';
+                setTimeout(() => {
+                    modal.style.display = 'none';
+                    modal.style.opacity = '1';
+                }, 300);
+            }
+
+            function flipIdCard() {
+                document.getElementById('idCardScene').classList.toggle('is-flipped');
+            }
+
+            async function handlePhotoUpload(input) {
+                if (!input.files || input.files.length === 0) return;
+                if (!currentIdCardEmpId) return showAlert("Error", "No employee selected.");
+
+                const file = input.files[0];
+                
+                // Show loading state
+                const photoEl = document.getElementById('idCardPhoto');
+                photoEl.style.opacity = '0.5';
+
+                const formData = new FormData();
+                formData.append('photo', file);
+                formData.append('empId', currentIdCardEmpId);
+
+                try {
+                    const res = await fetch('/employees/photo/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+                    
+                    if (data.success) {
+                        photoEl.src = data.photoUrl;
+                        // Update the data attribute on the table link
+                        const linkEl = document.querySelector(`a[data-id="${currentIdCardEmpId}"]`);
+                        if (linkEl) {
+                            linkEl.setAttribute('data-photo', 'true');
+                        }
+                    } else {
+                        showAlert("Upload Failed", data.message || "Could not upload photo.");
+                    }
+                } catch (e) {
+                    showAlert("Upload Error", "An error occurred during upload.");
+                    console.error(e);
+                } finally {
+                    photoEl.style.opacity = '1';
+                    input.value = ''; // Reset input
+                }
+            }
+
+            // Optional: Close ID card when clicking outside
+            document.getElementById('idCardModal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeIdCard();
+                }
+            });
         </script>
     </section>
 </body>

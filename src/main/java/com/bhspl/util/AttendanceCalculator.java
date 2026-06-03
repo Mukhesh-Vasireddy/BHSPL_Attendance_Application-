@@ -22,51 +22,91 @@ public class AttendanceCalculator {
         public double breakHours = 0;
         public LocalDateTime firstIn = null;
         public LocalDateTime lastOut = null;
+        public String exceptions = ""; // New field to track punch anomalies
+        public java.util.List<Map<String, Object>> breakIntervals = new java.util.ArrayList<>();
     }
 
-    public static void calculateFromPunches(List<LocalDateTime> punches, Map<String, Object> shift, Metrics m) {
+    public static void calculateFromPunches(List<Map<String, Object>> punches, Map<String, Object> shift, Metrics m) {
         if (punches == null || punches.isEmpty()) return;
 
+        // Ensure chronological sorting
+        List<Map<String, Object>> sortedPunches = new java.util.ArrayList<>(punches);
+        sortedPunches.sort((p1, p2) -> ((LocalDateTime) p1.get("time")).compareTo((LocalDateTime) p2.get("time")));
+
         // 1. Filter duplicates (within 60 seconds)
-        List<LocalDateTime> filtered = new java.util.ArrayList<>();
+        List<Map<String, Object>> filtered = new java.util.ArrayList<>();
         LocalDateTime lastTime = null;
-        for (LocalDateTime t : punches) {
+        int lastType = -1;
+        
+        for (Map<String, Object> p : sortedPunches) {
+            LocalDateTime t = (LocalDateTime) p.get("time");
+            int type = (int) p.get("type");
+            
             if (lastTime != null) {
-                long diff = Duration.between(lastTime, t).abs().getSeconds();
-                if (diff < 60) continue; // skip duplicate within 60s
+                long diff = Math.abs(Duration.between(lastTime, t).getSeconds());
+                if (diff < 60 && type == lastType) {
+                    continue; // skip duplicate within 60s
+                }
             }
-            filtered.add(t);
+            filtered.add(p);
             lastTime = t;
+            lastType = type;
         }
 
         if (filtered.isEmpty()) return;
 
-        m.firstIn = filtered.get(0);
-        m.lastOut = filtered.get(filtered.size() - 1);
+        List<String> exceptionsList = new java.util.ArrayList<>();
 
+        // First IN and Last OUT
+        m.firstIn = (LocalDateTime) filtered.get(0).get("time");
+        m.lastOut = (LocalDateTime) filtered.get(filtered.size() - 1).get("time");
+
+        // 2. Strict Alternating Sequence Break Calculation (OUT -> IN)
+        // Even index (0, 2, 4) = IN. Odd index (1, 3, 5) = OUT.
+        // Break time is the gap from an OUT (odd index) to the next IN (even index)
         long breakMins = 0;
-
-        // Pair 2nd (index 1) and 3rd (index 2) -> Break
-        // Pair 4th (index 3) and 5th (index 4) -> Break
+        
         for (int i = 1; i < filtered.size() - 1; i += 2) {
-            LocalDateTime bOut = filtered.get(i);
-            LocalDateTime bIn = filtered.get(i + 1);
-            breakMins += Duration.between(bOut, bIn).toMinutes();
+            LocalDateTime outTime = (LocalDateTime) filtered.get(i).get("time");
+            LocalDateTime inTime = (LocalDateTime) filtered.get(i + 1).get("time");
+            
+            long gap = Duration.between(outTime, inTime).toMinutes();
+            if (gap > 0) {
+                breakMins += gap;
+                Map<String, Object> interval = new java.util.HashMap<>();
+                interval.put("start", outTime);
+                interval.put("end", inTime);
+                interval.put("duration", gap);
+                m.breakIntervals.add(interval);
+            }
         }
-
+        
         m.breakHours = breakMins / 60.0;
 
+        // 3. Net Working Hours Calculation
         long totalMins = Duration.between(m.firstIn, m.lastOut).toMinutes();
+        if (totalMins <= 0) {
+            m.workHours = 0;
+            m.duration = 0;
+            return;
+        }
+
         long netMins = totalMins - breakMins;
         if (netMins < 0) netMins = 0;
 
         m.workHours = netMins / 60.0;
         m.duration = totalMins / 60.0;
 
-        // Sanity: Cap duration to 14 hours for same-day shifts
+        if (filtered.size() % 2 != 0 && filtered.size() > 1) {
+            exceptionsList.add("Unpaired Punches");
+        }
+        
         if (m.lastOut.toLocalDate().equals(m.firstIn.toLocalDate()) && m.workHours > 14.0) {
             m.workHours = 14.0;
+            exceptionsList.add("Abnormal Work Duration");
         }
+
+        m.exceptions = String.join(", ", exceptionsList);
 
         calculateShiftMetrics(m, shift);
     }

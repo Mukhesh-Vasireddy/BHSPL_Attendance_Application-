@@ -19,6 +19,16 @@ import org.springframework.http.ResponseEntity;
 import jakarta.servlet.http.HttpSession;
 import java.util.HashSet;
 import java.util.Set;
+import org.springframework.web.multipart.MultipartFile;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import java.util.UUID;
 
 @Controller
 public class WebController {
@@ -409,6 +419,73 @@ public class WebController {
         return "redirect:/employees";
     }
 
+    @PostMapping("/employees/photo/upload")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> uploadPhoto(@RequestParam("photo") MultipartFile file, @RequestParam("empId") String empId) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            if (file.isEmpty() || empId == null || empId.isEmpty()) {
+                response.put("success", false);
+                response.put("message", "Invalid file or employee ID.");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            Path uploadDir = Paths.get("uploads", "photos");
+            if (!Files.exists(uploadDir)) {
+                Files.createDirectories(uploadDir);
+            }
+
+            String fileExt = file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf("."));
+            String fileName = empId + "_" + UUID.randomUUID().toString().substring(0, 8) + fileExt;
+            Path targetLocation = uploadDir.resolve(fileName);
+            
+            Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
+
+            DatabaseManager db = DatabaseManager.getInstance();
+            // Ensure photo_path column exists
+            try {
+                db.execute("ALTER TABLE employees ADD COLUMN photo_path VARCHAR(255)");
+            } catch (Exception ignored) {} // Column might already exist
+            
+            db.execute("UPDATE employees SET photo_path=? WHERE emp_id=?", targetLocation.toString().replace("\\", "/"), empId);
+
+            response.put("success", true);
+            response.put("photoUrl", "/employees/photo/" + empId + "?t=" + System.currentTimeMillis());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.put("success", false);
+            response.put("message", "Internal server error: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @GetMapping("/employees/photo/{empId}")
+    @ResponseBody
+    public ResponseEntity<Resource> getEmployeePhoto(@PathVariable("empId") String empId) {
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            List<Map<String, Object>> emps = db.query("SELECT photo_path FROM employees WHERE emp_id=?", empId);
+            if (!emps.isEmpty() && emps.get(0).get("photo_path") != null) {
+                String photoPathStr = (String) emps.get(0).get("photo_path");
+                Path photoPath = Paths.get(photoPathStr);
+                if (Files.exists(photoPath)) {
+                    Resource resource = new UrlResource(photoPath.toUri());
+                    String contentType = Files.probeContentType(photoPath);
+                    if (contentType == null) contentType = "image/jpeg";
+                    
+                    return ResponseEntity.ok()
+                            .contentType(MediaType.parseMediaType(contentType))
+                            .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                            .body(resource);
+                }
+            }
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
     @GetMapping("/employees/delete/{id}")
     public String deleteEmployee(@PathVariable("id") String id) {
         try {
@@ -732,10 +809,61 @@ public class WebController {
         return null;
     }
 
+    @GetMapping("/reports/exceptions")
+    public String reportsExceptions(Model model,
+            @RequestParam(name = "date", required = false) String date,
+            @RequestParam(name = "dept", required = false) String dept,
+            @RequestParam(name = "search", required = false) String search,
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int pageSize) {
+        
+        List<Map<String, Object>> data = new java.util.ArrayList<>();
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            int offset = (page - 1) * pageSize;
+            String filterDate = (date != null) ? date : java.time.LocalDate.now().toString();
+
+            String where = " WHERE a.exceptions IS NOT NULL AND a.exceptions != ''";
+            if (dept != null && !"All".equals(dept))
+                where += " AND e.department = '" + dept + "'";
+            if (filterDate != null && !filterDate.isEmpty())
+                where += " AND a.punch_date = '" + filterDate + "'";
+            if (search != null && !search.trim().isEmpty()) {
+                String s = search.trim();
+                where += " AND (e.emp_name LIKE '%" + s + "%' OR e.emp_id LIKE '%" + s + "%')";
+                model.addAttribute("selSearch", s);
+            } else {
+                model.addAttribute("selSearch", "");
+            }
+
+            String sql = "SELECT a.*, e.emp_name, e.department, e.shift FROM attendance a "
+                    + "JOIN employees e ON a.emp_id = e.emp_id "
+                    + where + " ORDER BY a.punch_date DESC LIMIT " + pageSize + " OFFSET " + offset;
+
+            data = db.query(sql);
+
+            long totalRecords = db.queryLong("SELECT COUNT(*) FROM attendance a JOIN employees e ON a.emp_id = e.emp_id " + where);
+            int totalPages = (int) Math.ceil((double) totalRecords / pageSize);
+
+            List<Map<String, Object>> depts = db.query("SELECT dept_name FROM departments WHERE status='Active'");
+            model.addAttribute("depts", depts);
+            model.addAttribute("data", data);
+            model.addAttribute("currentPage", page);
+            model.addAttribute("totalPages", totalPages);
+            model.addAttribute("selDate", filterDate);
+            model.addAttribute("selDept", dept != null ? dept : "All");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "reports-exceptions";
+    }
+
     @GetMapping("/reports/daily")
     public String reportsDaily(Model model,
             @RequestParam(name = "date", required = false) String date,
             @RequestParam(name = "dept", required = false) String dept,
+            @RequestParam(name = "search", required = false) String search,
             @RequestParam(name = "page", defaultValue = "1") int page,
             @RequestParam(name = "size", defaultValue = "10") int pageSize,
             @RequestParam(name = "export", defaultValue = "false") boolean isExport) {
@@ -752,6 +880,13 @@ public class WebController {
             String where = " WHERE 1=1";
             if (dept != null && !"All".equals(dept))
                 where += " AND e.department = '" + dept + "'";
+            if (search != null && !search.trim().isEmpty()) {
+                String s = search.trim();
+                where += " AND (e.emp_name LIKE '%" + s + "%' OR e.emp_id LIKE '%" + s + "%')";
+                model.addAttribute("selSearch", s);
+            } else {
+                model.addAttribute("selSearch", "");
+            }
 
             long total = db.queryLong(
                     "SELECT COUNT(*) FROM employees e LEFT JOIN attendance a ON e.emp_id = a.emp_id AND a.punch_date = ?"
@@ -840,18 +975,51 @@ public class WebController {
                 double productiveHours = 0;
                 
                 if (punches != null && !punches.isEmpty()) {
-                    List<java.time.LocalDateTime> punchTimes = new ArrayList<>();
-                    for (Map<String, Object> p : punches) {
-                        punchTimes.add((java.time.LocalDateTime) p.get("time"));
-                    }
                     com.bhspl.util.AttendanceCalculator.Metrics met = new com.bhspl.util.AttendanceCalculator.Metrics();
-                    com.bhspl.util.AttendanceCalculator.calculateFromPunches(punchTimes, null, met);
+                    com.bhspl.util.AttendanceCalculator.calculateFromPunches(punches, null, met);
                     
                     breakHours = met.breakHours;
                     productiveHours = met.workHours;
                     
                     if (met.firstIn != null) r.put("punch_in", met.firstIn);
                     if (met.lastOut != null) r.put("punch_out", met.lastOut);
+                    
+                    r.put("work_hours", String.format(java.util.Locale.US, "%.1f", met.duration));
+                    r.put("break_time", com.bhspl.util.AttendanceCalculator.formatDuration(met.breakHours));
+                    r.put("net_working_hours", com.bhspl.util.AttendanceCalculator.formatDuration(met.workHours));
+                    
+                    java.time.format.DateTimeFormatter dtFmt = java.time.format.DateTimeFormatter.ofPattern("hh:mm a");
+                    
+                    // Format Break Details
+                    StringBuilder breakDetails = new StringBuilder();
+                    if (met.breakIntervals != null && !met.breakIntervals.isEmpty()) {
+                        int index = 1;
+                        for (Map<String, Object> interval : met.breakIntervals) {
+                            java.time.LocalDateTime start = (java.time.LocalDateTime) interval.get("start");
+                            java.time.LocalDateTime end = (java.time.LocalDateTime) interval.get("end");
+                            long durMins = (long) interval.get("duration");
+                            String durStr = String.format("%02d:%02d", durMins / 60, durMins % 60);
+                            breakDetails.append("Break ").append(index++).append(": ")
+                                        .append(start.format(dtFmt)).append(" → ")
+                                        .append(end.format(dtFmt)).append(" = ").append(durStr).append("|");
+                        }
+                        breakDetails.append("Total Break Time: ").append(com.bhspl.util.AttendanceCalculator.formatDuration(breakHours));
+                    } else {
+                        breakDetails.append("No break records found.");
+                    }
+                    r.put("break_details", breakDetails.toString());
+                    
+                    // Format Work Details
+                    StringBuilder workDetails = new StringBuilder();
+                    if (met.firstIn != null && met.lastOut != null) {
+                        workDetails.append("First IN: ").append(met.firstIn.format(dtFmt)).append("|");
+                        workDetails.append("Last OUT: ").append(met.lastOut.format(dtFmt)).append("|");
+                        workDetails.append("Total Duration: ").append(com.bhspl.util.AttendanceCalculator.formatDuration(met.duration));
+                    } else {
+                        workDetails.append("Incomplete punch records.");
+                    }
+                    r.put("work_details", workDetails.toString());
+                    
                 } else {
                     // Fallback to attendance record punch_in and punch_out if raw logs are not present or insufficient
                     java.time.LocalDateTime firstIn = parseDateTime(r.get("punch_in"));
@@ -871,9 +1039,25 @@ public class WebController {
                 
                 String formattedNetWorkingHours = com.bhspl.util.AttendanceCalculator.formatDuration(productiveHours);
                 System.out.println("DEBUG: EmpId: " + empId + " | punches size: " + (punches != null ? punches.size() : "null") + " | breakHours: " + breakHours + " | productiveHours: " + productiveHours + " | netWorkingHours: " + formattedNetWorkingHours);
-                r.put("break_time", com.bhspl.util.AttendanceCalculator.formatDuration(breakHours));
+                String formattedBreakTime = com.bhspl.util.AttendanceCalculator.formatDuration(breakHours);
+                r.put("break_time", formattedBreakTime);
                 r.put("productive_time", formattedNetWorkingHours);
                 r.put("net_working_hours", formattedNetWorkingHours);
+                
+                if (r.get("break_details") == null) r.put("break_details", "No detailed records available.");
+                if (r.get("work_details") == null) r.put("work_details", "No detailed records available.");
+                
+                // Format Net Details
+                String totalDur = "00:00";
+                if (r.get("work_details") != null && r.get("work_details").toString().contains("Total Duration: ")) {
+                    String wd = r.get("work_details").toString();
+                    totalDur = wd.substring(wd.indexOf("Total Duration: ") + 16);
+                }
+                StringBuilder netDetails = new StringBuilder();
+                netDetails.append("Total Duration: ").append(totalDur).append("|");
+                netDetails.append("Break Time: ").append(formattedBreakTime).append("|");
+                netDetails.append("Net Working Hours: ").append(formattedNetWorkingHours);
+                r.put("net_details", netDetails.toString());
 
                 Object inVal = r.get("punch_in");
                 if (inVal != null) {
@@ -1125,6 +1309,7 @@ public class WebController {
             @RequestParam(name = "to", required = false) String to,
             @RequestParam(name = "dept", required = false) String dept,
             @RequestParam(name = "emp", required = false) String emp,
+            @RequestParam(name = "search", required = false) String search,
             @RequestParam(name = "page", defaultValue = "1") int page,
             @RequestParam(name = "size", defaultValue = "10") int pageSize,
             @RequestParam(name = "export", defaultValue = "false") boolean isExport) {
@@ -1132,7 +1317,7 @@ public class WebController {
             pageSize = 50000;
             page = 1;
         }
-        return handleRawLogs(model, from, to, dept, emp, "raw-logs", page, pageSize);
+        return handleRawLogs(model, from, to, dept, emp, search, "raw-logs", page, pageSize);
     }
 
     @GetMapping("/raw-logs/report")
@@ -1141,6 +1326,7 @@ public class WebController {
             @RequestParam(name = "to", required = false) String to,
             @RequestParam(name = "dept", required = false) String dept,
             @RequestParam(name = "emp", required = false) String emp,
+            @RequestParam(name = "search", required = false) String search,
             @RequestParam(name = "page", defaultValue = "1") int page,
             @RequestParam(name = "size", defaultValue = "10") int pageSize,
             @RequestParam(name = "export", defaultValue = "false") boolean isExport) {
@@ -1148,10 +1334,10 @@ public class WebController {
             pageSize = 50000;
             page = 1;
         }
-        return handleRawLogs(model, from, to, dept, emp, "report-raw-logs", page, pageSize);
+        return handleRawLogs(model, from, to, dept, emp, search, "report-raw-logs", page, pageSize);
     }
 
-    private String handleRawLogs(Model model, String from, String to, String dept, String emp, String viewName,
+    private String handleRawLogs(Model model, String from, String to, String dept, String emp, String search, String viewName,
             int page, int pageSize) {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
@@ -1159,6 +1345,7 @@ public class WebController {
             String t = (to != null && !to.isEmpty()) ? to : java.time.LocalDate.now().toString();
             String d = (dept != null && !dept.trim().isEmpty()) ? dept.trim() : "All";
             String eId = (emp != null && !emp.trim().isEmpty()) ? emp.trim() : "All";
+            String s = (search != null) ? search.trim() : "";
 
             java.time.LocalDate startDate = java.time.LocalDate.parse(f);
             java.time.LocalDate endDate = java.time.LocalDate.parse(t);
@@ -1172,6 +1359,8 @@ public class WebController {
                 empBaseSql += " AND department = '" + d + "'";
             if (!"All".equals(eId))
                 empBaseSql += " AND emp_id = '" + eId + "'";
+            if (!s.isEmpty())
+                empBaseSql += " AND (emp_name LIKE '%" + s + "%' OR emp_id LIKE '%" + s + "%')";
             empBaseSql += " ORDER BY emp_name ASC";
 
             List<Map<String, Object>> activeEmps = db.query(empBaseSql);
@@ -1276,6 +1465,7 @@ public class WebController {
             model.addAttribute("selTo", t);
             model.addAttribute("selDept", d);
             model.addAttribute("selEmp", eId);
+            model.addAttribute("selSearch", s);
         } catch (Exception ex) {
             ex.printStackTrace();
             model.addAttribute("error", ex.getMessage());

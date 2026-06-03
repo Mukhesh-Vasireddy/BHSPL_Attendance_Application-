@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" 
-      th:replace="~{layout :: main-layout(~{::section}, 'Weekly Off Master', 'masters')}">
+      th:replace="~{layout :: main-layout(~{::section}, 'Weekly Off', 'masters')}">
 <body>
     <section>
         <!-- Toolbar -->
         <div class="card" style="margin-bottom: 15px; padding: 15px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; color: var(--accent-purple);"><i class="fas fa-calendar-week"></i> Weekly Off Master</h3>
+                <h3 style="margin: 0; color: var(--accent-purple);"><i class="fas fa-calendar-week"></i> Weekly Off</h3>
                 <div style="display: flex; gap: 10px;">
                     <button class="btn-primary" style="background: #10B981;" onclick="openOffModal()"><i class="fas fa-plus"></i> Assign Off</button>
                     <button class="btn-primary" style="background: #f1f5f9; color: var(--text-main); border: 1px solid var(--glass-border);" onclick="refreshAndSync()"><i class="fas fa-sync"></i> Refresh</button>

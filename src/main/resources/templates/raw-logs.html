@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" 
-      th:replace="~{layout :: main-layout(~{::section}, 'Raw Punch Log', 'raw-logs')}">
+      th:replace="~{layout :: main-layout(~{::section}, 'Activity Logs', 'raw-logs')}">
 <body>
     <section>
         <!-- Filters Row -->
         <div class="card" style="margin-bottom: 25px; padding: 25px;">
             <form action="/raw-logs" method="get">
                 <input type="hidden" name="size" th:value="${pageSize != null ? pageSize : 10}">
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 40px; margin-bottom: 25px;">
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; margin-bottom: 25px;">
                     <!-- Left Column -->
                     <div style="display: flex; flex-direction: column; gap: 20px;">
                         <div style="display: flex; align-items: center; gap: 12px;">
@@ -22,7 +22,7 @@
                             </select>
                         </div>
                     </div>
-                    <!-- Right Column -->
+                    <!-- Middle Column -->
                     <div style="display: flex; flex-direction: column; gap: 20px;">
                         <div style="display: flex; align-items: center; gap: 12px;">
                             <label style="width: 80px; font-weight: 600; color: var(--text-muted); font-size: 13px;">TO:</label>
@@ -34,6 +34,13 @@
                                 <option value="All">All Employees</option>
                                 <option th:each="e : ${employees}" th:value="${e.emp_id}" th:text="${e.emp_name}" th:selected="${e.emp_id == selEmp}"></option>
                             </select>
+                        </div>
+                    </div>
+                    <!-- Right Column -->
+                    <div style="display: flex; flex-direction: column; gap: 20px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <label style="width: 80px; font-weight: 600; color: var(--text-muted); font-size: 13px;">SEARCH:</label>
+                            <input type="text" name="search" th:value="${selSearch}" class="form-control" style="width: 220px;" placeholder="Emp ID or Name...">
                         </div>
                     </div>
                 </div>

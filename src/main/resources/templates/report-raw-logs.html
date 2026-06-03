@@ -99,7 +99,7 @@
         </div>
     </div>
 
-    <div class="meta-info">
+    <div class="meta-info" th:style="${selSearch != null and !selSearch.isEmpty()} ? 'grid-template-columns: repeat(4, 1fr);' : 'grid-template-columns: repeat(3, 1fr);'">
         <div class="meta-item">
             <span>Filter Department</span>
             <b th:text="${selDept}">All Departments</b>
@@ -107,6 +107,10 @@
         <div class="meta-item">
             <span>Filter Employee</span>
             <b th:text="${selEmpName ?: 'All Employees'}">All Employees</b>
+        </div>
+        <div class="meta-item" th:if="${selSearch != null and !selSearch.isEmpty()}">
+            <span>Search Keyword</span>
+            <b th:text="${selSearch}"></b>
         </div>
         <div class="meta-item">
             <span>Total Records</span>
