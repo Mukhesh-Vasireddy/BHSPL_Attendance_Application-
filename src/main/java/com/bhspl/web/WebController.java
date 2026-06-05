@@ -497,6 +497,152 @@ public class WebController {
         return "redirect:/employees";
     }
 
+    @GetMapping("/employees/profile/{id}")
+    public String employeeProfile(@PathVariable("id") String empId, 
+                                  @RequestParam(name="month", required=false) Integer month,
+                                  @RequestParam(name="year", required=false) Integer year,
+                                  Model model, HttpSession session) {
+        if (session.getAttribute("user") == null) return "redirect:/login";
+        
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            
+            // 1. Employee Details
+            Map<String, Object> emp = db.queryOne("SELECT * FROM employees WHERE emp_id=?", empId);
+            if (emp == null) return "redirect:/employees";
+            model.addAttribute("emp", emp);
+            
+            // Default to current month/year if not provided
+            java.time.LocalDate now = java.time.LocalDate.now();
+            int selectedMonth = (month != null) ? month : now.getMonthValue();
+            int selectedYear = (year != null) ? year : now.getYear();
+            model.addAttribute("selectedMonth", selectedMonth);
+            model.addAttribute("selectedYear", selectedYear);
+            
+            // 2. Attendance Summary & Monthly Stats
+            List<Map<String, Object>> attendanceRecords = db.query(
+                "SELECT * FROM attendance WHERE emp_id=? AND YEAR(punch_date) = ? AND MONTH(punch_date) = ?", 
+                empId, selectedYear, selectedMonth);
+                
+            int presentDays = 0, absentDays = 0, lateDays = 0, leaveDays = 0, weeklyOffs = 0, holidays = 0;
+            double totalWorkedHours = 0.0;
+            int daysWithHours = 0;
+            
+            for(Map<String, Object> a : attendanceRecords) {
+                String status = DatabaseManager.str(a, "status");
+                if(status == null) status = "";
+                
+                if(status.equalsIgnoreCase("Present") || status.equalsIgnoreCase("P") || status.equalsIgnoreCase("Early")) {
+                    presentDays++;
+                } else if(status.equalsIgnoreCase("Absent") || status.equalsIgnoreCase("A")) {
+                    absentDays++;
+                } else if(status.equalsIgnoreCase("Late")) {
+                    lateDays++;
+                } else if(status.equalsIgnoreCase("Leave") || status.equalsIgnoreCase("L") || status.equalsIgnoreCase("Half-Day")) {
+                    leaveDays++;
+                } else if(status.equalsIgnoreCase("Weekly Off") || status.equalsIgnoreCase("WO")) {
+                    weeklyOffs++;
+                } else if(status.equalsIgnoreCase("Holiday") || status.equalsIgnoreCase("H") || status.equalsIgnoreCase("PH")) {
+                    holidays++;
+                }
+                
+                Object wh = a.get("work_hours");
+                if (wh != null) {
+                    try {
+                        double h = Double.parseDouble(wh.toString());
+                        totalWorkedHours += h;
+                        if (h > 0) daysWithHours++;
+                    } catch(Exception e) {}
+                }
+            }
+            
+            double avgWorkingHours = (daysWithHours > 0) ? (totalWorkedHours / daysWithHours) : 0.0;
+            
+            // Calculate Weekly Offs based on Shift
+            int computedWeeklyOffs = 0;
+            String shiftName = (String) emp.get("shift");
+            Map<String, Object> shiftInfo = db.queryOne("SELECT weekly_off1, weekly_off2 FROM shifts WHERE shift_name=?", shiftName);
+            Map<String, Object> customWo = db.queryOne("SELECT off_day1, off_day2 FROM weekly_offs WHERE emp_id=? ORDER BY id DESC LIMIT 1", empId);
+            String wo1 = customWo != null ? DatabaseManager.str(customWo, "off_day1") : (shiftInfo != null ? DatabaseManager.str(shiftInfo, "weekly_off1") : "Sunday");
+            String wo2 = customWo != null ? DatabaseManager.str(customWo, "off_day2") : (shiftInfo != null ? DatabaseManager.str(shiftInfo, "weekly_off2") : "None");
+            
+            java.time.YearMonth ym = java.time.YearMonth.of(selectedYear, selectedMonth);
+            for (int i = 1; i <= ym.lengthOfMonth(); i++) {
+                String dayName = ym.atDay(i).getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH);
+                if (dayName.equalsIgnoreCase(wo1) || dayName.equalsIgnoreCase(wo2)) {
+                    computedWeeklyOffs++;
+                }
+            }
+            weeklyOffs = computedWeeklyOffs;
+
+            // Calculate Holidays
+            holidays = (int) db.queryLong("SELECT COUNT(*) FROM holidays WHERE MONTH(holiday_date) = ? AND YEAR(holiday_date) = ?", selectedMonth, selectedYear);
+
+            // Calculate Leaves
+            long computedLeaveDays = db.queryLong("SELECT COALESCE(SUM(days), 0) FROM leaves WHERE emp_id=? AND status='Approved' AND MONTH(from_date) = ? AND YEAR(from_date) = ?", empId, selectedMonth, selectedYear);
+            leaveDays = (int) computedLeaveDays;
+
+            model.addAttribute("presentDays", presentDays); // Exclude Late from Present count for UI mutually exclusive cards
+            model.addAttribute("absentDays", absentDays);
+            model.addAttribute("lateDays", lateDays);
+            model.addAttribute("leaveDays", leaveDays);
+            model.addAttribute("weeklyOffs", weeklyOffs);
+            model.addAttribute("holidays", holidays);
+            
+            model.addAttribute("totalWorkingDays", presentDays + lateDays);
+            model.addAttribute("totalWorkedHours", String.format("%.2f", totalWorkedHours));
+            model.addAttribute("avgWorkingHours", String.format("%.2f", avgWorkingHours));
+            model.addAttribute("netWorkingHours", String.format("%.2f", totalWorkedHours));
+            
+            // 3. Recent Punch Logs (Last 10)
+            List<Map<String, Object>> recentPunches = db.query(
+                "SELECT r.punch_time, r.punch_type, d.device_name " +
+                "FROM raw_logs r " +
+                "LEFT JOIN devices d ON r.device_id = d.device_id " +
+                "WHERE r.emp_id=? ORDER BY r.punch_time DESC LIMIT 10", empId);
+                
+            java.time.format.DateTimeFormatter timeFmt = java.time.format.DateTimeFormatter.ofPattern("hh:mm a");
+            java.time.format.DateTimeFormatter dateFmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            for(Map<String, Object> p : recentPunches) {
+                Object pt = p.get("punch_time");
+                if (pt != null) {
+                    java.time.LocalDateTime ldt = null;
+                    if (pt instanceof java.sql.Timestamp) ldt = ((java.sql.Timestamp) pt).toLocalDateTime();
+                    else if (pt instanceof java.time.LocalDateTime) ldt = (java.time.LocalDateTime) pt;
+                    else try { ldt = java.time.LocalDateTime.parse(pt.toString().replace(" ", "T").substring(0, 19)); } catch(Exception e){}
+                    
+                    if(ldt != null) {
+                        p.put("formatted_date", ldt.format(dateFmt));
+                        p.put("formatted_time", ldt.format(timeFmt));
+                    }
+                }
+            }
+            model.addAttribute("recentPunches", recentPunches);
+            
+            // 4. Leave Summary (Yearly based on selectedYear)
+            List<Map<String, Object>> leaveBalances = db.query(
+                "SELECT * FROM leave_balance WHERE emp_id=? AND year=?", empId, selectedYear);
+            double availableLeave = 0.0, usedLeave = 0.0;
+            for(Map<String, Object> lb : leaveBalances) {
+                availableLeave += DatabaseManager.dbl(lb, "closing_bal");
+                usedLeave += DatabaseManager.dbl(lb, "used");
+            }
+            long pendingLeaves = db.queryLong("SELECT COUNT(*) FROM leaves WHERE emp_id=? AND status='Pending'", empId);
+            long approvedLeaves = db.queryLong("SELECT COUNT(*) FROM leaves WHERE emp_id=? AND status='Approved' AND YEAR(from_date)=?", empId, selectedYear);
+            
+            model.addAttribute("availableLeave", availableLeave);
+            model.addAttribute("usedLeave", usedLeave);
+            model.addAttribute("pendingLeaves", pendingLeaves);
+            model.addAttribute("approvedLeaves", approvedLeaves);
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            model.addAttribute("error", e.getMessage());
+        }
+        
+        return "employee-profile";
+    }
+
     @GetMapping("/api/employees/import-device-preview")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> importDevicePreview(

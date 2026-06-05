@@ -112,9 +112,9 @@
             flex-direction: column;
             padding: 30px 0;
             flex-shrink: 0;
-            z-index: 100;
+            z-index: 1050;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            overflow: hidden !important;
+            position: relative;
         }
 
         .sidebar.collapsed {
@@ -125,6 +125,10 @@
         .sidebar.collapsed .nav-item span,
         .sidebar.collapsed .user-profile span {
             display: none !important;
+        }
+
+        .sidebar.collapsed #sidebarCollapseIcon {
+            transform: rotate(180deg);
         }
 
         .sidebar.collapsed .logo-container {
@@ -333,24 +337,28 @@
         /* Main Content */
         .main-content {
             flex-grow: 1;
-            padding: 30px;
+            padding: 0;
             overflow-y: auto;
             background: transparent;
             position: relative;
+        }
+
+        #spa-content-container {
+            padding: 30px;
+            flex-grow: 1;
         }
 
         .top-bar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 35px;
-            padding: 20px 25px;
-            background: var(--glass-bg);
-            backdrop-filter: blur(8px);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            position: relative;
-            z-index: 900;
+            padding: 20px 30px;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--glass-border);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
 
         .top-bar h2 {
@@ -495,13 +503,13 @@
         .stat-card.absent:hover { background: linear-gradient(135deg, #f87171, #ef4444); }
         .stat-card.absent:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
 
-        /* 3. Total Employees (Slate Gray/Neutral Grounding) */
+        /* 3. Total Employees (Indigo/Deep Purple) */
         .stat-card.total { 
-            background: linear-gradient(135deg, rgba(71, 85, 105, 0.05), rgba(71, 85, 105, 0.1));
-            border: 1px solid rgba(71, 85, 105, 0.2);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(99, 102, 241, 0.1));
+            border: 1px solid rgba(99, 102, 241, 0.2);
         }
-        .stat-card.total .stat-icon { color: #475569; background: rgba(71, 85, 105, 0.1); }
-        .stat-card.total:hover { background: linear-gradient(135deg, #64748b, #475569); }
+        .stat-card.total .stat-icon { color: #6366f1; background: rgba(99, 102, 241, 0.1); }
+        .stat-card.total:hover { background: linear-gradient(135deg, #818cf8, #6366f1); }
         .stat-card.total:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
 
         /* 4. On Leave Today (Vibrant Fuchsia/Magenta) */
@@ -684,6 +692,17 @@
             border: 1px solid var(--glass-border);
             background: #ffffff;
             font-size: 14px;
+        }
+
+        .action-btn.view {
+            color: #10b981;
+        }
+
+        .action-btn.view:hover {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: #10b981;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
         }
 
         .action-btn.edit {
@@ -1050,6 +1069,11 @@
     <div id="spa-loading-bar" style="position: fixed; top: 0; left: 0; height: 3px; width: 0%; background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary), var(--accent-vibrant)); box-shadow: 0 0 10px var(--accent-primary), 0 0 5px var(--accent-secondary); z-index: 99999; transition: width 0.3s cubic-bezier(0.1, 0.8, 0.3, 1), opacity 0.3s ease; opacity: 0; pointer-events: none;"></div>
 
     <div class="sidebar">
+        <!-- Sidebar edge toggle button -->
+        <button id="sidebarEdgeToggle" onclick="toggleSidebar()" style="position: absolute; top: 40px; right: -15px; width: 30px; height: 30px; background: #ffffff; border: 1px solid var(--glass-border); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--accent-primary); box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 1001; transition: all 0.3s ease;">
+            <i class="fas fa-angle-double-left" id="sidebarCollapseIcon" style="font-size: 12px; transition: transform 0.3s ease;"></i>
+        </button>
+
         <a href="/" style="text-decoration: none;">
             <div class="logo-container" style="margin: 0 25px 40px; padding: 15px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; background: rgba(255, 255, 255, 0.05); display: flex; align-items: center; gap: 15px; transition: all 0.3s ease;">
                 <div class="logo-icon">
@@ -1127,9 +1151,6 @@
     <div class="main-content" style="display: flex; flex-direction: column; min-height: 100vh;">
         <div class="top-bar">
             <div style="display: flex; align-items: center; gap: 20px;">
-                <button id="sidebarToggle" onclick="toggleSidebar()" style="background: var(--glass-bg); border: 1px solid var(--glass-border); width: 44px; height: 44px; border-radius: 12px; cursor: pointer; color: var(--text-main); align-items: center; justify-content: center; transition: all 0.2s; box-shadow: var(--card-shadow);">
-                    <i class="fas fa-bars"></i>
-                </button>
                 <h2 th:text="${title}" style="margin: 0;">Page Title</h2>
             </div>
             <div style="display: flex; gap: 20px; align-items: center;">
@@ -1173,8 +1194,17 @@
         </div>
         
         <!-- Global Footer -->
-        <footer style="padding: 20px 30px; text-align: center; color: var(--text-muted); font-size: 13px; font-weight: 500; border-top: 1px solid var(--glass-border); margin-top: auto;">
-            © 2026 BHSPL. All Rights Reserved.
+        <footer style="padding: 20px 30px; color: var(--text-muted); font-size: 13px; font-weight: 500; border-top: 1px solid var(--glass-border); margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <span>© 2026</span>
+            <div style="display: flex; align-items: center; gap: 3px;">
+                <div class="logo-icon" style="width: 14px; height: 14px; gap: 1px; display: inline-grid;">
+                    <div class="logo-box yellow" style="border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.15);"></div>
+                    <div class="logo-box orange" style="border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.15);"></div>
+                    <div class="logo-box pink" style="border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.15);"></div>
+                    <div class="logo-box purple" style="border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.15);"></div>
+                </div>
+                <span>BHSPL. All Rights Reserved.</span>
+            </div>
         </footer>
     </div>
 

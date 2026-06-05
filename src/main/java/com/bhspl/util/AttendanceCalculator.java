@@ -119,6 +119,7 @@ public class AttendanceCalculator {
         LocalTime schedOut = LocalTime.of(18, 0);
         int grace = 5;
         double otThreshold = 9.0;
+        int shiftBreakMins = 0;
 
         if (shift != null) {
             try {
@@ -141,9 +142,22 @@ public class AttendanceCalculator {
                     otThreshold = DatabaseManager.dbl(shift, "overtime_after");
                     if (otThreshold <= 0) otThreshold = DatabaseManager.dbl(shift, "work_hours");
                     if (otThreshold <= 0) otThreshold = 9.0;
+                    shiftBreakMins = DatabaseManager.num(shift, "break_mins");
                 }
             } catch (Exception e) {
                 System.err.println("AttendanceCalculator: Shift parse error: " + e.getMessage());
+            }
+        }
+        
+        // Apply default break if the explicit break is less than the shift's break,
+        // and they worked a significant portion of the day (e.g., duration > 4.5 hours)
+        if (m.duration >= 4.5 && shiftBreakMins > 0) {
+            double defaultBreakHrs = shiftBreakMins / 60.0;
+            if (m.breakHours < defaultBreakHrs) {
+                double diff = defaultBreakHrs - m.breakHours;
+                m.breakHours = defaultBreakHrs;
+                m.workHours -= diff;
+                if (m.workHours < 0) m.workHours = 0;
             }
         }
 

@@ -63,19 +63,11 @@
                     <tr th:each="emp : ${employees}" style="border-bottom: 1px solid #eee;">
                         <td th:text="${emp['emp_id']}" style="padding: 12px;">001</td>
                         <td style="padding: 12px; font-weight: bold;">
-                            <a href="javascript:void(0)" 
-                               th:attr="data-id=${emp['emp_id']},
-                                        data-name=${emp['emp_name']},
-                                        data-dept=${emp['department']},
-                                        data-desig=${emp['designation']},
-                                        data-phone=${emp['phone']},
-                                        data-blood=${emp['blood_group']},
-                                        data-emergency=${emp['emergency_contact']},
-                                        data-photo=${emp['photo_path']}"
-                               onclick="showIdCardModal(this)"
-                               style="color: var(--accent-primary); text-decoration: none; transition: color 0.2s;"
-                               onmouseover="this.style.color='var(--accent-secondary)'"
-                               onmouseout="this.style.color='var(--accent-primary)'">
+                            <a th:href="@{/employees/profile/{id}(id=${emp['emp_id']})}"
+                               style="color: var(--accent-primary); text-decoration: underline; text-underline-offset: 4px; transition: color 0.2s, text-decoration-color 0.2s;"
+                               onmouseover="this.style.color='var(--accent-secondary)'; this.style.textDecorationColor='var(--accent-secondary)';"
+                               onmouseout="this.style.color='var(--accent-primary)'; this.style.textDecorationColor='var(--accent-primary)';"
+                               title="View Employee Profile Dashboard">
                                <span th:text="${emp['emp_name']}"></span>
                             </a>
                         </td>
@@ -91,6 +83,9 @@
                         </td>
                         <td style="padding: 12px;">
                             <div class="action-col">
+                                <a class="action-btn view" title="View Employee Profile Dashboard" th:href="@{/employees/profile/{id}(id=${emp['emp_id']})}" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
+                                    <i class="fas fa-id-card"></i>
+                                </a>
                                 <button class="action-btn edit" title="Edit" th:attr="data-id=${emp['emp_id']}"
                                     onclick="editEmployee(this.getAttribute('data-id'))"><i
                                         class="fas fa-pen"></i></button>

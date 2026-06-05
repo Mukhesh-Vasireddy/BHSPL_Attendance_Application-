@@ -39,14 +39,10 @@
 
         .login-card {
             display: flex;
-            width: 1000px;
-            max-width: 95vw;
-            height: 600px;
+            width: 100vw;
+            height: 100vh;
             background: #ffffff;
-            border: 1px solid var(--glass-border);
-            border-radius: 40px;
             overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
             animation: fadeIn 1s ease-out;
         }
 
@@ -61,27 +57,31 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            background: linear-gradient(135deg, #f5f3ff, #faf5ff);
+            align-items: center;
+            text-align: center;
+            background: linear-gradient(135deg, #f0f4ff, #e0e7ff);
             position: relative;
             border-right: 1px solid var(--glass-border);
             overflow: hidden;
         }
 
         .branding-side h1 {
-            font-size: 56px;
+            font-size: 64px;
             font-weight: 800;
-            line-height: 1;
-            margin-bottom: 25px;
-            color: #0f172a;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            color: #1e293b;
+            letter-spacing: -1px;
             position: relative;
             z-index: 2;
         }
 
         .branding-side p {
-            font-size: 18px;
-            color: #64748b;
+            font-size: 20px;
+            color: #475569;
+            font-weight: 400;
             line-height: 1.6;
-            max-width: 400px;
+            max-width: 450px;
             position: relative;
             z-index: 2;
         }
@@ -104,14 +104,21 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
+            align-items: center;
             position: relative;
             overflow: hidden;
             background: linear-gradient(135deg, #faf5ff, #f5f3ff);
         }
 
-        .logo-container, .welcome-text, .error-msg, form {
+        .form-container {
+            width: 100%;
+            max-width: 400px;
             position: relative;
             z-index: 2;
+        }
+
+        .logo-container, .welcome-text, .error-msg, form {
+            position: relative;
         }
 
         .logo-container {
@@ -155,13 +162,13 @@
         }
 
         .welcome-text {
-            margin-bottom: 35px;
+            margin-bottom: 30px;
         }
 
         .welcome-text h3 {
-            font-size: 28px;
+            font-size: 26px;
             font-weight: 700;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         .welcome-text p {
@@ -197,12 +204,12 @@
 
         .input-wrapper input {
             width: 100%;
-            background: #f8fafc;
+            background: #ffffff;
             border: 1px solid var(--glass-border);
-            padding: 16px 50px 16px 55px;
-            border-radius: 18px;
+            padding: 14px 45px 14px 50px;
+            border-radius: 14px;
             color: var(--text-main);
-            font-size: 16px;
+            font-size: 15px;
             outline: none;
             transition: all 0.3s;
         }
@@ -237,14 +244,14 @@
             background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
             color: white;
             border: none;
-            padding: 18px;
-            border-radius: 18px;
-            font-size: 18px;
+            padding: 15px;
+            border-radius: 14px;
+            font-size: 16px;
             font-weight: 700;
             cursor: pointer;
             transition: all 0.3s;
             margin-top: 15px;
-            box-shadow: 0 10px 20px rgba(2, 132, 199, 0.2);
+            box-shadow: 0 8px 15px rgba(2, 132, 199, 0.2);
         }
 
         .login-btn:hover {
@@ -268,7 +275,7 @@
 
         @media (max-width: 900px) {
             .branding-side { display: none; }
-            .login-card { width: 450px; border-radius: 30px; }
+            .login-card { width: 100vw; height: 100vh; border-radius: 0; }
             .form-side { padding: 40px; }
         }
     </style>
@@ -281,7 +288,8 @@
         </div>
         <div class="form-side">
             <i class="fas fa-fingerprint floating-icon"></i>
-            <div class="logo-container">
+            <div class="form-container">
+                <div class="logo-container">
                 <div class="logo-icon">
                     <div class="logo-box orange"></div>
                     <div class="logo-box yellow"></div>
@@ -318,6 +326,7 @@
                 </div>
                 <button type="submit" class="login-btn">Login</button>
             </form>
+            </div>
         </div>
     </div>
 
