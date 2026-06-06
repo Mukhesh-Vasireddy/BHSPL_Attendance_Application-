@@ -67,7 +67,7 @@ public class LoginWindow extends JFrame {
         add(leftContent);
 
         // ----- RIGHT SIDE: LOGIN CARD & FORM (Transparent container) -----
-        JPanel rightSide = new JPanel(new MigLayout("ins 0, fill, wrap", "[center]", "[center]"));
+        JPanel rightSide = new JPanel(new MigLayout("ins 0, fill, wrap", "[center]", "[push, center] [bottom]"));
         rightSide.setOpaque(false);
 
         UIHelper.RoundedPanel loginCard = new UIHelper.RoundedPanel(32);
@@ -153,7 +153,36 @@ public class LoginWindow extends JFrame {
         loginBtn.addActionListener(this::onLogin);
         loginCard.add(loginBtn, "h 60!, gaptop 20");
 
+        // 5. Need Help Section
+        JLabel needHelp = new JLabel("Need Help?");
+        needHelp.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        needHelp.setForeground(new Color(0x475569));
+        
+        JLabel contactAdmin = new JLabel("Contact IT Administrator");
+        contactAdmin.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        contactAdmin.setForeground(new Color(0x64748B));
+        
+        loginCard.add(needHelp, "gaptop 30, align center");
+        loginCard.add(contactAdmin, "align center");
+
         rightSide.add(loginCard, "wmin 400, wmax 520, hmin 600, hmax 720");
+        
+        // 6. Footer
+        JLabel footerLine1 = new JLabel("© 2026 Bavya Health Services Pvt. Ltd.");
+        footerLine1.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        footerLine1.setForeground(new Color(0x94A3B8));
+        
+        JLabel footerLine2 = new JLabel("All Rights Reserved.");
+        footerLine2.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        footerLine2.setForeground(new Color(0x94A3B8));
+        
+        JPanel footerPanel = new JPanel(new MigLayout("ins 0 0 30 0, wrap", "[center]", "[] 2 []"));
+        footerPanel.setOpaque(false);
+        footerPanel.add(footerLine1);
+        footerPanel.add(footerLine2);
+        
+        rightSide.add(footerPanel);
+
         add(rightSide, "grow");
 
         getRootPane().setDefaultButton(loginBtn);

@@ -195,11 +195,21 @@ public class WebController {
             // Recent Logs (Live Attendance Overview)
             String searchFilter = "";
             String orderBy = "MAX(r.punch_time) DESC";
+            List<Object> params = new ArrayList<>();
+            List<Object> orderParams = new ArrayList<>();
+
             if (search != null && !search.isEmpty()) {
-                searchFilter = " AND (e.emp_name LIKE '%" + search + "%' OR r.emp_id LIKE '%" + search + "%') ";
-                orderBy = "CASE WHEN LOWER(e.emp_name) LIKE LOWER('" + search
-                        + "%') THEN 0 WHEN LOWER(r.emp_id) LIKE LOWER('" + search + "%') THEN 1 ELSE 2 END, " + orderBy;
+                searchFilter = " AND (e.emp_name LIKE ? OR r.emp_id LIKE ?) ";
+                params.add("%" + search + "%");
+                params.add("%" + search + "%");
+
+                orderBy = "CASE WHEN LOWER(e.emp_name) LIKE LOWER(?) THEN 0 WHEN LOWER(r.emp_id) LIKE LOWER(?) THEN 1 ELSE 2 END, " + orderBy;
+                orderParams.add(search + "%");
+                orderParams.add(search + "%");
             }
+
+            List<Object> allParams = new ArrayList<>(params);
+            allParams.addAll(orderParams);
 
             List<Map<String, Object>> recentLogs = db.query(
                     "SELECT r.emp_id, " +
@@ -212,7 +222,7 @@ public class WebController {
                             "WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.status = 'Active' "
                             + searchFilter +
                             "GROUP BY r.emp_id, e.emp_name " +
-                            "ORDER BY " + orderBy + " LIMIT " + pageSize + " OFFSET " + offset);
+                            "ORDER BY " + orderBy + " LIMIT " + pageSize + " OFFSET " + offset, allParams.toArray());
 
             // Weekly Data mapping
             Map<String, Map<String, String>> weeklyData = new java.util.HashMap<>();
@@ -347,13 +357,20 @@ public class WebController {
 
             String where = " WHERE 1=1";
             String orderBy = "emp_name";
+            List<Object> params = new ArrayList<>();
+            List<Object> orderParams = new ArrayList<>();
+
             if (search != null && !search.isEmpty()) {
-                where += " AND (emp_name LIKE '%" + search + "%' OR emp_id LIKE '%" + search + "%')";
-                orderBy = "CASE WHEN LOWER(emp_name) LIKE LOWER('" + search
-                        + "%') THEN 0 WHEN LOWER(emp_id) LIKE LOWER('" + search + "%') THEN 1 ELSE 2 END, " + orderBy;
+                where += " AND (emp_name LIKE ? OR emp_id LIKE ?)";
+                params.add("%" + search + "%");
+                params.add("%" + search + "%");
+
+                orderBy = "CASE WHEN LOWER(emp_name) LIKE LOWER(?) THEN 0 WHEN LOWER(emp_id) LIKE LOWER(?) THEN 1 ELSE 2 END, " + orderBy;
+                orderParams.add(search + "%");
+                orderParams.add(search + "%");
             }
 
-            long total = db.queryLong("SELECT COUNT(*) FROM employees" + where);
+            long total = db.queryLong("SELECT COUNT(*) FROM employees" + where, params.toArray());
             int totalPages = (int) Math.ceil((double) total / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
@@ -361,7 +378,10 @@ public class WebController {
             String sql = "SELECT * FROM employees" + where + " ORDER BY " + orderBy + " LIMIT " + pageSize + " OFFSET "
                     + offset;
 
-            List<Map<String, Object>> employees = db.query(sql);
+            List<Object> allParams = new ArrayList<>(params);
+            allParams.addAll(orderParams);
+
+            List<Map<String, Object>> employees = db.query(sql, allParams.toArray());
             model.addAttribute("employees", employees);
             model.addAttribute("selSearch", search);
             model.addAttribute("currentPage", page);
@@ -970,13 +990,20 @@ public class WebController {
             String filterDate = (date != null) ? date : java.time.LocalDate.now().toString();
 
             String where = " WHERE a.exceptions IS NOT NULL AND a.exceptions != ''";
-            if (dept != null && !"All".equals(dept))
-                where += " AND e.department = '" + dept + "'";
-            if (filterDate != null && !filterDate.isEmpty())
-                where += " AND a.punch_date = '" + filterDate + "'";
+            List<Object> params = new ArrayList<>();
+            if (dept != null && !"All".equals(dept)) {
+                where += " AND e.department = ?";
+                params.add(dept);
+            }
+            if (filterDate != null && !filterDate.isEmpty()) {
+                where += " AND a.punch_date = ?";
+                params.add(filterDate);
+            }
             if (search != null && !search.trim().isEmpty()) {
                 String s = search.trim();
-                where += " AND (e.emp_name LIKE '%" + s + "%' OR e.emp_id LIKE '%" + s + "%')";
+                where += " AND (e.emp_name LIKE ? OR e.emp_id LIKE ?)";
+                params.add("%" + s + "%");
+                params.add("%" + s + "%");
                 model.addAttribute("selSearch", s);
             } else {
                 model.addAttribute("selSearch", "");
@@ -986,9 +1013,9 @@ public class WebController {
                     + "JOIN employees e ON a.emp_id = e.emp_id "
                     + where + " ORDER BY a.punch_date DESC LIMIT " + pageSize + " OFFSET " + offset;
 
-            data = db.query(sql);
+            data = db.query(sql, params.toArray());
 
-            long totalRecords = db.queryLong("SELECT COUNT(*) FROM attendance a JOIN employees e ON a.emp_id = e.emp_id " + where);
+            long totalRecords = db.queryLong("SELECT COUNT(*) FROM attendance a JOIN employees e ON a.emp_id = e.emp_id " + where, params.toArray());
             int totalPages = (int) Math.ceil((double) totalRecords / pageSize);
 
             List<Map<String, Object>> depts = db.query("SELECT dept_name FROM departments WHERE status='Active'");
@@ -1024,11 +1051,18 @@ public class WebController {
             String filterDate = (date != null) ? date : java.time.LocalDate.now().toString();
 
             String where = " WHERE 1=1";
-            if (dept != null && !"All".equals(dept))
-                where += " AND e.department = '" + dept + "'";
+            List<Object> params = new ArrayList<>();
+            params.add(filterDate);
+
+            if (dept != null && !"All".equals(dept)) {
+                where += " AND e.department = ?";
+                params.add(dept);
+            }
             if (search != null && !search.trim().isEmpty()) {
                 String s = search.trim();
-                where += " AND (e.emp_name LIKE '%" + s + "%' OR e.emp_id LIKE '%" + s + "%')";
+                where += " AND (e.emp_name LIKE ? OR e.emp_id LIKE ?)";
+                params.add("%" + s + "%");
+                params.add("%" + s + "%");
                 model.addAttribute("selSearch", s);
             } else {
                 model.addAttribute("selSearch", "");
@@ -1036,8 +1070,7 @@ public class WebController {
 
             long total = db.queryLong(
                     "SELECT COUNT(*) FROM employees e LEFT JOIN attendance a ON e.emp_id = a.emp_id AND a.punch_date = ?"
-                            + where,
-                    filterDate);
+                            + where, params.toArray());
             int totalPages = (int) Math.ceil((double) total / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
@@ -1046,7 +1079,7 @@ public class WebController {
                     + "FROM employees e LEFT JOIN attendance a ON e.emp_id = a.emp_id AND a.punch_date = ?" + where
                     + " ORDER BY e.emp_name ASC LIMIT " + pageSize + " OFFSET " + offset;
 
-            data = db.query(sql, filterDate);
+            data = db.query(sql, params.toArray());
 
             // Build employee biometric enrollment map
             Map<String, String> enrollMap = new HashMap<>();
@@ -1258,6 +1291,7 @@ public class WebController {
             @RequestParam(name = "year", required = false) String year,
             @RequestParam(name = "dept", required = false) String dept,
             @RequestParam(name = "type", required = false) String type,
+            @RequestParam(name = "empSearch", required = false) String empSearch,
             @RequestParam(name = "page", defaultValue = "1") int page,
             @RequestParam(name = "size", defaultValue = "10") int pageSize,
             @RequestParam(name = "export", defaultValue = "false") boolean isExport) {
@@ -1268,8 +1302,9 @@ public class WebController {
         List<Map<String, Object>> matrix = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int curM = (month != null) ? Integer.parseInt(month) : 5;
-            int curY = (year != null) ? Integer.parseInt(year) : 2026;
+            java.time.LocalDate today = java.time.LocalDate.now();
+            int curM = (month != null) ? Integer.parseInt(month) : today.getMonthValue();
+            int curY = (year != null) ? Integer.parseInt(year) : today.getYear();
             String reportType = (type != null) ? type : "PA";
 
             java.time.YearMonth yearMonth = java.time.YearMonth.of(curY, curM);
@@ -1289,24 +1324,43 @@ public class WebController {
             }
 
             String countSql = "SELECT COUNT(*) FROM employees WHERE 1=1";
-            if (dept != null && !"All".equals(dept))
-                countSql += " AND department = '" + dept + "'";
-            long total = db.queryLong(countSql);
+            List<Object> params = new ArrayList<>();
+            if (dept != null && !"All".equals(dept)) {
+                countSql += " AND department = ?";
+                params.add(dept);
+            }
+            if (empSearch != null && !empSearch.trim().isEmpty()) {
+                String safeSearch = empSearch.trim();
+                countSql += " AND (emp_name LIKE ? OR emp_id LIKE ?)";
+                params.add("%" + safeSearch + "%");
+                params.add("%" + safeSearch + "%");
+            }
+            long total = db.queryLong(countSql, params.toArray());
             int totalPages = (int) Math.ceil((double) total / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
             int offset = (page - 1) * pageSize;
 
             String empSql = "SELECT emp_id, emp_name, designation, department FROM employees WHERE 1=1";
-            if (dept != null && !"All".equals(dept))
-                empSql += " AND department = '" + dept + "'";
+            List<Object> empParams = new ArrayList<>();
+            if (dept != null && !"All".equals(dept)) {
+                empSql += " AND department = ?";
+                empParams.add(dept);
+            }
+            if (empSearch != null && !empSearch.trim().isEmpty()) {
+                String safeSearch = empSearch.trim();
+                empSql += " AND (emp_name LIKE ? OR emp_id LIKE ?)";
+                empParams.add("%" + safeSearch + "%");
+                empParams.add("%" + safeSearch + "%");
+            }
             empSql += " ORDER BY emp_name ASC LIMIT " + pageSize + " OFFSET " + offset;
-            List<Map<String, Object>> employees = db.query(empSql);
+            List<Map<String, Object>> employees = db.query(empSql, empParams.toArray());
 
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
             model.addAttribute("pageSize", pageSize);
             model.addAttribute("totalItems", total);
+            model.addAttribute("selEmpSearch", empSearch);
 
             for (Map<String, Object> emp : employees) {
                 String eid = (String) emp.get("emp_id");
@@ -1321,61 +1375,76 @@ public class WebController {
                     attendanceMap.put(dayNum, a);
                 }
 
-                List<String> dayStatuses = new ArrayList<>();
+                List<Map<String, Object>> dayStatuses = new ArrayList<>();
                 for (int d = 1; d <= daysInMonth; d++) {
                     java.time.LocalDate date = java.time.LocalDate.of(curY, curM, d);
+                    Map<String, Object> cellData = new HashMap<>();
+                    cellData.put("date", date.toString());
+                    
                     if (holidayMap.containsKey(d)) {
-                        dayStatuses.add(holidayMap.get(d).toUpperCase());
+                        cellData.put("status", holidayMap.get(d).toUpperCase());
                     } else if (date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) {
-                        dayStatuses.add("SUN");
+                        cellData.put("status", "SUN");
                     } else {
                         Map<String, Object> data = attendanceMap.get(d);
                         if (data == null) {
-                            dayStatuses.add("A");
+                            cellData.put("status", "A");
                         } else {
                             if ("WH".equals(reportType)) {
                                 String inStr = DatabaseManager.str(data, "in_time");
                                 String outStr = DatabaseManager.str(data, "out_time");
                                 double wh = DatabaseManager.dbl(data, "work_hours");
-
+                                
                                 String in = "";
-                                if (inStr.contains(" "))
-                                    in = inStr.split(" ")[1];
-                                else if (inStr.contains("T"))
-                                    in = inStr.split("T")[1];
-                                if (in.length() > 5)
-                                    in = in.substring(0, 5);
-
+                                java.time.LocalDateTime inDateTime = null;
+                                if (!inStr.isEmpty()) {
+                                    try {
+                                        inDateTime = java.time.LocalDateTime.parse(inStr.replace(" ", "T").split("\\.")[0]);
+                                        in = String.format("%02d:%02d", inDateTime.getHour(), inDateTime.getMinute());
+                                    } catch (Exception e) {}
+                                }
+                                
                                 String out = "";
-                                if (outStr.contains(" "))
-                                    out = outStr.split(" ")[1];
-                                else if (outStr.contains("T"))
-                                    out = outStr.split("T")[1];
-                                if (out.length() > 5)
-                                    out = out.substring(0, 5);
-
-                                if (in.isEmpty() || !in.contains(":")) {
-                                    dayStatuses.add("P");
+                                java.time.LocalDateTime outDateTime = null;
+                                if (!outStr.isEmpty()) {
+                                    try {
+                                        outDateTime = java.time.LocalDateTime.parse(outStr.replace(" ", "T").split("\\.")[0]);
+                                        out = String.format("%02d:%02d", outDateTime.getHour(), outDateTime.getMinute());
+                                    } catch (Exception e) {}
+                                }
+                                
+                                if (in.isEmpty()) {
+                                    cellData.put("status", "P");
                                 } else {
-                                    int h = (int) wh;
-                                    int mins = (int) Math.round((wh - h) * 60);
-                                    String dur = String.format("(%02d:%02d)", h, mins);
-                                    dayStatuses.add(String.format("%s %s %s", in, out.isEmpty() ? "--:--" : out, dur));
+                                    double totalHours = 0;
+                                    if (inDateTime != null && outDateTime != null) {
+                                        totalHours = java.time.Duration.between(inDateTime, outDateTime).toMinutes() / 60.0;
+                                    }
+                                    double breakHours = totalHours - wh;
+                                    if (breakHours < 0) breakHours = 0;
+                                    
+                                    cellData.put("status", "WH");
+                                    cellData.put("inTime", in);
+                                    cellData.put("outTime", out.isEmpty() ? "--:--" : out);
+                                    cellData.put("netHours", com.bhspl.util.AttendanceCalculator.formatDuration(wh));
+                                    cellData.put("totalHours", com.bhspl.util.AttendanceCalculator.formatDuration(totalHours));
+                                    cellData.put("breakHours", com.bhspl.util.AttendanceCalculator.formatDuration(breakHours));
                                 }
                             } else {
                                 String s = DatabaseManager.str(data, "status");
                                 String inTime = DatabaseManager.str(data, "in_time");
 
                                 if ("Present".equals(s) || "Late".equals(s) || "Early".equals(s) || !inTime.isEmpty()) {
-                                    dayStatuses.add("P");
+                                    cellData.put("status", "P");
                                 } else if (s.isEmpty()) {
-                                    dayStatuses.add("A");
+                                    cellData.put("status", "A");
                                 } else {
-                                    dayStatuses.add(s.substring(0, 1));
+                                    cellData.put("status", s.substring(0, 1));
                                 }
                             }
                         }
                     }
+                    dayStatuses.add(cellData);
                 }
                 row.put("days", dayStatuses);
                 matrix.add(row);
@@ -1400,6 +1469,159 @@ public class WebController {
         return "reports-monthly";
     }
 
+    @GetMapping("/api/reports/daily-punches")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getDailyPunches(
+            @RequestParam("empId") String empId,
+            @RequestParam("date") String date,
+            HttpSession session) {
+        Map<String, Object> response = new HashMap<>();
+        if (session.getAttribute("user") == null) {
+            response.put("status", "error");
+            response.put("message", "Unauthorized");
+            return ResponseEntity.status(401).body(response);
+        }
+
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            // Get employee shift
+            Map<String, Object> emp = db.fetchOne("SELECT shift FROM employees WHERE emp_id=?", empId);
+            Map<String, Object> shift = null;
+            boolean isOvernight = false;
+            
+            if (emp != null && emp.get("shift") != null) {
+                shift = db.fetchOne("SELECT * FROM shifts WHERE shift_name=?", emp.get("shift"));
+                if (shift != null) {
+                    try {
+                        Object st = shift.get("start_time");
+                        Object et = shift.get("end_time");
+                        if (st != null && et != null) {
+                            java.time.LocalTime sTime = java.time.LocalTime.parse(st.toString().substring(0, 5));
+                            java.time.LocalTime eTime = java.time.LocalTime.parse(et.toString().substring(0, 5));
+                            if (eTime.isBefore(sTime)) isOvernight = true;
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+
+            // Fetch raw logs
+            String startRange = date + " 00:00:00";
+            String endRange = java.time.LocalDate.parse(date).plusDays(1).toString() + " 10:00:00"; // include next morning for night shifts
+            
+            List<Map<String, Object>> rawLogs = db.query(
+                    "SELECT r.punch_time, r.punch_type, d.device_name " +
+                    "FROM raw_logs r LEFT JOIN devices d ON r.device_id = d.device_id " +
+                    "WHERE r.emp_id=? AND r.punch_time >= ? AND r.punch_time < ? " +
+                    "ORDER BY r.punch_time ASC", empId, startRange, endRange);
+
+            List<Map<String, Object>> calcInput = new ArrayList<>();
+
+            for (Map<String, Object> log : rawLogs) {
+                Object pt = log.get("punch_time");
+                int type = log.get("punch_type") != null ? (int) log.get("punch_type") : 0;
+                
+                java.time.LocalDateTime ldt = null;
+                if (pt instanceof java.time.LocalDateTime) ldt = (java.time.LocalDateTime) pt;
+                else if (pt instanceof java.sql.Timestamp) ldt = ((java.sql.Timestamp) pt).toLocalDateTime();
+                else {
+                    try { ldt = java.time.LocalDateTime.parse(pt.toString().replace(" ", "T").split("\\.")[0]); } catch(Exception e){}
+                }
+
+                if (ldt != null) {
+                    // Filter out next morning if not overnight shift
+                    if (!isOvernight && !ldt.toLocalDate().toString().equals(date)) continue;
+                    
+                    Map<String, Object> p = new HashMap<>();
+                    p.put("time", ldt);
+                    p.put("type", type);
+                    p.put("deviceName", log.get("device_name") != null ? log.get("device_name") : "Unknown Device");
+                    calcInput.add(p);
+                }
+            }
+            
+            // Sort to ensure chronological order
+            calcInput.sort((p1, p2) -> ((java.time.LocalDateTime) p1.get("time")).compareTo((java.time.LocalDateTime) p2.get("time")));
+
+            // Filter duplicates exactly like AttendanceCalculator
+            List<Map<String, Object>> filtered = new ArrayList<>();
+            java.time.LocalDateTime lastTime = null;
+            int lastType = -1;
+            for (Map<String, Object> p : calcInput) {
+                java.time.LocalDateTime t = (java.time.LocalDateTime) p.get("time");
+                int type = (int) p.get("type");
+                if (lastTime != null) {
+                    long diff = Math.abs(java.time.Duration.between(lastTime, t).getSeconds());
+                    if (diff < 60 && type == lastType) continue; // skip duplicate within 60s
+                }
+                filtered.add(p);
+                lastTime = t;
+                lastType = type;
+            }
+
+            java.time.format.DateTimeFormatter timeFmt = java.time.format.DateTimeFormatter.ofPattern("hh:mm a");
+            List<Map<String, Object>> formattedPunches = new ArrayList<>();
+            
+            for (int i = 0; i < filtered.size(); i++) {
+                Map<String, Object> p = filtered.get(i);
+                java.time.LocalDateTime ldt = (java.time.LocalDateTime) p.get("time");
+                
+                // AttendanceCalculator assumes even index = IN, odd index = OUT
+                int calculatedType = (i % 2 == 0) ? 1 : 2;
+                
+                String timeStr = ldt.format(timeFmt);
+                if (!ldt.toLocalDate().toString().equals(date)) {
+                    timeStr += " (+1)";
+                }
+                
+                Map<String, Object> fp = new HashMap<>();
+                fp.put("time", ldt);
+                fp.put("type", calculatedType);
+                fp.put("deviceName", p.get("deviceName"));
+                fp.put("formattedTime", timeStr);
+                formattedPunches.add(fp);
+            }
+
+            com.bhspl.util.AttendanceCalculator.Metrics metrics = new com.bhspl.util.AttendanceCalculator.Metrics();
+            if (!filtered.isEmpty()) {
+                com.bhspl.util.AttendanceCalculator.calculateFromPunches(filtered, shift, metrics);
+            }
+            
+            // Format break intervals
+            List<Map<String, Object>> breakIntervals = new ArrayList<>();
+            for (Map<String, Object> b : metrics.breakIntervals) {
+                java.time.LocalDateTime start = (java.time.LocalDateTime) b.get("start");
+                java.time.LocalDateTime end = (java.time.LocalDateTime) b.get("end");
+                long durMins = (long) b.get("duration");
+                
+                String startStr = start.format(timeFmt);
+                if (!start.toLocalDate().toString().equals(date)) startStr += " (+1)";
+                
+                String endStr = end.format(timeFmt);
+                if (!end.toLocalDate().toString().equals(date)) endStr += " (+1)";
+                
+                Map<String, Object> bMap = new HashMap<>();
+                bMap.put("start", startStr);
+                bMap.put("end", endStr);
+                bMap.put("duration", durMins + " mins");
+                breakIntervals.add(bMap);
+            }
+
+
+
+            response.put("status", "success");
+            response.put("punches", formattedPunches);
+            response.put("breaks", breakIntervals);
+            
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.put("status", "error");
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
+    }
+
     @GetMapping("/reports/leave")
     public String reportsLeave(Model model,
             @RequestParam(name = "from", required = false) String from,
@@ -1420,11 +1642,16 @@ public class WebController {
             String t = (to != null) ? to : java.time.LocalDate.now().toString();
 
             String where = " WHERE l.from_date BETWEEN ? AND ? ";
-            if (dept != null && !"All".equals(dept))
-                where += " AND e.department = '" + dept + "'";
+            List<Object> params = new ArrayList<>();
+            params.add(f);
+            params.add(t);
 
-            long total = db.queryLong("SELECT COUNT(*) FROM leaves l JOIN employees e ON l.emp_id = e.emp_id" + where,
-                    f, t);
+            if (dept != null && !"All".equals(dept)) {
+                where += " AND e.department = ?";
+                params.add(dept);
+            }
+
+            long total = db.queryLong("SELECT COUNT(*) FROM leaves l JOIN employees e ON l.emp_id = e.emp_id" + where, params.toArray());
             int totalPages = (int) Math.ceil((double) total / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
@@ -1433,7 +1660,7 @@ public class WebController {
                     "JOIN employees e ON l.emp_id = e.emp_id " + where +
                     " ORDER BY e.emp_name ASC, l.from_date DESC LIMIT " + pageSize + " OFFSET " + offset;
 
-            data = db.query(sql, f, t);
+            data = db.query(sql, params.toArray());
             model.addAttribute("selFrom", f);
             model.addAttribute("selTo", t);
             model.addAttribute("selDept", (dept != null) ? dept : "All");
@@ -1501,15 +1728,23 @@ public class WebController {
                     db.query("SELECT emp_id, emp_name FROM employees WHERE status='Active' ORDER BY emp_name"));
 
             String empBaseSql = "SELECT emp_id, emp_name, department, shift, device_enroll_id FROM employees WHERE status='Active'";
-            if (!"All".equals(d))
-                empBaseSql += " AND department = '" + d + "'";
-            if (!"All".equals(eId))
-                empBaseSql += " AND emp_id = '" + eId + "'";
-            if (!s.isEmpty())
-                empBaseSql += " AND (emp_name LIKE '%" + s + "%' OR emp_id LIKE '%" + s + "%')";
+            List<Object> params = new ArrayList<>();
+            if (!"All".equals(d)) {
+                empBaseSql += " AND department = ?";
+                params.add(d);
+            }
+            if (!"All".equals(eId)) {
+                empBaseSql += " AND emp_id = ?";
+                params.add(eId);
+            }
+            if (!s.isEmpty()) {
+                empBaseSql += " AND (emp_name LIKE ? OR emp_id LIKE ?)";
+                params.add("%" + s + "%");
+                params.add("%" + s + "%");
+            }
             empBaseSql += " ORDER BY emp_name ASC";
 
-            List<Map<String, Object>> activeEmps = db.query(empBaseSql);
+            List<Map<String, Object>> activeEmps = db.query(empBaseSql, params.toArray());
 
             if (!"All".equals(eId) && !activeEmps.isEmpty()) {
                 model.addAttribute("selEmpName", activeEmps.get(0).get("emp_name"));
@@ -2251,14 +2486,21 @@ public class WebController {
                     .query("SELECT leave_type FROM leave_policy WHERE status='Active' ORDER BY leave_type");
 
             StringBuilder where = new StringBuilder(" WHERE b.year = ?");
-            if (dept != null && !"All".equals(dept))
-                where.append(" AND e.department = '").append(dept).append("'");
-            if (type != null && !"All".equals(type))
-                where.append(" AND b.leave_type = '").append(type).append("'");
+            List<Object> params = new ArrayList<>();
+            params.add(filterYear);
+
+            if (dept != null && !"All".equals(dept)) {
+                where.append(" AND e.department = ?");
+                params.add(dept);
+            }
+            if (type != null && !"All".equals(type)) {
+                where.append(" AND b.leave_type = ?");
+                params.add(type);
+            }
 
             long total = db.queryLong(
                     "SELECT COUNT(*) FROM leave_balance b JOIN employees e ON b.emp_id = e.emp_id" + where.toString(),
-                    filterYear);
+                    params.toArray());
             int totalPages = (int) Math.ceil((double) total / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
@@ -2267,14 +2509,14 @@ public class WebController {
                     "JOIN employees e ON b.emp_id = e.emp_id " + where.toString() +
                     " ORDER BY e.department, e.emp_id, b.leave_type LIMIT " + pageSize + " OFFSET " + offset;
 
-            List<Map<String, Object>> balances = db.query(sql, filterYear);
+            List<Map<String, Object>> balances = db.query(sql, params.toArray());
 
             // Summary Stats (Always calculate on full set or pre-calculate if needed, but
             // for now we keep it simple)
             // Actually, stats should be on the FILTERED set, not just the page.
             List<Map<String, Object>> allBalances = db
                     .query("SELECT b.*, e.emp_id FROM leave_balance b JOIN employees e ON b.emp_id = e.emp_id"
-                            + where.toString(), filterYear);
+                            + where.toString(), params.toArray());
 
             double tBal = 0, tUsed = 0, tLapsed = 0;
             java.util.Set<String> uniqueEmps = new java.util.HashSet<>();
@@ -2332,18 +2574,20 @@ public class WebController {
             int offset = (page - 1) * pageSize;
 
             String where = "";
+            List<Object> params = new ArrayList<>();
             if (type != null && !"All".equals(type)) {
-                where = " WHERE holiday_type = '" + type + "'";
+                where = " WHERE holiday_type = ?";
+                params.add(type);
             }
 
-            long total = db.queryLong("SELECT COUNT(*) FROM holidays" + where);
+            long total = db.queryLong("SELECT COUNT(*) FROM holidays" + where, params.toArray());
             int totalPages = (int) Math.ceil((double) total / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
 
             String sql = "SELECT * FROM holidays" + where + " ORDER BY holiday_date LIMIT " + pageSize + " OFFSET "
                     + offset;
-            holidays = db.query(sql);
+            holidays = db.query(sql, params.toArray());
 
             model.addAttribute("selType", (type != null) ? type : "All");
             model.addAttribute("currentPage", page);
@@ -2508,19 +2752,27 @@ public class WebController {
 
             String where = "";
             String orderBy = "level_order ASC, desig_name ASC";
+            List<Object> params = new ArrayList<>();
+            List<Object> orderParams = new ArrayList<>();
+
             if (search != null && !search.isEmpty()) {
-                where = " WHERE desig_name LIKE '%" + search + "%'";
-                orderBy = "CASE WHEN LOWER(desig_name) LIKE LOWER('" + search + "%') THEN 0 ELSE 1 END, " + orderBy;
+                where = " WHERE desig_name LIKE ?";
+                params.add("%" + search + "%");
+                orderBy = "CASE WHEN LOWER(desig_name) LIKE LOWER(?) THEN 0 ELSE 1 END, " + orderBy;
+                orderParams.add(search + "%");
             }
 
-            long total = db.queryLong("SELECT COUNT(*) FROM designations" + where);
+            long total = db.queryLong("SELECT COUNT(*) FROM designations" + where, params.toArray());
             int totalPages = (int) Math.ceil((double) total / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
 
             String sql = "SELECT * FROM designations" + where + " ORDER BY " + orderBy + " LIMIT "
                     + pageSize + " OFFSET " + offset;
-            desigs = db.query(sql);
+            
+            List<Object> allParams = new ArrayList<>(params);
+            allParams.addAll(orderParams);
+            desigs = db.query(sql, allParams.toArray());
 
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
@@ -2649,11 +2901,14 @@ public class WebController {
             depts = db.query("SELECT dept_name FROM departments ORDER BY dept_name");
 
             String where = "";
-            if (dept != null && !"All".equals(dept))
-                where = " WHERE e.department = '" + dept + "'";
+            List<Object> params = new ArrayList<>();
+            if (dept != null && !"All".equals(dept)) {
+                where = " WHERE e.department = ?";
+                params.add(dept);
+            }
 
             long total = db
-                    .queryLong("SELECT COUNT(*) FROM weekly_offs w JOIN employees e ON w.emp_id = e.emp_id" + where);
+                    .queryLong("SELECT COUNT(*) FROM weekly_offs w JOIN employees e ON w.emp_id = e.emp_id" + where, params.toArray());
             int totalPages = (int) Math.ceil((double) total / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
@@ -2662,7 +2917,7 @@ public class WebController {
                     "FROM weekly_offs w " +
                     "JOIN employees e ON w.emp_id = e.emp_id" + where + " LIMIT " + pageSize + " OFFSET " + offset;
 
-            offs = db.query(sql);
+            offs = db.query(sql, params.toArray());
             employees = db.query("SELECT emp_id, emp_name FROM employees ORDER BY emp_name");
 
             model.addAttribute("currentPage", page);

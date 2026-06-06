@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 
 /**
- * Utility class for exporting JTable data to CSV files.
+ * Utility class for exporting JTable data to CSV files. 
  */
 public class CSVExporter {
 

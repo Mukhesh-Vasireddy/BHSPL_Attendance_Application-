@@ -38,6 +38,10 @@
                     </select>
                 </div>
                 <div>
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase;">Employee Search</label>
+                    <input type="text" name="empSearch" th:value="${selEmpSearch}" class="form-control" style="width: 150px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px;" placeholder="Name or ID">
+                </div>
+                <div>
                     <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase;">Report Type</label>
                     <select name="type" class="form-control" style="width: 220px;">
                         <option value="PA" th:selected="${selType == 'PA'}">Attendance Summary (P/A)</option>
@@ -89,25 +93,42 @@
                             <td class="sticky-col" th:text="${r['emp_name']}" style="left: 70px; min-width: 180px; max-width: 180px; font-weight: 600; color: var(--text-main);">John Doe</td>
                             <td class="sticky-col" th:text="${r['designation'] ?: '--'}" style="left: 250px; min-width: 140px; max-width: 140px;">Developer</td>
                             
-                            <td th:each="status : ${r['days']}" 
-                                th:text="${status}"
-                                th:class="${status == 'P' ? 'cell-p' : (status == 'A' ? 'cell-a' : (status == 'SUN' ? 'cell-sun' : 'cell-holiday'))}">
-                                P
+                            <td th:each="cell : ${r['days']}" 
+                                th:class="${cell.status == 'P' ? 'cell-p' : (cell.status == 'A' ? 'cell-a' : (cell.status == 'SUN' ? 'cell-sun' : (cell.status == 'WH' ? 'cell-wh' : 'cell-holiday')))}"
+                                th:attr="onclick=${cell.status == 'WH' ? 'showPunchLogs(''' + r.emp_id + ''', ''' + cell.date + ''', ''' + r.emp_name + ''')' : null}"
+                                th:style="${cell.status == 'WH' ? 'cursor:pointer; padding: 6px !important;' : ''}">
+                                
+                                <th:block th:if="${cell.status != 'WH'}">
+                                    <span th:text="${cell.status}"></span>
+                                </th:block>
+                                
+                                <th:block th:if="${cell.status == 'WH'}">
+                                    <div class="wh-container">
+                                        <div class="wh-times">
+                                            <span class="wh-in" th:text="${cell.inTime}"></span> - <span class="wh-out" th:text="${cell.outTime}"></span>
+                                        </div>
+                                        <div class="wh-stats">
+                                            T:<span th:text="${cell.totalHours}"></span> 
+                                            B:<span th:text="${cell.breakHours}"></span> 
+                                            N:<span th:text="${cell.netHours}"></span>
+                                        </div>
+                                    </div>
+                                </th:block>
                             </td>
                         </tr>
                     </tbody>
                 </table>
             </div>
-            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/reports/monthly?month=' + ${selMonth} + '&amp;year=' + ${selYear} + '&amp;dept=' + ${selDept} + '&amp;type=' + ${selType})}"></div>
+            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/reports/monthly?month=' + ${selMonth} + '&amp;year=' + ${selYear} + '&amp;dept=' + ${selDept} + '&amp;type=' + ${selType} + '&amp;empSearch=' + (${selEmpSearch} != null ? ${selEmpSearch} : ''))}"></div>
         </div>
 
         <style>
             .matrix-table th { 
                 background: #f8fafc !important; 
                 color: var(--text-main) !important; 
-                font-size: 11px; 
+                font-size: 13px; 
                 font-weight: 700;
-                padding: 15px 10px !important;
+                padding: 15px 12px !important;
                 border: 1px solid var(--glass-border);
                 white-space: nowrap;
                 text-transform: uppercase;
@@ -116,7 +137,7 @@
                 vertical-align: middle;
             }
             .matrix-table td { 
-                font-size: 11px; 
+                font-size: 13px; 
                 padding: 12px 10px !important; 
                 border-bottom: 1px solid var(--glass-border);
                 border-right: 1px solid var(--glass-border);
@@ -138,17 +159,135 @@
                 background: #f8fafc !important;
                 color: var(--text-main) !important;
             }
-            .cell-p { color: #10B981 !important; background: #f0fdf4 !important; }
-            .cell-a { color: #EF4444 !important; background: #fef2f2 !important; }
-            .cell-sun { color: #3B82F6 !important; background: #eff6ff !important; }
+            .cell-p { color: #10B981 !important; background: #f0fdf4 !important; font-weight: 600; }
+            .cell-a { color: #EF4444 !important; background: #fef2f2 !important; font-weight: 600; }
+            .cell-sun { color: #3B82F6 !important; background: #eff6ff !important; font-weight: 600; }
             .cell-holiday { 
                 color: #A855F7 !important; 
                 background: #fdf4ff !important; 
-                font-size: 9px !important; 
-                line-height: 1.1;
+                font-size: 11px !important; 
+                line-height: 1.2;
                 font-weight: 700;
             }
+            .cell-wh { background: #ffffff !important; transition: background 0.2s; }
+            .cell-wh:hover { background: #f8fafc !important; }
+            .wh-container { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+            .wh-times { font-size: 13px; font-weight: 600; color: var(--text-main); white-space: nowrap; }
+            .wh-stats { font-size: 12px; color: var(--text-muted); white-space: nowrap; font-family: monospace; font-weight: 500; }
         </style>
+
+        <!-- Punch Logs Modal -->
+        <div id="punchLogModal" style="display:none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); align-items: center; justify-content: center;">
+            <div class="card" style="width: 500px; max-height: 85vh; display: flex; flex-direction: column; background: #ffffff; border: 1px solid var(--glass-border); border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.2);">
+                <div style="padding: 20px 25px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; background: #f8fafc; border-radius: 20px 20px 0 0;">
+                    <h3 style="margin: 0; font-size: 16px; color: var(--text-main); font-weight: 700;">
+                        <i class="fas fa-history" style="color: var(--accent-primary); margin-right: 8px;"></i>
+                        Punch Logs - <span id="modalEmpName"></span>
+                    </h3>
+                    <button onclick="closePunchLogModal()" style="background: none; border: none; font-size: 20px; color: var(--text-muted); cursor: pointer; padding: 5px;">&times;</button>
+                </div>
+                
+                <div id="punchLogModalBody" style="padding: 20px; overflow-y: auto; flex: 1;">
+                    <div id="punchLogLoading" style="text-align: center; padding: 40px;">
+                        <i class="fas fa-spinner fa-spin" style="font-size: 30px; color: var(--accent-primary);"></i>
+                        <p style="margin-top: 15px; color: var(--text-muted); font-size: 13px;">Loading logs...</p>
+                    </div>
+                    
+                    <div id="punchLogContent" style="display: none;">
+                        <h4 style="margin: 0 0 12px 0; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;"><i class="fas fa-fingerprint"></i> Punches on <span id="modalDate"></span></h4>
+                        <div id="punchesTimeline" style="margin-bottom: 25px;">
+                            <!-- Timeline items here -->
+                        </div>
+
+                        <h4 style="margin: 0 0 12px 0; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;"><i class="fas fa-coffee"></i> Calculated Break Sessions</h4>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; margin-bottom: 10px;">
+                            <thead>
+                                <tr style="background: #f1f5f9; color: #475569;">
+                                    <th style="padding: 8px 12px; border-radius: 6px 0 0 6px;">Start Time</th>
+                                    <th style="padding: 8px 12px;">End Time</th>
+                                    <th style="padding: 8px 12px; border-radius: 0 6px 6px 0;">Duration</th>
+                                </tr>
+                            </thead>
+                            <tbody id="breaksTableBody">
+                                <!-- Break rows here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function showPunchLogs(empId, date, empName) {
+                document.getElementById('punchLogModal').style.display = 'flex';
+                document.getElementById('modalEmpName').textContent = empName;
+                document.getElementById('modalDate').textContent = date;
+                
+                document.getElementById('punchLogLoading').style.display = 'block';
+                document.getElementById('punchLogContent').style.display = 'none';
+
+                fetch('/api/reports/daily-punches?empId=' + encodeURIComponent(empId) + '&date=' + encodeURIComponent(date))
+                    .then(res => res.json())
+                    .then(data => {
+                        document.getElementById('punchLogLoading').style.display = 'none';
+                        document.getElementById('punchLogContent').style.display = 'block';
+
+                        if (data.status === 'success') {
+                            const timeline = document.getElementById('punchesTimeline');
+                            timeline.innerHTML = '';
+                            if (data.punches && data.punches.length > 0) {
+                                data.punches.forEach((p, idx) => {
+                                    const typeText = p.type === 1 ? 'IN' : (p.type === 2 ? 'OUT' : 'UNK');
+                                    const typeColor = p.type === 1 ? '#10b981' : (p.type === 2 ? '#f59e0b' : '#64748b');
+                                    const bg = p.type === 1 ? 'rgba(16, 185, 129, 0.1)' : (p.type === 2 ? 'rgba(245, 158, 11, 0.1)' : 'rgba(100, 116, 139, 0.1)');
+                                    
+                                    const html = `
+                                        <div style="display: flex; align-items: center; margin-bottom: 8px; padding: 10px 12px; background: #f8fafc; border-radius: 10px; border-left: 3px solid ${typeColor};">
+                                            <div style="width: 70px; font-weight: 700; color: var(--text-main); font-size: 13px;">${p.formattedTime}</div>
+                                            <div style="width: 50px;">
+                                                <span style="background: ${bg}; color: ${typeColor}; padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: 700;">${typeText}</span>
+                                            </div>
+                                            <div style="flex: 1; color: var(--text-muted); font-size: 12px; text-align: right;">
+                                                <i class="fas fa-microchip" style="margin-right: 4px; opacity: 0.6;"></i> ${p.deviceName}
+                                            </div>
+                                        </div>
+                                    `;
+                                    timeline.innerHTML += html;
+                                });
+                            } else {
+                                timeline.innerHTML = '<div style="color: var(--text-muted); font-size: 12px; font-style: italic;">No punches recorded for this day.</div>';
+                            }
+
+                            const tbody = document.getElementById('breaksTableBody');
+                            tbody.innerHTML = '';
+                            if (data.breaks && data.breaks.length > 0) {
+                                data.breaks.forEach(b => {
+                                    tbody.innerHTML += `
+                                        <tr style="border-bottom: 1px solid #f8fafc;">
+                                            <td style="padding: 8px 12px; font-weight: 500; color: var(--text-main);">${b.start}</td>
+                                            <td style="padding: 8px 12px; font-weight: 500; color: var(--text-main);">${b.end}</td>
+                                            <td style="padding: 8px 12px; color: #f59e0b; font-weight: 600;"><i class="far fa-clock" style="margin-right: 4px;"></i> ${b.duration}</td>
+                                        </tr>
+                                    `;
+                                });
+                            } else {
+                                tbody.innerHTML = '<tr><td colspan="3" style="padding: 12px; text-align: center; color: var(--text-muted); font-style: italic; font-size: 12px;">No break sessions calculated.</td></tr>';
+                            }
+                        } else {
+                            document.getElementById('punchesTimeline').innerHTML = '<div style="color: #ef4444;">Failed to load data.</div>';
+                            document.getElementById('breaksTableBody').innerHTML = '';
+                        }
+                    })
+                    .catch(err => {
+                        document.getElementById('punchLogLoading').style.display = 'none';
+                        document.getElementById('punchLogContent').innerHTML = '<div style="color: #ef4444; padding: 20px;">Error connecting to server.</div>';
+                    });
+            }
+
+            function closePunchLogModal() {
+                document.getElementById('punchLogModal').style.display = 'none';
+            }
+        </script>
     </section>
 </body>
 </html>

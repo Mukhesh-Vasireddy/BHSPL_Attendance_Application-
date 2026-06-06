@@ -154,10 +154,13 @@ public class HolidayPanel extends JPanel {
             @Override
             protected List<Map<String, Object>> doInBackground() throws Exception {
                 String sql = "SELECT id, holiday_date, holiday_name, holiday_type FROM holidays ";
-                if (currentFilter != null)
-                    sql += " WHERE holiday_type = '" + currentFilter + "'";
+                java.util.List<Object> params = new java.util.ArrayList<>();
+                if (currentFilter != null) {
+                    sql += " WHERE holiday_type = ?";
+                    params.add(currentFilter);
+                }
                 sql += " ORDER BY holiday_date";
-                return DatabaseManager.getInstance().fetchAll(sql);
+                return DatabaseManager.getInstance().fetchAll(sql, params.toArray());
             }
 
             @Override

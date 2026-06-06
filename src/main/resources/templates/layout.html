@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="/js/chart.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
@@ -1070,8 +1071,8 @@
 
     <div class="sidebar">
         <!-- Sidebar edge toggle button -->
-        <button id="sidebarEdgeToggle" onclick="toggleSidebar()" style="position: absolute; top: 40px; right: -15px; width: 30px; height: 30px; background: #ffffff; border: 1px solid var(--glass-border); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--accent-primary); box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 1001; transition: all 0.3s ease;">
-            <i class="fas fa-angle-double-left" id="sidebarCollapseIcon" style="font-size: 12px; transition: transform 0.3s ease;"></i>
+        <button id="sidebarEdgeToggle" onclick="toggleSidebar()" style="position: absolute; top: 40px; right: -15px; width: 30px; height: 30px; background: #ffffff; border: 1px solid rgba(2, 132, 199, 0.5); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--accent-primary); box-shadow: 0 0 12px rgba(2, 132, 199, 0.5), 0 0 4px rgba(2, 132, 199, 0.8); z-index: 1001; transition: all 0.3s ease;">
+            <i class="fas fa-angle-double-left" id="sidebarCollapseIcon" style="font-size: 12px; transition: transform 0.3s ease; text-shadow: 0 0 5px rgba(2, 132, 199, 0.5);"></i>
         </button>
 
         <a href="/" style="text-decoration: none;">
@@ -1335,56 +1336,64 @@
 
         // --- Export Engine (Excel/CSV) ---
         function generateExcel(originalTable, filename) {
-            const BOM = '\uFEFF';
-            const excelHeader = `
-                <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-                <head>
-                <meta http-equiv="content-type" content="text/html; charset=UTF-8"/>
-                <style>
-                    table { border-collapse: collapse; }
-                    th { background-color: #1e293b; color: #ffffff; font-weight: bold; border: 1px solid #000000; padding: 10px; text-align: center; font-family: Arial; font-size: 11pt; white-space: nowrap; mso-rotate: 0; }
-                    td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; color: #1e293b; font-family: Arial; font-size: 10pt; white-space: nowrap; mso-rotate: 0; mso-number-format:"\\@"; }
-                    .status-present { background-color: #ecfdf5; color: #065f46; text-align: center; font-weight: bold; }
-                    .status-absent { background-color: #fef2f2; color: #991b1b; text-align: center; font-weight: bold; }
-                    .status-late { background-color: #fffbeb; color: #92400e; text-align: center; font-weight: bold; }
-                    .status-sun { background-color: #eff6ff; color: #1e40af; text-align: center; font-weight: bold; }
-                </style>
-                </head>
-                <body>
-            `;
-            
-            let cleanTableHtml = "<table>";
-            const rows = Array.from(originalTable.querySelectorAll("tr"));
-            rows.forEach((row, rIdx) => {
-                if (row.classList.contains('pagination') || row.innerText.trim() === "" || row.style.display === 'none') return;
-                cleanTableHtml += "<tr>";
-                const cells = Array.from(row.querySelectorAll("th, td"));
-                cells.forEach((cell, cIdx) => {
-                    const txt = cell.innerText.trim();
-                    if (cIdx === cells.length - 1 && (txt.toLowerCase().includes('action') || cell.querySelector('.action-btn, .action-col, button'))) return;
-                    const tag = (cell.tagName === 'TH' || rIdx === 0) ? 'th' : 'td';
-                    let className = "";
-                    if (tag === 'td') {
-                        const lowTxt = txt.toLowerCase();
-                        if (['present', 'p', 'approved', 'od'].includes(lowTxt)) className = 'status-present';
-                        else if (['absent', 'a', 'rejected'].includes(lowTxt)) className = 'status-absent';
-                        else if (['late', 'l', 'pending', 'early'].includes(lowTxt)) className = 'status-late';
-                        else if (lowTxt === 'sun' || lowTxt === 'sunday') className = 'status-sun';
+            try {
+                // Clone the table so we can clean it up before export
+                const exportTable = originalTable.cloneNode(true);
+                
+                // Identify the "Action" column index to remove it
+                let actionColIdx = -1;
+                const firstRowCells = Array.from(exportTable.querySelectorAll("tr")[0].querySelectorAll("th, td"));
+                firstRowCells.forEach((cell, idx) => {
+                    if (cell.innerText.toLowerCase().includes('action') || cell.querySelector('.action-btn')) {
+                        actionColIdx = idx;
                     }
-                    let cellWidth = (cIdx === 1) ? 'width:220px;' : (cIdx === 2) ? 'width:160px;' : 'width:110px;';
-                    cleanTableHtml += `<${tag} class="${className}" style="${cellWidth}">${txt}</${tag}>`;
                 });
-                cleanTableHtml += "</tr>";
-            });
-            cleanTableHtml += "</table></body></html>";
 
-            const blob = new Blob([BOM + excelHeader + cleanTableHtml], {type: "application/vnd.ms-excel;charset=utf-8"});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = filename;
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(url), 100);
+                // Clean the table rows
+                Array.from(exportTable.querySelectorAll("tr")).forEach(tr => {
+                    // Remove pagination or hidden rows
+                    if (tr.classList.contains('pagination') || tr.style.display === 'none') {
+                        tr.remove();
+                        return;
+                    }
+                    
+                    // Remove the action column if it exists
+                    if (actionColIdx !== -1 && tr.children.length > actionColIdx) {
+                        tr.removeChild(tr.children[actionColIdx]);
+                    }
+
+                    // Clean text (squash newlines to prevent clumsy vertical wrapping)
+                    Array.from(tr.querySelectorAll("td")).forEach(td => {
+                        let txt = td.innerText;
+                        if (txt) {
+                            td.innerText = txt.replace(/(\r\n|\n|\r)/gm, " ").replace(/\s{2,}/g, ' ').trim();
+                        }
+                    });
+                });
+
+                // Generate real .xlsx file using SheetJS
+                const wb = XLSX.utils.table_to_book(exportTable, {sheet: "Data", raw: true});
+                
+                // Auto-fit column widths (Approximate)
+                const ws = wb.Sheets["Data"];
+                if (ws && ws['!ref']) {
+                    const range = XLSX.utils.decode_range(ws['!ref']);
+                    let wscols = [];
+                    for(let i=0; i<=range.e.c; i++) {
+                        wscols.push({wch: (i === 1 ? 30 : (i === 2 ? 20 : 15))});
+                    }
+                    ws['!cols'] = wscols;
+                }
+
+                // Ensure .xlsx extension
+                let outName = filename.toLowerCase().endsWith('.xls') ? filename + 'x' : filename;
+                if (!outName.endsWith('.xlsx')) outName += '.xlsx';
+
+                XLSX.writeFile(wb, outName);
+            } catch (e) {
+                console.error("Excel Export Error:", e);
+                showAlert("Export Error", "Failed to generate Excel file.");
+            }
         }
 
         function generateCSV(table, filename) {

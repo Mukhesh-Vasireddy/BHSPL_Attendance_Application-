@@ -83,10 +83,13 @@ public class LeavePanel extends JPanel {
                 String sql = "SELECT l.id, l.emp_id, e.emp_name, l.leave_type, " +
                         "l.from_date, l.to_date, l.days, l.status, l.applied_on " +
                         "FROM leaves l JOIN employees e ON l.emp_id=e.emp_id";
-                if (!"All".equals(filter))
-                    sql += " WHERE l.status='" + filter + "'";
+                java.util.List<Object> params = new java.util.ArrayList<>();
+                if (!"All".equals(filter)) {
+                    sql += " WHERE l.status=?";
+                    params.add(filter);
+                }
                 sql += " ORDER BY l.applied_on DESC";
-                return DatabaseManager.getInstance().fetchAll(sql);
+                return DatabaseManager.getInstance().fetchAll(sql, params.toArray());
             }
 
             @Override
