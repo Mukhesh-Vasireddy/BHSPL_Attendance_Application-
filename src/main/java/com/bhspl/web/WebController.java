@@ -36,7 +36,6 @@ public class WebController {
     @org.springframework.beans.factory.annotation.Autowired
     private com.bhspl.service.LeaveService leaveService;
 
-
     @GetMapping("/login")
     public String loginPage(HttpSession session) {
         try {
@@ -99,32 +98,41 @@ public class WebController {
             com.bhspl.service.PushService.start();
         }
 
-        // Removed brute-force daily raw_logs reset from GET request to prevent DB lock contention
+        // Removed brute-force daily raw_logs reset from GET request to prevent DB lock
+        // contention
 
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            if (isExport) pageSize = 50000;
+            if (isExport)
+                pageSize = 50000;
             int offset = (page - 1) * pageSize;
 
             // Stats & Analytics Caching
             @SuppressWarnings("unchecked")
-            java.util.Map<String, Object> stats = (java.util.Map<String, Object>) CacheManager.getInstance().get("dashboard_stats");
+            java.util.Map<String, Object> stats = (java.util.Map<String, Object>) CacheManager.getInstance()
+                    .get("dashboard_stats");
             if (stats == null || !stats.containsKey("weeklyPresentCounts")) {
+                String todayStr = java.time.LocalDate.now().toString();
+                String dayName = java.time.LocalDate.now().getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH);
+
                 stats = new java.util.HashMap<>();
                 long totalEmpsVal = db.queryLong("SELECT COUNT(*) FROM employees WHERE status='Active'");
                 long presentCountVal = db.queryLong(
-                        "SELECT COUNT(DISTINCT r.emp_id) FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.status = 'Active'");
+                        "SELECT COUNT(DISTINCT r.emp_id) FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE r.punch_time >= ? AND r.punch_time < DATE_ADD(?, INTERVAL 1 DAY) AND e.status = 'Active'",
+                        todayStr, todayStr);
                 long leaveCountVal = db.queryLong(
-                        "SELECT COUNT(*) FROM leaves WHERE status='Approved' AND CURDATE() BETWEEN from_date AND to_date");
+                        "SELECT COUNT(DISTINCT emp_id) FROM leaves WHERE status='Approved' AND ? BETWEEN from_date AND to_date",
+                        todayStr);
                 // totalLogs is equal to presentCount!
                 long totalLogsVal = presentCountVal;
                 long lateCountVal = db.queryLong(
-                        "SELECT COUNT(*) FROM attendance WHERE punch_date = CURDATE() AND status = 'Late'");
+                        "SELECT COUNT(DISTINCT emp_id) FROM attendance WHERE punch_date = ? AND status = 'Late'",
+                        todayStr);
                 long devicesOnlineVal = db.queryLong("SELECT COUNT(*) FROM devices WHERE status = 'Active'");
                 long pendingLeavesVal = db.queryLong("SELECT COUNT(*) FROM leaves WHERE status = 'Pending'");
                 long weeklyOffCountVal = db.queryLong(
-                        "SELECT COUNT(e.emp_id) FROM employees e LEFT JOIN shifts s ON e.shift = s.shift_name WHERE s.weekly_off1 = DAYNAME(CURDATE()) OR s.weekly_off2 = DAYNAME(CURDATE())");
-
+                        "SELECT COUNT(e.emp_id) FROM employees e LEFT JOIN shifts s ON e.shift = s.shift_name WHERE s.weekly_off1 = ? OR s.weekly_off2 = ?",
+                        dayName, dayName);
                 stats.put("totalEmps", totalEmpsVal);
                 stats.put("presentCount", presentCountVal);
                 stats.put("leaveCount", leaveCountVal);
@@ -151,9 +159,10 @@ public class WebController {
                     String endDate = weekDatesList.get(weekDatesList.size() - 1);
                     List<Map<String, Object>> rows = db.query(
                             "SELECT DATE(r.punch_time) as pdate, COUNT(DISTINCT r.emp_id) as pcount " +
-                            "FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id " +
-                            "WHERE r.punch_time >= ? AND r.punch_time < DATE_ADD(?, INTERVAL 1 DAY) AND e.status = 'Active' " +
-                            "GROUP BY DATE(r.punch_time)",
+                                    "FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id " +
+                                    "WHERE r.punch_time >= ? AND r.punch_time < DATE_ADD(?, INTERVAL 1 DAY) AND e.status = 'Active' "
+                                    +
+                                    "GROUP BY DATE(r.punch_time)",
                             startDate, endDate);
                     Map<String, Long> countMap = new java.util.HashMap<>();
                     for (Map<String, Object> r : rows) {
@@ -170,7 +179,7 @@ public class WebController {
                 stats.put("weekDates", weekDatesList);
                 stats.put("weekDays", weekDaysList);
 
-                CacheManager.getInstance().put("dashboard_stats", stats, 300000); // 5 minutes cache
+                CacheManager.getInstance().put("dashboard_stats", stats, 30000); // 5 minutes cache
             }
 
             long totalEmps = ((Number) stats.get("totalEmps")).longValue();
@@ -203,7 +212,8 @@ public class WebController {
                 params.add("%" + search + "%");
                 params.add("%" + search + "%");
 
-                orderBy = "CASE WHEN LOWER(e.emp_name) LIKE LOWER(?) THEN 0 WHEN LOWER(r.emp_id) LIKE LOWER(?) THEN 1 ELSE 2 END, " + orderBy;
+                orderBy = "CASE WHEN LOWER(e.emp_name) LIKE LOWER(?) THEN 0 WHEN LOWER(r.emp_id) LIKE LOWER(?) THEN 1 ELSE 2 END, "
+                        + orderBy;
                 orderParams.add(search + "%");
                 orderParams.add(search + "%");
             }
@@ -222,7 +232,8 @@ public class WebController {
                             "WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.status = 'Active' "
                             + searchFilter +
                             "GROUP BY r.emp_id, e.emp_name " +
-                            "ORDER BY " + orderBy + " LIMIT " + pageSize + " OFFSET " + offset, allParams.toArray());
+                            "ORDER BY " + orderBy + " LIMIT " + pageSize + " OFFSET " + offset,
+                    allParams.toArray());
 
             // Weekly Data mapping
             Map<String, Map<String, String>> weeklyData = new java.util.HashMap<>();
@@ -286,12 +297,14 @@ public class WebController {
             model.addAttribute("weekDays", weekDays);
             model.addAttribute("weeklyData", weeklyData);
 
-            // Recent Live Punches Activity (last 10 punches today) - Optimized to run point queries in Java
+            // Recent Live Punches Activity (last 10 punches today) - Optimized to run point
+            // queries in Java
             List<Map<String, Object>> livePunches = db.query(
                     "SELECT r.emp_id, e.emp_name, r.punch_time " +
-                    "FROM raw_logs r LEFT JOIN employees e ON r.emp_id = e.emp_id " +
-                    "WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.status = 'Active' " +
-                    "ORDER BY r.punch_time DESC LIMIT 10");
+                            "FROM raw_logs r LEFT JOIN employees e ON r.emp_id = e.emp_id " +
+                            "WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.status = 'Active' "
+                            +
+                            "ORDER BY r.punch_time DESC LIMIT 10");
             for (Map<String, Object> punch : livePunches) {
                 String empId = (String) punch.get("emp_id");
                 Object punchTime = punch.get("punch_time");
@@ -365,7 +378,8 @@ public class WebController {
                 params.add("%" + search + "%");
                 params.add("%" + search + "%");
 
-                orderBy = "CASE WHEN LOWER(emp_name) LIKE LOWER(?) THEN 0 WHEN LOWER(emp_id) LIKE LOWER(?) THEN 1 ELSE 2 END, " + orderBy;
+                orderBy = "CASE WHEN LOWER(emp_name) LIKE LOWER(?) THEN 0 WHEN LOWER(emp_id) LIKE LOWER(?) THEN 1 ELSE 2 END, "
+                        + orderBy;
                 orderParams.add(search + "%");
                 orderParams.add(search + "%");
             }
@@ -389,17 +403,20 @@ public class WebController {
             model.addAttribute("pageSize", pageSize);
             model.addAttribute("totalItems", total);
             @SuppressWarnings("unchecked")
-            List<Map<String, Object>> cachedDepts = (List<Map<String, Object>>) CacheManager.getInstance().get("list_departments");
+            List<Map<String, Object>> cachedDepts = (List<Map<String, Object>>) CacheManager.getInstance()
+                    .get("list_departments");
             if (cachedDepts == null) {
                 cachedDepts = db.query("SELECT dept_name FROM departments ORDER BY dept_name");
                 CacheManager.getInstance().put("list_departments", cachedDepts, 3600000); // 1 hour
             }
             model.addAttribute("depts", cachedDepts);
-            
+
             // Fetch active biometric devices and shifts for the Device Import feature
-            List<Map<String, Object>> activeDevices = db.query("SELECT device_id, device_name, serial_number FROM devices WHERE status='Active'");
+            List<Map<String, Object>> activeDevices = db
+                    .query("SELECT device_id, device_name, serial_number FROM devices WHERE status='Active'");
             model.addAttribute("activeDevices", activeDevices);
-            List<Map<String, Object>> shiftsList = db.query("SELECT shift_name FROM shifts WHERE status='Active' ORDER BY shift_name");
+            List<Map<String, Object>> shiftsList = db
+                    .query("SELECT shift_name FROM shifts WHERE status='Active' ORDER BY shift_name");
             model.addAttribute("shifts", shiftsList);
         } catch (Exception e) {
             model.addAttribute("error", e.getMessage());
@@ -441,7 +458,8 @@ public class WebController {
 
     @PostMapping("/employees/photo/upload")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> uploadPhoto(@RequestParam("photo") MultipartFile file, @RequestParam("empId") String empId) {
+    public ResponseEntity<Map<String, Object>> uploadPhoto(@RequestParam("photo") MultipartFile file,
+            @RequestParam("empId") String empId) {
         Map<String, Object> response = new HashMap<>();
         try {
             if (file.isEmpty() || empId == null || empId.isEmpty()) {
@@ -458,16 +476,18 @@ public class WebController {
             String fileExt = file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf("."));
             String fileName = empId + "_" + UUID.randomUUID().toString().substring(0, 8) + fileExt;
             Path targetLocation = uploadDir.resolve(fileName);
-            
+
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
 
             DatabaseManager db = DatabaseManager.getInstance();
             // Ensure photo_path column exists
             try {
                 db.execute("ALTER TABLE employees ADD COLUMN photo_path VARCHAR(255)");
-            } catch (Exception ignored) {} // Column might already exist
-            
-            db.execute("UPDATE employees SET photo_path=? WHERE emp_id=?", targetLocation.toString().replace("\\", "/"), empId);
+            } catch (Exception ignored) {
+            } // Column might already exist
+
+            db.execute("UPDATE employees SET photo_path=? WHERE emp_id=?", targetLocation.toString().replace("\\", "/"),
+                    empId);
 
             response.put("success", true);
             response.put("photoUrl", "/employees/photo/" + empId + "?t=" + System.currentTimeMillis());
@@ -492,8 +512,9 @@ public class WebController {
                 if (Files.exists(photoPath)) {
                     Resource resource = new UrlResource(photoPath.toUri());
                     String contentType = Files.probeContentType(photoPath);
-                    if (contentType == null) contentType = "image/jpeg";
-                    
+                    if (contentType == null)
+                        contentType = "image/jpeg";
+
                     return ResponseEntity.ok()
                             .contentType(MediaType.parseMediaType(contentType))
                             .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
@@ -518,77 +539,90 @@ public class WebController {
     }
 
     @GetMapping("/employees/profile/{id}")
-    public String employeeProfile(@PathVariable("id") String empId, 
-                                  @RequestParam(name="month", required=false) Integer month,
-                                  @RequestParam(name="year", required=false) Integer year,
-                                  Model model, HttpSession session) {
-        if (session.getAttribute("user") == null) return "redirect:/login";
-        
+    public String employeeProfile(@PathVariable("id") String empId,
+            @RequestParam(name = "month", required = false) Integer month,
+            @RequestParam(name = "year", required = false) Integer year,
+            Model model, HttpSession session) {
+        if (session.getAttribute("user") == null)
+            return "redirect:/login";
+
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            
+
             // 1. Employee Details
             Map<String, Object> emp = db.queryOne("SELECT * FROM employees WHERE emp_id=?", empId);
-            if (emp == null) return "redirect:/employees";
+            if (emp == null)
+                return "redirect:/employees";
             model.addAttribute("emp", emp);
-            
+
             // Default to current month/year if not provided
             java.time.LocalDate now = java.time.LocalDate.now();
             int selectedMonth = (month != null) ? month : now.getMonthValue();
             int selectedYear = (year != null) ? year : now.getYear();
             model.addAttribute("selectedMonth", selectedMonth);
             model.addAttribute("selectedYear", selectedYear);
-            
+
             // 2. Attendance Summary & Monthly Stats
             List<Map<String, Object>> attendanceRecords = db.query(
-                "SELECT * FROM attendance WHERE emp_id=? AND YEAR(punch_date) = ? AND MONTH(punch_date) = ?", 
-                empId, selectedYear, selectedMonth);
-                
+                    "SELECT * FROM attendance WHERE emp_id=? AND YEAR(punch_date) = ? AND MONTH(punch_date) = ?",
+                    empId, selectedYear, selectedMonth);
+
             int presentDays = 0, absentDays = 0, lateDays = 0, leaveDays = 0, weeklyOffs = 0, holidays = 0;
             double totalWorkedHours = 0.0;
             int daysWithHours = 0;
-            
-            for(Map<String, Object> a : attendanceRecords) {
+
+            for (Map<String, Object> a : attendanceRecords) {
                 String status = DatabaseManager.str(a, "status");
-                if(status == null) status = "";
-                
-                if(status.equalsIgnoreCase("Present") || status.equalsIgnoreCase("P") || status.equalsIgnoreCase("Early")) {
+                if (status == null)
+                    status = "";
+
+                if (status.equalsIgnoreCase("Present") || status.equalsIgnoreCase("P")
+                        || status.equalsIgnoreCase("Early")) {
                     presentDays++;
-                } else if(status.equalsIgnoreCase("Absent") || status.equalsIgnoreCase("A")) {
+                } else if (status.equalsIgnoreCase("Absent") || status.equalsIgnoreCase("A")) {
                     absentDays++;
-                } else if(status.equalsIgnoreCase("Late")) {
+                } else if (status.equalsIgnoreCase("Late")) {
                     lateDays++;
-                } else if(status.equalsIgnoreCase("Leave") || status.equalsIgnoreCase("L") || status.equalsIgnoreCase("Half-Day")) {
+                } else if (status.equalsIgnoreCase("Leave") || status.equalsIgnoreCase("L")
+                        || status.equalsIgnoreCase("Half-Day")) {
                     leaveDays++;
-                } else if(status.equalsIgnoreCase("Weekly Off") || status.equalsIgnoreCase("WO")) {
+                } else if (status.equalsIgnoreCase("Weekly Off") || status.equalsIgnoreCase("WO")) {
                     weeklyOffs++;
-                } else if(status.equalsIgnoreCase("Holiday") || status.equalsIgnoreCase("H") || status.equalsIgnoreCase("PH")) {
+                } else if (status.equalsIgnoreCase("Holiday") || status.equalsIgnoreCase("H")
+                        || status.equalsIgnoreCase("PH")) {
                     holidays++;
                 }
-                
+
                 Object wh = a.get("work_hours");
                 if (wh != null) {
                     try {
                         double h = Double.parseDouble(wh.toString());
                         totalWorkedHours += h;
-                        if (h > 0) daysWithHours++;
-                    } catch(Exception e) {}
+                        if (h > 0)
+                            daysWithHours++;
+                    } catch (Exception e) {
+                    }
                 }
             }
-            
+
             double avgWorkingHours = (daysWithHours > 0) ? (totalWorkedHours / daysWithHours) : 0.0;
-            
+
             // Calculate Weekly Offs based on Shift
             int computedWeeklyOffs = 0;
             String shiftName = (String) emp.get("shift");
-            Map<String, Object> shiftInfo = db.queryOne("SELECT weekly_off1, weekly_off2 FROM shifts WHERE shift_name=?", shiftName);
-            Map<String, Object> customWo = db.queryOne("SELECT off_day1, off_day2 FROM weekly_offs WHERE emp_id=? ORDER BY id DESC LIMIT 1", empId);
-            String wo1 = customWo != null ? DatabaseManager.str(customWo, "off_day1") : (shiftInfo != null ? DatabaseManager.str(shiftInfo, "weekly_off1") : "Sunday");
-            String wo2 = customWo != null ? DatabaseManager.str(customWo, "off_day2") : (shiftInfo != null ? DatabaseManager.str(shiftInfo, "weekly_off2") : "None");
-            
+            Map<String, Object> shiftInfo = db
+                    .queryOne("SELECT weekly_off1, weekly_off2 FROM shifts WHERE shift_name=?", shiftName);
+            Map<String, Object> customWo = db.queryOne(
+                    "SELECT off_day1, off_day2 FROM weekly_offs WHERE emp_id=? ORDER BY id DESC LIMIT 1", empId);
+            String wo1 = customWo != null ? DatabaseManager.str(customWo, "off_day1")
+                    : (shiftInfo != null ? DatabaseManager.str(shiftInfo, "weekly_off1") : "Sunday");
+            String wo2 = customWo != null ? DatabaseManager.str(customWo, "off_day2")
+                    : (shiftInfo != null ? DatabaseManager.str(shiftInfo, "weekly_off2") : "None");
+
             java.time.YearMonth ym = java.time.YearMonth.of(selectedYear, selectedMonth);
             for (int i = 1; i <= ym.lengthOfMonth(); i++) {
-                String dayName = ym.atDay(i).getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH);
+                String dayName = ym.atDay(i).getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL,
+                        java.util.Locale.ENGLISH);
                 if (dayName.equalsIgnoreCase(wo1) || dayName.equalsIgnoreCase(wo2)) {
                     computedWeeklyOffs++;
                 }
@@ -596,70 +630,84 @@ public class WebController {
             weeklyOffs = computedWeeklyOffs;
 
             // Calculate Holidays
-            holidays = (int) db.queryLong("SELECT COUNT(*) FROM holidays WHERE MONTH(holiday_date) = ? AND YEAR(holiday_date) = ?", selectedMonth, selectedYear);
+            holidays = (int) db.queryLong(
+                    "SELECT COUNT(*) FROM holidays WHERE MONTH(holiday_date) = ? AND YEAR(holiday_date) = ?",
+                    selectedMonth, selectedYear);
 
             // Calculate Leaves
-            long computedLeaveDays = db.queryLong("SELECT COALESCE(SUM(days), 0) FROM leaves WHERE emp_id=? AND status='Approved' AND MONTH(from_date) = ? AND YEAR(from_date) = ?", empId, selectedMonth, selectedYear);
+            long computedLeaveDays = db.queryLong(
+                    "SELECT COALESCE(SUM(days), 0) FROM leaves WHERE emp_id=? AND status='Approved' AND MONTH(from_date) = ? AND YEAR(from_date) = ?",
+                    empId, selectedMonth, selectedYear);
             leaveDays = (int) computedLeaveDays;
 
-            model.addAttribute("presentDays", presentDays); // Exclude Late from Present count for UI mutually exclusive cards
+            model.addAttribute("presentDays", presentDays); // Exclude Late from Present count for UI mutually exclusive
+                                                            // cards
             model.addAttribute("absentDays", absentDays);
             model.addAttribute("lateDays", lateDays);
             model.addAttribute("leaveDays", leaveDays);
             model.addAttribute("weeklyOffs", weeklyOffs);
             model.addAttribute("holidays", holidays);
-            
+
             model.addAttribute("totalWorkingDays", presentDays + lateDays);
             model.addAttribute("totalWorkedHours", String.format("%.2f", totalWorkedHours));
             model.addAttribute("avgWorkingHours", String.format("%.2f", avgWorkingHours));
             model.addAttribute("netWorkingHours", String.format("%.2f", totalWorkedHours));
-            
+
             // 3. Recent Punch Logs (Last 10)
             List<Map<String, Object>> recentPunches = db.query(
-                "SELECT r.punch_time, r.punch_type, d.device_name " +
-                "FROM raw_logs r " +
-                "LEFT JOIN devices d ON r.device_id = d.device_id " +
-                "WHERE r.emp_id=? ORDER BY r.punch_time DESC LIMIT 10", empId);
-                
+                    "SELECT r.punch_time, r.punch_type, d.device_name " +
+                            "FROM raw_logs r " +
+                            "LEFT JOIN devices d ON r.device_id = d.device_id " +
+                            "WHERE r.emp_id=? ORDER BY r.punch_time DESC LIMIT 10",
+                    empId);
+
             java.time.format.DateTimeFormatter timeFmt = java.time.format.DateTimeFormatter.ofPattern("hh:mm a");
             java.time.format.DateTimeFormatter dateFmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
-            for(Map<String, Object> p : recentPunches) {
+            for (Map<String, Object> p : recentPunches) {
                 Object pt = p.get("punch_time");
                 if (pt != null) {
                     java.time.LocalDateTime ldt = null;
-                    if (pt instanceof java.sql.Timestamp) ldt = ((java.sql.Timestamp) pt).toLocalDateTime();
-                    else if (pt instanceof java.time.LocalDateTime) ldt = (java.time.LocalDateTime) pt;
-                    else try { ldt = java.time.LocalDateTime.parse(pt.toString().replace(" ", "T").substring(0, 19)); } catch(Exception e){}
-                    
-                    if(ldt != null) {
+                    if (pt instanceof java.sql.Timestamp)
+                        ldt = ((java.sql.Timestamp) pt).toLocalDateTime();
+                    else if (pt instanceof java.time.LocalDateTime)
+                        ldt = (java.time.LocalDateTime) pt;
+                    else
+                        try {
+                            ldt = java.time.LocalDateTime.parse(pt.toString().replace(" ", "T").substring(0, 19));
+                        } catch (Exception e) {
+                        }
+
+                    if (ldt != null) {
                         p.put("formatted_date", ldt.format(dateFmt));
                         p.put("formatted_time", ldt.format(timeFmt));
                     }
                 }
             }
             model.addAttribute("recentPunches", recentPunches);
-            
+
             // 4. Leave Summary (Yearly based on selectedYear)
             List<Map<String, Object>> leaveBalances = db.query(
-                "SELECT * FROM leave_balance WHERE emp_id=? AND year=?", empId, selectedYear);
+                    "SELECT * FROM leave_balance WHERE emp_id=? AND year=?", empId, selectedYear);
             double availableLeave = 0.0, usedLeave = 0.0;
-            for(Map<String, Object> lb : leaveBalances) {
+            for (Map<String, Object> lb : leaveBalances) {
                 availableLeave += DatabaseManager.dbl(lb, "closing_bal");
                 usedLeave += DatabaseManager.dbl(lb, "used");
             }
             long pendingLeaves = db.queryLong("SELECT COUNT(*) FROM leaves WHERE emp_id=? AND status='Pending'", empId);
-            long approvedLeaves = db.queryLong("SELECT COUNT(*) FROM leaves WHERE emp_id=? AND status='Approved' AND YEAR(from_date)=?", empId, selectedYear);
-            
+            long approvedLeaves = db.queryLong(
+                    "SELECT COUNT(*) FROM leaves WHERE emp_id=? AND status='Approved' AND YEAR(from_date)=?", empId,
+                    selectedYear);
+
             model.addAttribute("availableLeave", availableLeave);
             model.addAttribute("usedLeave", usedLeave);
             model.addAttribute("pendingLeaves", pendingLeaves);
             model.addAttribute("approvedLeaves", approvedLeaves);
-            
+
         } catch (Exception e) {
             e.printStackTrace();
             model.addAttribute("error", e.getMessage());
         }
-        
+
         return "employee-profile";
     }
 
@@ -668,7 +716,7 @@ public class WebController {
     public ResponseEntity<Map<String, Object>> importDevicePreview(
             @RequestParam("deviceId") int deviceId,
             HttpSession session) {
-        
+
         Map<String, Object> response = new HashMap<>();
         if (session.getAttribute("user") == null) {
             response.put("status", "error");
@@ -678,11 +726,10 @@ public class WebController {
 
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            
+
             // Fetch device details
             Map<String, Object> dev = db.fetchOne(
-                "SELECT * FROM devices WHERE device_id=? AND status='Active'", deviceId
-            );
+                    "SELECT * FROM devices WHERE device_id=? AND status='Active'", deviceId);
             if (dev == null) {
                 response.put("status", "error");
                 response.put("message", "Active device not found or offline.");
@@ -696,10 +743,11 @@ public class WebController {
             // Connect to device and fetch users
             com.bhspl.util.ZkProtocol zk = new com.bhspl.util.ZkProtocol(ip, port, 4000);
             zk.setPassword(pwd);
-            
+
             if (!zk.connect()) {
                 response.put("status", "error");
-                response.put("message", "Failed to connect to device at " + ip + ":" + port + ". Please ensure it is online.");
+                response.put("message",
+                        "Failed to connect to device at " + ip + ":" + port + ". Please ensure it is online.");
                 return ResponseEntity.status(504).body(response);
             }
 
@@ -716,9 +764,8 @@ public class WebController {
 
             // Fetch existing database employees
             List<Map<String, Object>> employees = db.query(
-                "SELECT emp_id, device_enroll_id FROM employees"
-            );
-            
+                    "SELECT emp_id, device_enroll_id FROM employees");
+
             Set<String> existingCodes = new HashSet<>();
             for (Map<String, Object> emp : employees) {
                 String empId = DatabaseManager.str(emp, "emp_id").trim();
@@ -727,13 +774,15 @@ public class WebController {
                     existingCodes.add(empId);
                     try {
                         existingCodes.add(String.valueOf(Long.parseLong(empId)));
-                    } catch (Exception ignored) {}
+                    } catch (Exception ignored) {
+                    }
                 }
                 if (!enrollId.isEmpty()) {
                     existingCodes.add(enrollId);
                     try {
                         existingCodes.add(String.valueOf(Long.parseLong(enrollId)));
-                    } catch (Exception ignored) {}
+                    } catch (Exception ignored) {
+                    }
                 }
             }
 
@@ -751,7 +800,8 @@ public class WebController {
                     try {
                         String norm = String.valueOf(Long.parseLong(userId));
                         exists = existingCodes.contains(norm);
-                    } catch (Exception ignored) {}
+                    } catch (Exception ignored) {
+                    }
                 }
 
                 if (!exists) {
@@ -776,7 +826,7 @@ public class WebController {
     public ResponseEntity<Map<String, Object>> importDeviceSave(
             @RequestBody List<Map<String, String>> employeesToImport,
             HttpSession session) {
-        
+
         Map<String, Object> response = new HashMap<>();
         if (session.getAttribute("user") == null) {
             response.put("status", "error");
@@ -792,15 +842,16 @@ public class WebController {
 
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            
+
             // Validate all inputs first (Pre-validation check)
             for (Map<String, String> emp : employeesToImport) {
                 String empId = emp.get("emp_id");
                 String name = emp.get("emp_name");
-                
+
                 if (empId == null || empId.trim().isEmpty() || !empId.matches("\\d+")) {
                     response.put("status", "error");
-                    response.put("message", "Invalid or missing Employee ID: " + empId + ". Employee Code must contain only numbers.");
+                    response.put("message",
+                            "Invalid or missing Employee ID: " + empId + ". Employee Code must contain only numbers.");
                     return ResponseEntity.badRequest().body(response);
                 }
                 if (name == null || name.trim().isEmpty()) {
@@ -825,21 +876,26 @@ public class WebController {
                     String empId = emp.get("emp_id").trim();
                     String name = emp.get("emp_name").trim();
                     String dept = emp.get("department");
-                    if (dept != null) dept = dept.trim();
+                    if (dept != null)
+                        dept = dept.trim();
                     String desig = emp.get("designation");
-                    if (desig != null) desig = desig.trim();
+                    if (desig != null)
+                        desig = desig.trim();
                     String shift = emp.get("shift");
-                    if (shift != null) shift = shift.trim();
+                    if (shift != null)
+                        shift = shift.trim();
                     String status = emp.get("status");
-                    if (status != null) status = status.trim();
+                    if (status != null)
+                        status = status.trim();
                     String enrollId = emp.get("device_enroll_id");
-                    if (enrollId != null) enrollId = enrollId.trim();
+                    if (enrollId != null)
+                        enrollId = enrollId.trim();
 
                     db.execute(
-                        "INSERT INTO employees (emp_id, emp_name, department, designation, shift, status, device_enroll_id) " +
-                        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        empId, name, dept, desig, shift, status, enrollId
-                    );
+                            "INSERT INTO employees (emp_id, emp_name, department, designation, shift, status, device_enroll_id) "
+                                    +
+                                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            empId, name, dept, desig, shift, status, enrollId);
                 }
                 db.commit();
                 CacheManager.getInstance().clear(); // Invalidate all cached stats and dashboard caches
@@ -913,7 +969,8 @@ public class WebController {
                         a.put("in_time_formatted", ((java.time.LocalDateTime) inVal).format(timeFmt));
                     } else {
                         try {
-                            java.time.LocalDateTime dt = java.time.LocalDateTime.parse(inVal.toString().replace(" ", "T").substring(0, 19));
+                            java.time.LocalDateTime dt = java.time.LocalDateTime
+                                    .parse(inVal.toString().replace(" ", "T").substring(0, 19));
                             a.put("in_time_formatted", dt.format(timeFmt));
                         } catch (Exception e) {
                             a.put("in_time_formatted", inVal.toString());
@@ -929,7 +986,8 @@ public class WebController {
                         a.put("out_time_formatted", ((java.time.LocalDateTime) outVal).format(timeFmt));
                     } else {
                         try {
-                            java.time.LocalDateTime dt = java.time.LocalDateTime.parse(outVal.toString().replace(" ", "T").substring(0, 19));
+                            java.time.LocalDateTime dt = java.time.LocalDateTime
+                                    .parse(outVal.toString().replace(" ", "T").substring(0, 19));
                             a.put("out_time_formatted", dt.format(timeFmt));
                         } catch (Exception e) {
                             a.put("out_time_formatted", outVal.toString());
@@ -957,9 +1015,12 @@ public class WebController {
     }
 
     private static java.time.LocalDateTime parseDateTime(Object val) {
-        if (val == null) return null;
-        if (val instanceof java.time.LocalDateTime) return (java.time.LocalDateTime) val;
-        if (val instanceof java.sql.Timestamp) return ((java.sql.Timestamp) val).toLocalDateTime();
+        if (val == null)
+            return null;
+        if (val instanceof java.time.LocalDateTime)
+            return (java.time.LocalDateTime) val;
+        if (val instanceof java.sql.Timestamp)
+            return ((java.sql.Timestamp) val).toLocalDateTime();
         try {
             String s = val.toString().trim().replace(" ", "T");
             if (s.contains(".")) {
@@ -971,7 +1032,8 @@ public class WebController {
                 }
                 return java.time.LocalDateTime.parse(s.substring(0, 19));
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
         return null;
     }
 
@@ -982,7 +1044,7 @@ public class WebController {
             @RequestParam(name = "search", required = false) String search,
             @RequestParam(name = "page", defaultValue = "1") int page,
             @RequestParam(name = "size", defaultValue = "10") int pageSize) {
-        
+
         List<Map<String, Object>> data = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
@@ -1015,7 +1077,9 @@ public class WebController {
 
             data = db.query(sql, params.toArray());
 
-            long totalRecords = db.queryLong("SELECT COUNT(*) FROM attendance a JOIN employees e ON a.emp_id = e.emp_id " + where, params.toArray());
+            long totalRecords = db.queryLong(
+                    "SELECT COUNT(*) FROM attendance a JOIN employees e ON a.emp_id = e.emp_id " + where,
+                    params.toArray());
             int totalPages = (int) Math.ceil((double) totalRecords / pageSize);
 
             List<Map<String, Object>> depts = db.query("SELECT dept_name FROM departments WHERE status='Active'");
@@ -1070,7 +1134,8 @@ public class WebController {
 
             long total = db.queryLong(
                     "SELECT COUNT(*) FROM employees e LEFT JOIN attendance a ON e.emp_id = a.emp_id AND a.punch_date = ?"
-                            + where, params.toArray());
+                            + where,
+                    params.toArray());
             int totalPages = (int) Math.ceil((double) total / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
@@ -1084,7 +1149,8 @@ public class WebController {
             // Build employee biometric enrollment map
             Map<String, String> enrollMap = new HashMap<>();
             try {
-                List<Map<String, Object>> activeEmpsList = db.query("SELECT emp_id, device_enroll_id FROM employees WHERE status='Active'");
+                List<Map<String, Object>> activeEmpsList = db
+                        .query("SELECT emp_id, device_enroll_id FROM employees WHERE status='Active'");
                 for (Map<String, Object> e : activeEmpsList) {
                     String sid = DatabaseManager.str(e, "emp_id");
                     String eid = DatabaseManager.str(e, "device_enroll_id");
@@ -1097,28 +1163,34 @@ public class WebController {
                         if (eid != null && !eid.isEmpty()) {
                             enrollMap.put(String.valueOf(Long.parseLong(eid)), sid);
                         }
-                    } catch (Exception ignored) {}
+                    } catch (Exception ignored) {
+                    }
                 }
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
 
-            // Fetch day raw logs for Break Time and Productive Time calculations (respecting punch_type)
+            // Fetch day raw logs for Break Time and Productive Time calculations
+            // (respecting punch_type)
             Map<String, List<Map<String, Object>>> empPunches = new HashMap<>();
             try {
                 List<Map<String, Object>> dayRawLogs = db.query(
-                        "SELECT emp_id, punch_time, punch_type FROM raw_logs WHERE DATE(punch_time) = ? ORDER BY punch_time ASC", filterDate);
+                        "SELECT emp_id, punch_time, punch_type FROM raw_logs WHERE DATE(punch_time) = ? ORDER BY punch_time ASC",
+                        filterDate);
                 for (Map<String, Object> log : dayRawLogs) {
                     Object eidObj = log.get("emp_id");
-                    if (eidObj == null) continue;
+                    if (eidObj == null)
+                        continue;
                     String rawEid = eidObj.toString().trim();
-                    if (rawEid.isEmpty()) continue;
+                    if (rawEid.isEmpty())
+                        continue;
 
                     String matchedSid = enrollMap.get(rawEid);
                     if (matchedSid == null) {
                         try {
                             matchedSid = enrollMap.get(String.valueOf(Long.parseLong(rawEid)));
-                        } catch (Exception ignored) {}
+                        } catch (Exception ignored) {
+                        }
                     }
                     if (matchedSid != null) {
                         Object pt = log.get("punch_time");
@@ -1131,7 +1203,8 @@ public class WebController {
                         } else if (pt != null) {
                             try {
                                 ldt = java.time.LocalDateTime.parse(pt.toString().replace(" ", "T").split("\\.")[0]);
-                            } catch (Exception ignored) {}
+                            } catch (Exception ignored) {
+                            }
                         }
                         if (ldt != null) {
                             Map<String, Object> pMap = new HashMap<>();
@@ -1149,26 +1222,28 @@ public class WebController {
             for (Map<String, Object> r : data) {
                 String empId = r.get("emp_id").toString();
                 List<Map<String, Object>> punches = empPunches.get(empId);
-                
+
                 double breakHours = 0;
                 double productiveHours = 0;
-                
+
                 if (punches != null && !punches.isEmpty()) {
                     com.bhspl.util.AttendanceCalculator.Metrics met = new com.bhspl.util.AttendanceCalculator.Metrics();
                     com.bhspl.util.AttendanceCalculator.calculateFromPunches(punches, null, met);
-                    
+
                     breakHours = met.breakHours;
                     productiveHours = met.workHours;
-                    
-                    if (met.firstIn != null) r.put("punch_in", met.firstIn);
-                    if (met.lastOut != null) r.put("punch_out", met.lastOut);
-                    
+
+                    if (met.firstIn != null)
+                        r.put("punch_in", met.firstIn);
+                    if (met.lastOut != null)
+                        r.put("punch_out", met.lastOut);
+
                     r.put("work_hours", String.format(java.util.Locale.US, "%.1f", met.duration));
                     r.put("break_time", com.bhspl.util.AttendanceCalculator.formatDuration(met.breakHours));
                     r.put("net_working_hours", com.bhspl.util.AttendanceCalculator.formatDuration(met.workHours));
-                    
+
                     java.time.format.DateTimeFormatter dtFmt = java.time.format.DateTimeFormatter.ofPattern("hh:mm a");
-                    
+
                     // Format Break Details
                     StringBuilder breakDetails = new StringBuilder();
                     if (met.breakIntervals != null && !met.breakIntervals.isEmpty()) {
@@ -1179,31 +1254,34 @@ public class WebController {
                             long durMins = (long) interval.get("duration");
                             String durStr = String.format("%02d:%02d", durMins / 60, durMins % 60);
                             breakDetails.append("Break ").append(index++).append(": ")
-                                        .append(start.format(dtFmt)).append(" → ")
-                                        .append(end.format(dtFmt)).append(" = ").append(durStr).append("|");
+                                    .append(start.format(dtFmt)).append(" → ")
+                                    .append(end.format(dtFmt)).append(" = ").append(durStr).append("|");
                         }
-                        breakDetails.append("Total Break Time: ").append(com.bhspl.util.AttendanceCalculator.formatDuration(breakHours));
+                        breakDetails.append("Total Break Time: ")
+                                .append(com.bhspl.util.AttendanceCalculator.formatDuration(breakHours));
                     } else {
                         breakDetails.append("No break records found.");
                     }
                     r.put("break_details", breakDetails.toString());
-                    
+
                     // Format Work Details
                     StringBuilder workDetails = new StringBuilder();
                     if (met.firstIn != null && met.lastOut != null) {
                         workDetails.append("First IN: ").append(met.firstIn.format(dtFmt)).append("|");
                         workDetails.append("Last OUT: ").append(met.lastOut.format(dtFmt)).append("|");
-                        workDetails.append("Total Duration: ").append(com.bhspl.util.AttendanceCalculator.formatDuration(met.duration));
+                        workDetails.append("Total Duration: ")
+                                .append(com.bhspl.util.AttendanceCalculator.formatDuration(met.duration));
                     } else {
                         workDetails.append("Incomplete punch records.");
                     }
                     r.put("work_details", workDetails.toString());
-                    
+
                 } else {
-                    // Fallback to attendance record punch_in and punch_out if raw logs are not present or insufficient
+                    // Fallback to attendance record punch_in and punch_out if raw logs are not
+                    // present or insufficient
                     java.time.LocalDateTime firstIn = parseDateTime(r.get("punch_in"));
                     java.time.LocalDateTime lastOut = parseDateTime(r.get("punch_out"));
-                    
+
                     if (firstIn != null && lastOut != null) {
                         long totalMins = java.time.Duration.between(firstIn, lastOut).toMinutes();
                         if (totalMins > 0) {
@@ -1215,17 +1293,20 @@ public class WebController {
                     }
                 }
 
-                
                 String formattedNetWorkingHours = com.bhspl.util.AttendanceCalculator.formatDuration(productiveHours);
-                System.out.println("DEBUG: EmpId: " + empId + " | punches size: " + (punches != null ? punches.size() : "null") + " | breakHours: " + breakHours + " | productiveHours: " + productiveHours + " | netWorkingHours: " + formattedNetWorkingHours);
+                System.out.println("DEBUG: EmpId: " + empId + " | punches size: "
+                        + (punches != null ? punches.size() : "null") + " | breakHours: " + breakHours
+                        + " | productiveHours: " + productiveHours + " | netWorkingHours: " + formattedNetWorkingHours);
                 String formattedBreakTime = com.bhspl.util.AttendanceCalculator.formatDuration(breakHours);
                 r.put("break_time", formattedBreakTime);
                 r.put("productive_time", formattedNetWorkingHours);
                 r.put("net_working_hours", formattedNetWorkingHours);
-                
-                if (r.get("break_details") == null) r.put("break_details", "No detailed records available.");
-                if (r.get("work_details") == null) r.put("work_details", "No detailed records available.");
-                
+
+                if (r.get("break_details") == null)
+                    r.put("break_details", "No detailed records available.");
+                if (r.get("work_details") == null)
+                    r.put("work_details", "No detailed records available.");
+
                 // Format Net Details
                 String totalDur = "00:00";
                 if (r.get("work_details") != null && r.get("work_details").toString().contains("Total Duration: ")) {
@@ -1246,7 +1327,8 @@ public class WebController {
                         r.put("punch_in", ((java.time.LocalDateTime) inVal).format(timeFmt));
                     } else {
                         try {
-                            java.time.LocalDateTime dt = java.time.LocalDateTime.parse(inVal.toString().replace(" ", "T").substring(0, 19));
+                            java.time.LocalDateTime dt = java.time.LocalDateTime
+                                    .parse(inVal.toString().replace(" ", "T").substring(0, 19));
                             r.put("punch_in", dt.format(timeFmt));
                         } catch (Exception e) {
                             r.put("punch_in", inVal.toString());
@@ -1262,7 +1344,8 @@ public class WebController {
                         r.put("punch_out", ((java.time.LocalDateTime) outVal).format(timeFmt));
                     } else {
                         try {
-                            java.time.LocalDateTime dt = java.time.LocalDateTime.parse(outVal.toString().replace(" ", "T").substring(0, 19));
+                            java.time.LocalDateTime dt = java.time.LocalDateTime
+                                    .parse(outVal.toString().replace(" ", "T").substring(0, 19));
                             r.put("punch_out", dt.format(timeFmt));
                         } catch (Exception e) {
                             r.put("punch_out", outVal.toString());
@@ -1372,7 +1455,24 @@ public class WebController {
                         eid, curM, curY);
                 for (Map<String, Object> a : att) {
                     int dayNum = DatabaseManager.num(a, "d");
-                    attendanceMap.put(dayNum, a);
+                    if (!attendanceMap.containsKey(dayNum)) {
+                        attendanceMap.put(dayNum, a);
+                    } else {
+                        Map<String, Object> existing = attendanceMap.get(dayNum);
+                        double existingWh = DatabaseManager.dbl(existing, "work_hours");
+                        double newWh = DatabaseManager.dbl(a, "work_hours");
+                        String oldStatus = DatabaseManager.str(existing, "status");
+                        String newStatus = DatabaseManager.str(a, "status");
+                        
+                        boolean isOldAbsent = oldStatus.isEmpty() || "Absent".equalsIgnoreCase(oldStatus) || "A".equalsIgnoreCase(oldStatus);
+                        boolean isNewValid = !newStatus.isEmpty() && !"Absent".equalsIgnoreCase(newStatus) && !"A".equalsIgnoreCase(newStatus);
+                        
+                        if (isOldAbsent && isNewValid) {
+                            attendanceMap.put(dayNum, a);
+                        } else if (newWh > existingWh) {
+                            attendanceMap.put(dayNum, a);
+                        }
+                    }
                 }
 
                 List<Map<String, Object>> dayStatuses = new ArrayList<>();
@@ -1380,7 +1480,7 @@ public class WebController {
                     java.time.LocalDate date = java.time.LocalDate.of(curY, curM, d);
                     Map<String, Object> cellData = new HashMap<>();
                     cellData.put("date", date.toString());
-                    
+
                     if (holidayMap.containsKey(d)) {
                         cellData.put("status", holidayMap.get(d).toUpperCase());
                     } else if (date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) {
@@ -1394,41 +1494,50 @@ public class WebController {
                                 String inStr = DatabaseManager.str(data, "in_time");
                                 String outStr = DatabaseManager.str(data, "out_time");
                                 double wh = DatabaseManager.dbl(data, "work_hours");
-                                
+
                                 String in = "";
                                 java.time.LocalDateTime inDateTime = null;
                                 if (!inStr.isEmpty()) {
                                     try {
-                                        inDateTime = java.time.LocalDateTime.parse(inStr.replace(" ", "T").split("\\.")[0]);
+                                        inDateTime = java.time.LocalDateTime
+                                                .parse(inStr.replace(" ", "T").split("\\.")[0]);
                                         in = String.format("%02d:%02d", inDateTime.getHour(), inDateTime.getMinute());
-                                    } catch (Exception e) {}
+                                    } catch (Exception e) {
+                                    }
                                 }
-                                
+
                                 String out = "";
                                 java.time.LocalDateTime outDateTime = null;
                                 if (!outStr.isEmpty()) {
                                     try {
-                                        outDateTime = java.time.LocalDateTime.parse(outStr.replace(" ", "T").split("\\.")[0]);
-                                        out = String.format("%02d:%02d", outDateTime.getHour(), outDateTime.getMinute());
-                                    } catch (Exception e) {}
+                                        outDateTime = java.time.LocalDateTime
+                                                .parse(outStr.replace(" ", "T").split("\\.")[0]);
+                                        out = String.format("%02d:%02d", outDateTime.getHour(),
+                                                outDateTime.getMinute());
+                                    } catch (Exception e) {
+                                    }
                                 }
-                                
+
                                 if (in.isEmpty()) {
                                     cellData.put("status", "P");
                                 } else {
                                     double totalHours = 0;
                                     if (inDateTime != null && outDateTime != null) {
-                                        totalHours = java.time.Duration.between(inDateTime, outDateTime).toMinutes() / 60.0;
+                                        totalHours = java.time.Duration.between(inDateTime, outDateTime).toMinutes()
+                                                / 60.0;
                                     }
                                     double breakHours = totalHours - wh;
-                                    if (breakHours < 0) breakHours = 0;
-                                    
+                                    if (breakHours < 0)
+                                        breakHours = 0;
+
                                     cellData.put("status", "WH");
                                     cellData.put("inTime", in);
                                     cellData.put("outTime", out.isEmpty() ? "--:--" : out);
                                     cellData.put("netHours", com.bhspl.util.AttendanceCalculator.formatDuration(wh));
-                                    cellData.put("totalHours", com.bhspl.util.AttendanceCalculator.formatDuration(totalHours));
-                                    cellData.put("breakHours", com.bhspl.util.AttendanceCalculator.formatDuration(breakHours));
+                                    cellData.put("totalHours",
+                                            com.bhspl.util.AttendanceCalculator.formatDuration(totalHours));
+                                    cellData.put("breakHours",
+                                            com.bhspl.util.AttendanceCalculator.formatDuration(breakHours));
                                 }
                             } else {
                                 String s = DatabaseManager.str(data, "status");
@@ -1488,7 +1597,7 @@ public class WebController {
             Map<String, Object> emp = db.fetchOne("SELECT shift FROM employees WHERE emp_id=?", empId);
             Map<String, Object> shift = null;
             boolean isOvernight = false;
-            
+
             if (emp != null && emp.get("shift") != null) {
                 shift = db.fetchOne("SELECT * FROM shifts WHERE shift_name=?", emp.get("shift"));
                 if (shift != null) {
@@ -1498,39 +1607,50 @@ public class WebController {
                         if (st != null && et != null) {
                             java.time.LocalTime sTime = java.time.LocalTime.parse(st.toString().substring(0, 5));
                             java.time.LocalTime eTime = java.time.LocalTime.parse(et.toString().substring(0, 5));
-                            if (eTime.isBefore(sTime)) isOvernight = true;
+                            if (eTime.isBefore(sTime))
+                                isOvernight = true;
                         }
-                    } catch (Exception ignored) {}
+                    } catch (Exception ignored) {
+                    }
                 }
             }
 
             // Fetch raw logs
             String startRange = date + " 00:00:00";
-            String endRange = java.time.LocalDate.parse(date).plusDays(1).toString() + " 10:00:00"; // include next morning for night shifts
-            
+            String endRange = java.time.LocalDate.parse(date).plusDays(1).toString() + " 10:00:00"; // include next
+                                                                                                    // morning for night
+                                                                                                    // shifts
+
             List<Map<String, Object>> rawLogs = db.query(
                     "SELECT r.punch_time, r.punch_type, d.device_name " +
-                    "FROM raw_logs r LEFT JOIN devices d ON r.device_id = d.device_id " +
-                    "WHERE r.emp_id=? AND r.punch_time >= ? AND r.punch_time < ? " +
-                    "ORDER BY r.punch_time ASC", empId, startRange, endRange);
+                            "FROM raw_logs r LEFT JOIN devices d ON r.device_id = d.device_id " +
+                            "WHERE r.emp_id=? AND r.punch_time >= ? AND r.punch_time < ? " +
+                            "ORDER BY r.punch_time ASC",
+                    empId, startRange, endRange);
 
             List<Map<String, Object>> calcInput = new ArrayList<>();
 
             for (Map<String, Object> log : rawLogs) {
                 Object pt = log.get("punch_time");
                 int type = log.get("punch_type") != null ? (int) log.get("punch_type") : 0;
-                
+
                 java.time.LocalDateTime ldt = null;
-                if (pt instanceof java.time.LocalDateTime) ldt = (java.time.LocalDateTime) pt;
-                else if (pt instanceof java.sql.Timestamp) ldt = ((java.sql.Timestamp) pt).toLocalDateTime();
+                if (pt instanceof java.time.LocalDateTime)
+                    ldt = (java.time.LocalDateTime) pt;
+                else if (pt instanceof java.sql.Timestamp)
+                    ldt = ((java.sql.Timestamp) pt).toLocalDateTime();
                 else {
-                    try { ldt = java.time.LocalDateTime.parse(pt.toString().replace(" ", "T").split("\\.")[0]); } catch(Exception e){}
+                    try {
+                        ldt = java.time.LocalDateTime.parse(pt.toString().replace(" ", "T").split("\\.")[0]);
+                    } catch (Exception e) {
+                    }
                 }
 
                 if (ldt != null) {
                     // Filter out next morning if not overnight shift
-                    if (!isOvernight && !ldt.toLocalDate().toString().equals(date)) continue;
-                    
+                    if (!isOvernight && !ldt.toLocalDate().toString().equals(date))
+                        continue;
+
                     Map<String, Object> p = new HashMap<>();
                     p.put("time", ldt);
                     p.put("type", type);
@@ -1538,9 +1658,10 @@ public class WebController {
                     calcInput.add(p);
                 }
             }
-            
+
             // Sort to ensure chronological order
-            calcInput.sort((p1, p2) -> ((java.time.LocalDateTime) p1.get("time")).compareTo((java.time.LocalDateTime) p2.get("time")));
+            calcInput.sort((p1, p2) -> ((java.time.LocalDateTime) p1.get("time"))
+                    .compareTo((java.time.LocalDateTime) p2.get("time")));
 
             // Filter duplicates exactly like AttendanceCalculator
             List<Map<String, Object>> filtered = new ArrayList<>();
@@ -1551,7 +1672,8 @@ public class WebController {
                 int type = (int) p.get("type");
                 if (lastTime != null) {
                     long diff = Math.abs(java.time.Duration.between(lastTime, t).getSeconds());
-                    if (diff < 60 && type == lastType) continue; // skip duplicate within 60s
+                    if (diff < 60 && type == lastType)
+                        continue; // skip duplicate within 60s
                 }
                 filtered.add(p);
                 lastTime = t;
@@ -1560,19 +1682,19 @@ public class WebController {
 
             java.time.format.DateTimeFormatter timeFmt = java.time.format.DateTimeFormatter.ofPattern("hh:mm a");
             List<Map<String, Object>> formattedPunches = new ArrayList<>();
-            
+
             for (int i = 0; i < filtered.size(); i++) {
                 Map<String, Object> p = filtered.get(i);
                 java.time.LocalDateTime ldt = (java.time.LocalDateTime) p.get("time");
-                
+
                 // AttendanceCalculator assumes even index = IN, odd index = OUT
                 int calculatedType = (i % 2 == 0) ? 1 : 2;
-                
+
                 String timeStr = ldt.format(timeFmt);
                 if (!ldt.toLocalDate().toString().equals(date)) {
                     timeStr += " (+1)";
                 }
-                
+
                 Map<String, Object> fp = new HashMap<>();
                 fp.put("time", ldt);
                 fp.put("type", calculatedType);
@@ -1585,20 +1707,22 @@ public class WebController {
             if (!filtered.isEmpty()) {
                 com.bhspl.util.AttendanceCalculator.calculateFromPunches(filtered, shift, metrics);
             }
-            
+
             // Format break intervals
             List<Map<String, Object>> breakIntervals = new ArrayList<>();
             for (Map<String, Object> b : metrics.breakIntervals) {
                 java.time.LocalDateTime start = (java.time.LocalDateTime) b.get("start");
                 java.time.LocalDateTime end = (java.time.LocalDateTime) b.get("end");
                 long durMins = (long) b.get("duration");
-                
+
                 String startStr = start.format(timeFmt);
-                if (!start.toLocalDate().toString().equals(date)) startStr += " (+1)";
-                
+                if (!start.toLocalDate().toString().equals(date))
+                    startStr += " (+1)";
+
                 String endStr = end.format(timeFmt);
-                if (!end.toLocalDate().toString().equals(date)) endStr += " (+1)";
-                
+                if (!end.toLocalDate().toString().equals(date))
+                    endStr += " (+1)";
+
                 Map<String, Object> bMap = new HashMap<>();
                 bMap.put("start", startStr);
                 bMap.put("end", endStr);
@@ -1606,12 +1730,10 @@ public class WebController {
                 breakIntervals.add(bMap);
             }
 
-
-
             response.put("status", "success");
             response.put("punches", formattedPunches);
             response.put("breaks", breakIntervals);
-            
+
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
@@ -1651,7 +1773,8 @@ public class WebController {
                 params.add(dept);
             }
 
-            long total = db.queryLong("SELECT COUNT(*) FROM leaves l JOIN employees e ON l.emp_id = e.emp_id" + where, params.toArray());
+            long total = db.queryLong("SELECT COUNT(*) FROM leaves l JOIN employees e ON l.emp_id = e.emp_id" + where,
+                    params.toArray());
             int totalPages = (int) Math.ceil((double) total / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
@@ -1710,7 +1833,8 @@ public class WebController {
         return handleRawLogs(model, from, to, dept, emp, search, "report-raw-logs", page, pageSize);
     }
 
-    private String handleRawLogs(Model model, String from, String to, String dept, String emp, String search, String viewName,
+    private String handleRawLogs(Model model, String from, String to, String dept, String emp, String search,
+            String viewName,
             int page, int pageSize) {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
@@ -2001,13 +2125,13 @@ public class WebController {
             @RequestParam(value = "comment", required = false) String comment) {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            
+
             // Fetch old request first to verify status and prevent duplicate actions
             Map<String, Object> req = db.queryOne("SELECT * FROM leaves WHERE id=?", id);
             if (req == null) {
                 return "redirect:/leave/requests";
             }
-            
+
             String oldStatus = DatabaseManager.str(req, "status");
             if (status.equals(oldStatus)) {
                 System.out.println("processLeave: Request " + id + " is already " + status + ". Skipping processing.");
@@ -2027,7 +2151,7 @@ public class WebController {
             String type = req.get("leave_type").toString();
             double days = DatabaseManager.dbl(req, "days");
             int yr = java.time.LocalDate.parse(req.get("from_date").toString()).getYear();
-            
+
             if ("Approved".equals(status) && !"Approved".equals(oldStatus)) {
                 leaveService.deductBalance(empId, type, yr, days, id, "Deducted upon approval of request ID: " + id);
             } else if (("Rejected".equals(status) || "Pending".equals(status)) && "Approved".equals(oldStatus)) {
@@ -2059,13 +2183,16 @@ public class WebController {
                 db.execute(
                         "INSERT INTO leaves (emp_id, leave_type, from_date, to_date, days, reason, status, applied_on) VALUES (?,?,?,?,?,?,?,NOW())",
                         empId, type, from, to, days, reason, status);
-                
+
                 // Get the newly generated ID if approved
                 if ("Approved".equals(status)) {
-                    Map<String, Object> newReq = db.queryOne("SELECT id FROM leaves WHERE emp_id=? AND leave_type=? AND from_date=? ORDER BY id DESC LIMIT 1", empId, type, from);
+                    Map<String, Object> newReq = db.queryOne(
+                            "SELECT id FROM leaves WHERE emp_id=? AND leave_type=? AND from_date=? ORDER BY id DESC LIMIT 1",
+                            empId, type, from);
                     if (newReq != null) {
                         String newId = newReq.get("id").toString();
-                        leaveService.deductBalance(empId, type, yr, daysVal, newId, "Deducted upon direct creation of approved leave");
+                        leaveService.deductBalance(empId, type, yr, daysVal, newId,
+                                "Deducted upon direct creation of approved leave");
                     }
                 }
             } else {
@@ -2076,7 +2203,7 @@ public class WebController {
                 db.execute(
                         "UPDATE leaves SET emp_id=?, leave_type=?, from_date=?, to_date=?, days=?, reason=?, status=? WHERE id=?",
                         empId, type, from, to, days, reason, status, id);
-                
+
                 if ("Approved".equals(status) && !"Approved".equals(oldStatus)) {
                     leaveService.deductBalance(empId, type, yr, daysVal, id, "Deducted upon approved status update");
                 } else if (!"Approved".equals(status) && "Approved".equals(oldStatus)) {
@@ -2445,7 +2572,9 @@ public class WebController {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             // Fetch old balance first
-            Map<String, Object> oldRow = db.queryOne("SELECT closing_bal FROM leave_balance WHERE emp_id=? AND leave_type=? AND year=?", empId, type, year);
+            Map<String, Object> oldRow = db.queryOne(
+                    "SELECT closing_bal FROM leave_balance WHERE emp_id=? AND leave_type=? AND year=?", empId, type,
+                    year);
             double oldClosing = (oldRow != null) ? DatabaseManager.dbl(oldRow, "closing_bal") : 0.0;
             double diff = newBalance - oldClosing;
 
@@ -2531,7 +2660,8 @@ public class WebController {
             long totalActive = db.queryLong("SELECT COUNT(*) FROM employees WHERE status='Active'");
 
             // Fetch active employees & charts for bulk credits & analytics
-            List<Map<String, Object>> employees = db.query("SELECT emp_id, emp_name FROM employees WHERE status='Active' ORDER BY emp_name");
+            List<Map<String, Object>> employees = db
+                    .query("SELECT emp_id, emp_name FROM employees WHERE status='Active' ORDER BY emp_name");
             List<Map<String, Object>> deptChart = db.query(
                     "SELECT e.department, SUM(b.used) as used_days FROM leave_balance b JOIN employees e ON b.emp_id = e.emp_id WHERE b.year = ? GROUP BY e.department ORDER BY used_days DESC",
                     filterYear);
@@ -2681,7 +2811,7 @@ public class WebController {
     }
 
     @GetMapping("/masters/departments")
-    public String mastersDepts(Model model, 
+    public String mastersDepts(Model model,
             @RequestParam(name = "page", defaultValue = "1") int page,
             @RequestParam(name = "size", defaultValue = "10") int pageSize) {
         List<Map<String, Object>> depts = new java.util.ArrayList<>();
@@ -2769,7 +2899,7 @@ public class WebController {
 
             String sql = "SELECT * FROM designations" + where + " ORDER BY " + orderBy + " LIMIT "
                     + pageSize + " OFFSET " + offset;
-            
+
             List<Object> allParams = new ArrayList<>(params);
             allParams.addAll(orderParams);
             desigs = db.query(sql, allParams.toArray());
@@ -2822,7 +2952,7 @@ public class WebController {
     }
 
     @GetMapping("/masters/shifts")
-    public String mastersShifts(Model model, 
+    public String mastersShifts(Model model,
             @RequestParam(name = "page", defaultValue = "1") int page,
             @RequestParam(name = "size", defaultValue = "10") int pageSize) {
         List<Map<String, Object>> shifts = new java.util.ArrayList<>();
@@ -2908,7 +3038,8 @@ public class WebController {
             }
 
             long total = db
-                    .queryLong("SELECT COUNT(*) FROM weekly_offs w JOIN employees e ON w.emp_id = e.emp_id" + where, params.toArray());
+                    .queryLong("SELECT COUNT(*) FROM weekly_offs w JOIN employees e ON w.emp_id = e.emp_id" + where,
+                            params.toArray());
             int totalPages = (int) Math.ceil((double) total / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
@@ -2961,7 +3092,7 @@ public class WebController {
 
     // System Sub-menus
     @GetMapping("/system/users")
-    public String systemUsers(Model model, 
+    public String systemUsers(Model model,
             @RequestParam(name = "page", defaultValue = "1") int page,
             @RequestParam(name = "size", defaultValue = "10") int pageSize) {
         List<Map<String, Object>> users = new java.util.ArrayList<>();
