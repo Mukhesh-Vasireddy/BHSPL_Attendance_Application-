@@ -63,7 +63,8 @@ public class LoginWindow extends JFrame {
         subtitle.setForeground(new Color(255, 255, 255, 180)); // 70% opacity white
         iconContainer.add(subtitle);
 
-        leftContent.add(iconContainer, "align right, gapright 40, pad 0 0 50 0"); // Shifted slightly towards the login card
+        leftContent.add(iconContainer, "align right, gapright 40, pad 0 0 50 0"); // Shifted slightly towards the login
+                                                                                  // card
         add(leftContent);
 
         // ----- RIGHT SIDE: LOGIN CARD & FORM (Transparent container) -----
@@ -128,9 +129,10 @@ public class LoginWindow extends JFrame {
         passField = new JPasswordField();
         passField.setFont(new Font("Segoe UI", Font.PLAIN, 16));
         passField.putClientProperty("JTextField.placeholderText", "••••••••");
-        
+
         // Custom Eye Toggle Button for Show Password
-        JToggleButton revealBtn = new JToggleButton(new com.formdev.flatlaf.extras.FlatSVGIcon("icons/eye.svg", 18, 18));
+        JToggleButton revealBtn = new JToggleButton(
+                new com.formdev.flatlaf.extras.FlatSVGIcon("icons/eye.svg", 18, 18));
         revealBtn.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 10));
         revealBtn.setContentAreaFilled(false);
         revealBtn.setFocusable(false);
@@ -140,7 +142,7 @@ public class LoginWindow extends JFrame {
             passField.setEchoChar(echo);
         });
         passField.putClientProperty("JTextField.trailingComponent", revealBtn);
-        
+
         loginCard.add(passField, "h 54!");
 
         statusLabel = new JLabel(" ", SwingConstants.CENTER);
@@ -157,30 +159,30 @@ public class LoginWindow extends JFrame {
         JLabel needHelp = new JLabel("Need Help?");
         needHelp.setFont(new Font("Segoe UI", Font.BOLD, 13));
         needHelp.setForeground(new Color(0x475569));
-        
+
         JLabel contactAdmin = new JLabel("Contact IT Administrator");
         contactAdmin.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         contactAdmin.setForeground(new Color(0x64748B));
-        
+
         loginCard.add(needHelp, "gaptop 30, align center");
         loginCard.add(contactAdmin, "align center");
 
         rightSide.add(loginCard, "wmin 400, wmax 520, hmin 600, hmax 720");
-        
+
         // 6. Footer
         JLabel footerLine1 = new JLabel("© 2026 Bavya Health Services Pvt. Ltd.");
         footerLine1.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         footerLine1.setForeground(new Color(0x94A3B8));
-        
+
         JLabel footerLine2 = new JLabel("All Rights Reserved.");
         footerLine2.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         footerLine2.setForeground(new Color(0x94A3B8));
-        
+
         JPanel footerPanel = new JPanel(new MigLayout("ins 0 0 30 0, wrap", "[center]", "[] 2 []"));
         footerPanel.setOpaque(false);
         footerPanel.add(footerLine1);
         footerPanel.add(footerLine2);
-        
+
         rightSide.add(footerPanel);
 
         add(rightSide, "grow");

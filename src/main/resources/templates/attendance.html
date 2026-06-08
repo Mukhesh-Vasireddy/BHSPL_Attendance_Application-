@@ -43,6 +43,7 @@
                             style="width: 150px; background-color: #ffffff; border: 1px solid #e2e8f0; color: var(--text-main); border-radius: 12px; padding: 10px 15px;">
                             <option value="All" th:selected="${selStatus == 'All'}">All Records</option>
                             <option value="Present" th:selected="${selStatus == 'Present'}">Present Only</option>
+                            <option value="Late" th:selected="${selStatus == 'Late'}">Late Only</option>
                             <option value="Absent" th:selected="${selStatus == 'Absent'}">Absent Only</option>
                         </select>
                     </div>

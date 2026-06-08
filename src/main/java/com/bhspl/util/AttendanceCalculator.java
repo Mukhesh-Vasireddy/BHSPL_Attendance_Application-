@@ -88,6 +88,7 @@ public class AttendanceCalculator {
         if (totalMins <= 0) {
             m.workHours = 0;
             m.duration = 0;
+            calculateShiftMetrics(m, shift);
             return;
         }
 
@@ -125,17 +126,8 @@ public class AttendanceCalculator {
                 Object st = shift.get("start_time");
                 Object et = shift.get("end_time");
                 if (st != null && et != null) {
-                    if (st instanceof java.sql.Time) {
-                        schedIn = ((java.sql.Time) st).toLocalTime();
-                    } else {
-                        schedIn = LocalTime.parse(st.toString().substring(0, 5));
-                    }
-                    
-                    if (et instanceof java.sql.Time) {
-                        schedOut = ((java.sql.Time) et).toLocalTime();
-                    } else {
-                        schedOut = LocalTime.parse(et.toString().substring(0, 5));
-                    }
+                    schedIn = LocalTime.parse(st.toString().substring(0, 5));
+                    schedOut = LocalTime.parse(et.toString().substring(0, 5));
                     
                     grace = DatabaseManager.num(shift, "grace_mins");
                     otThreshold = DatabaseManager.dbl(shift, "overtime_after");
