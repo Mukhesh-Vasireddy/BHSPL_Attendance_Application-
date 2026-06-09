@@ -703,12 +703,11 @@ public class DatabaseManager {
                 conn.commit();
             }
 
-            // Force dynamic recalculation on startup by resetting synced flag for the last
-            // 30 days
+            // Force dynamic recalculation on startup by resetting synced flag for ALL data
             try {
-                execute("UPDATE raw_logs SET synced = 0 WHERE punch_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)");
+                execute("UPDATE raw_logs SET synced = 0");
                 conn.commit();
-                System.out.println("Database: Triggered historical raw logs recalculation for the last 30 days.");
+                System.out.println("Database: Triggered historical raw logs recalculation for ALL data.");
             } catch (Exception e) {
                 System.err.println("Database Migration Warning for triggering recalculation: " + e.getMessage());
             }
