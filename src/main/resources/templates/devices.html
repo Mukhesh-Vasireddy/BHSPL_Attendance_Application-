@@ -119,7 +119,7 @@
 
 
         <script th:inline="javascript">
-            const devices = /*[[${devices}]]*/[];
+            var devices = /*[[${devices}]]*/[];
 
             function openDeviceModal() {
                 document.getElementById('modalTitle').innerText = 'Add New Device';

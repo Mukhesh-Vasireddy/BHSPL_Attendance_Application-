@@ -185,7 +185,7 @@
         </div>
 
         <script th:inline="javascript">
-            const policies = /*[[${policies}]]*/[];
+            var policies = /*[[${policies}]]*/[];
 
             function openPolicyModal() {
                 document.getElementById('policyForm').reset();

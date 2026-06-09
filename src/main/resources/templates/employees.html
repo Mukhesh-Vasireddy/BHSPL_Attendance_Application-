@@ -230,9 +230,9 @@
         </div>
 
         <script th:inline="javascript">
-            const rawEmps = /*[[${employees}]]*/[];
-            const availableDepts = /*[[${depts}]]*/[];
-            const availableShifts = /*[[${shifts}]]*/[];
+            var rawEmps = /*[[${employees}]]*/[];
+            var availableDepts = /*[[${depts}]]*/[];
+            var availableShifts = /*[[${shifts}]]*/[];
 
             function openModal() {
                 document.getElementById('modalTitle').innerText = 'Add New Employee';
@@ -284,7 +284,7 @@
                 document.getElementById('deviceImportModal').style.display = 'none';
             }
 
-            let fetchedUsers = [];
+            var fetchedUsers = [];
 
             async function fetchDeviceUsers() {
                 const select = document.getElementById('importDeviceSelect');
@@ -704,7 +704,7 @@
         </div>
 
         <script>
-            let currentIdCardEmpId = null;
+            var currentIdCardEmpId = null;
 
             function showIdCardModal(element) {
                 const empId = element.getAttribute('data-id') || 'N/A';
