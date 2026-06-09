@@ -703,11 +703,12 @@ public class DatabaseManager {
                 conn.commit();
             }
 
-            // Force dynamic recalculation on startup by resetting synced flag for ALL data
+            // Force dynamic recalculation on startup by resetting synced flag for the last
+            // 30 days to prevent OutOfMemory errors from loading all raw logs
             try {
-                execute("UPDATE raw_logs SET synced = 0");
+                execute("UPDATE raw_logs SET synced = 0 WHERE punch_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)");
                 conn.commit();
-                System.out.println("Database: Triggered historical raw logs recalculation for ALL data.");
+                System.out.println("Database: Triggered historical raw logs recalculation for the last 30 days.");
             } catch (Exception e) {
                 System.err.println("Database Migration Warning for triggering recalculation: " + e.getMessage());
             }
@@ -721,7 +722,7 @@ public class DatabaseManager {
 
         // Self-healing migration to pad older employee IDs in the attendance table
         try {
-            int updated = execute("UPDATE attendance a JOIN employees e ON CAST(a.emp_id AS UNSIGNED) = CAST(e.emp_id AS UNSIGNED) SET a.emp_id = e.emp_id WHERE a.emp_id != e.emp_id");
+            int updated = execute("UPDATE attendance a JOIN employees e ON CAST(a.emp_id AS UNSIGNED) = CAST(e.emp_id AS UNSIGNED) SET a.emp_id = e.emp_id WHERE a.emp_id != e.emp_id AND a.emp_id REGEXP '^[0-9]+$' AND e.emp_id REGEXP '^[0-9]+$'");
             if (updated > 0) {
                 System.out.println("Database: Fixed " + updated + " historical attendance records with unpadded employee IDs.");
             }
