@@ -719,6 +719,21 @@ public class DatabaseManager {
             } catch (Exception ignored) {
             }
         }
+
+        // Self-healing migration to pad older employee IDs in the attendance table
+        try {
+            int updated = execute("UPDATE attendance a JOIN employees e ON CAST(a.emp_id AS UNSIGNED) = CAST(e.emp_id AS UNSIGNED) SET a.emp_id = e.emp_id WHERE a.emp_id != e.emp_id");
+            if (updated > 0) {
+                System.out.println("Database: Fixed " + updated + " historical attendance records with unpadded employee IDs.");
+            }
+            conn.commit();
+        } catch (Exception e) {
+            System.err.println("Database Migration Warning for padding attendance emp_ids: " + e.getMessage());
+            try {
+                conn.rollback();
+            } catch (Exception ignored) {
+            }
+        }
     }
 
     // ── Query helpers ─────────────────────────────────────────────────────────
