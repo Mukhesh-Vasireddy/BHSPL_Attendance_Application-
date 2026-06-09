@@ -562,6 +562,19 @@ public class WebController {
             model.addAttribute("selectedMonth", selectedMonth);
             model.addAttribute("selectedYear", selectedYear);
 
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> cachedDepts = (List<Map<String, Object>>) CacheManager.getInstance()
+                    .get("list_departments");
+            if (cachedDepts == null) {
+                cachedDepts = db.query("SELECT dept_name FROM departments ORDER BY dept_name");
+                CacheManager.getInstance().put("list_departments", cachedDepts, 3600000); // 1 hour
+            }
+            model.addAttribute("depts", cachedDepts);
+            
+            List<Map<String, Object>> shiftsList = db
+                    .query("SELECT shift_name FROM shifts WHERE status='Active' ORDER BY shift_name");
+            model.addAttribute("shifts", shiftsList);
+
             // 2. Attendance Summary & Monthly Stats
             List<Map<String, Object>> attendanceRecords = db.query(
                     "SELECT * FROM attendance WHERE emp_id=? AND YEAR(punch_date) = ? AND MONTH(punch_date) = ?",

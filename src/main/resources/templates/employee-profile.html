@@ -5,9 +5,9 @@
     <section>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <div style="display: flex; align-items: center; gap: 15px;">
-                <a href="/employees" class="btn-primary" style="background: #f1f5f9; color: var(--text-main); padding: 8px 12px; border-radius: 8px; text-decoration: none;">
-                    <i class="fas fa-arrow-left"></i> Back
-                </a>
+                <button class="btn-primary" onclick="openEditModal()" style="background: var(--accent-primary); color: white; padding: 8px 15px; border-radius: 8px; border: none; cursor: pointer;">
+                    <i class="fas fa-pen"></i> Edit Profile
+                </button>
                 <h3 style="margin: 0;">Employee Profile Dashboard</h3>
             </div>
             <form action="" method="get" style="display: flex; gap: 10px; align-items: center; background: #fff; padding: 10px 15px; border-radius: 12px; box-shadow: var(--card-shadow);">
@@ -205,6 +205,80 @@
             </div>
         </div>
 
+        <!-- Edit Employee Modal -->
+        <div id="empModal" class="modal">
+            <div class="modal-content" style="width: 550px;">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Edit Employee Profile</h3>
+                    <span class="close" onclick="closeModal()">&times;</span>
+                </div>
+                <form action="/employees/save" method="post" id="empForm" style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
+                    <input type="hidden" name="is_edit" id="form_is_edit" value="true">
+                    
+                    <div class="modal-body">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                            <div>
+                                <label class="form-group-label" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Employee ID <span style="color: #ef4444;">*</span></label>
+                                <input type="text" name="emp_id" id="form_emp_id" th:value="${emp['emp_id']}" readonly style="background-color: #f1f5f9;" class="form-control" oninput="this.value = this.value.replace(/[^0-9]/g, '')" pattern="\d+" title="Employee ID must contain only numbers.">
+                            </div>
+                            <div>
+                                <label class="form-group-label" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Full Name <span style="color: #ef4444;">*</span></label>
+                                <input type="text" name="emp_name" id="form_emp_name" th:value="${emp['emp_name']}" required class="form-control">
+                            </div>
+                            <div>
+                                <label class="form-group-label" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Department</label>
+                                <select name="department" id="form_dept" class="form-control">
+                                    <option value="">Select Dept</option>
+                                    <option th:each="d : ${depts}" th:value="${d['dept_name']}" th:text="${d['dept_name']}" th:selected="${d['dept_name'] == emp['department']}">IT</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="form-group-label" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Designation</label>
+                                <input type="text" name="designation" id="form_desig" th:value="${emp['designation']}" class="form-control">
+                            </div>
+                            <div>
+                                <label class="form-group-label" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Shift</label>
+                                <select name="shift" id="form_shift" class="form-control">
+                                    <option value="Day" th:selected="${emp['shift'] == 'Day'}">Day</option>
+                                    <option value="Night" th:selected="${emp['shift'] == 'Night'}">Night</option>
+                                    <option value="General" th:selected="${emp['shift'] == 'General'}">General</option>
+                                    <option th:each="s : ${shifts}" th:value="${s['shift_name']}" th:text="${s['shift_name']}" th:selected="${s['shift_name'] == emp['shift']}">Shift</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="form-group-label" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Status</label>
+                                <select name="status" id="form_status" class="form-control">
+                                    <option value="Active" th:selected="${emp['status'] == 'Active'}">Active</option>
+                                    <option value="Inactive" th:selected="${emp['status'] == 'Inactive'}">Inactive</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+                        <button type="submit" class="btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <script>
+            function openEditModal() {
+                document.getElementById('empModal').style.display = 'flex';
+            }
+
+            function closeModal() {
+                document.getElementById('empModal').style.display = 'none';
+            }
+
+            // Close modal when clicking outside of it
+            window.onclick = function (event) {
+                const empModal = document.getElementById('empModal');
+                if (event.target == empModal) {
+                    closeModal();
+                }
+            }
+        </script>
     </section>
 </body>
 </html>
