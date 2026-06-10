@@ -119,8 +119,8 @@ public class WebController {
                 stats = new java.util.HashMap<>();
                 long totalEmpsVal = db.queryLong("SELECT COUNT(*) FROM employees WHERE status='Active'");
                 long presentCountVal = db.queryLong(
-                        "SELECT COUNT(DISTINCT r.emp_id) FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE r.punch_time >= ? AND r.punch_time < DATE_ADD(?, INTERVAL 1 DAY) AND e.status = 'Active'",
-                        todayStr, todayStr);
+                        "SELECT COUNT(DISTINCT r.emp_id) FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE r.punch_time >= ? AND r.punch_time <= NOW() AND e.status = 'Active'",
+                        todayStr);
                 long leaveCountVal = db.queryLong(
                         "SELECT COUNT(DISTINCT emp_id) FROM leaves WHERE status='Approved' AND ? BETWEEN from_date AND to_date",
                         todayStr);
@@ -230,7 +230,7 @@ public class WebController {
                             "MIN(r.punch_time) as in_time, MAX(r.punch_time) as out_time, COUNT(*) as punches " +
                             "FROM raw_logs r " +
                             "LEFT JOIN employees e ON r.emp_id = e.emp_id " +
-                            "WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.status = 'Active' "
+                            "WHERE r.punch_time >= CURDATE() AND r.punch_time <= NOW() AND e.status = 'Active' "
                             + searchFilter +
                             "GROUP BY r.emp_id, e.emp_name " +
                             "ORDER BY " + orderBy + " LIMIT " + pageSize + " OFFSET " + offset,
@@ -254,14 +254,14 @@ public class WebController {
 
             // Today's punch count (total raw logs received today)
             long todayPunches = db.queryLong(
-                "SELECT COUNT(*) FROM raw_logs WHERE punch_time >= CURDATE() AND punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY)");
+                "SELECT COUNT(*) FROM raw_logs WHERE punch_time >= CURDATE() AND punch_time <= NOW()");
             model.addAttribute("todayPunches", todayPunches);
 
             // Today's synced logs (processed into attendance_logs or daily_attendance)
             long todaySyncedLogs = db.queryLong(
                 "SELECT COUNT(*) FROM raw_logs r " +
                 "JOIN employees e ON r.emp_id = e.emp_id " +
-                "WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) " +
+                "WHERE r.punch_time >= CURDATE() AND r.punch_time <= NOW() " +
                 "AND e.status = 'Active'");
             model.addAttribute("todaySyncedLogs", todaySyncedLogs);
 
@@ -322,7 +322,7 @@ public class WebController {
                 "SELECT COUNT(*) FROM (" +
                 "  SELECT r.emp_id FROM raw_logs r " +
                 "  JOIN employees e ON r.emp_id = e.emp_id " +
-                "  WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) " +
+                "  WHERE r.punch_time >= CURDATE() AND r.punch_time <= NOW() " +
                 "  AND e.status = 'Active' " +
                 "  GROUP BY r.emp_id HAVING COUNT(*) % 2 = 1" +
                 ") t");
@@ -333,7 +333,7 @@ public class WebController {
             List<Map<String, Object>> livePunches = db.query(
                     "SELECT r.emp_id, e.emp_name, r.punch_time " +
                             "FROM raw_logs r LEFT JOIN employees e ON r.emp_id = e.emp_id " +
-                            "WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND e.status = 'Active' "
+                            "WHERE r.punch_time >= CURDATE() AND r.punch_time <= NOW() AND e.status = 'Active' "
                             +
                             "ORDER BY r.punch_time DESC LIMIT 10");
             for (Map<String, Object> punch : livePunches) {
