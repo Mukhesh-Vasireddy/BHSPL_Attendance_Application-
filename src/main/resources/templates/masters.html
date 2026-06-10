@@ -3,54 +3,61 @@
       th:replace="~{layout :: main-layout(~{::section}, 'Masters', 'masters')}">
 <body>
     <section>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">
+        <div class="module-header">
+            <div>
+                <h2 class="module-title">Master Data Overview</h2>
+                <div class="module-sub">Overview of organization departments, roles, and shift parameters</div>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
             <!-- Department Master -->
-            <div class="card">
+            <div class="card" style="padding: 20px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h4>Departments</h4>
-                    <button class="btn-primary" style="padding: 4px 8px; font-size: 12px;"><i class="fas fa-plus"></i></button>
+                    <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--text-main);"><i class="fas fa-sitemap" style="color: var(--accent-primary); margin-right: 6px;"></i> Departments</h3>
+                    <a href="/masters/departments" class="btn-primary btn-sm" style="text-decoration: none;"><i class="fas fa-arrow-right"></i> Manage</a>
                 </div>
-                <table>
+                <table class="table">
                     <thead>
                         <tr><th>Name</th><th style="width: 50px;"></th></tr>
                     </thead>
                     <tbody>
-                        <tr><td>HR</td><td><i class="fas fa-trash" style="color: #EF4444;"></i></td></tr>
-                        <tr><td>Operations</td><td><i class="fas fa-trash" style="color: #EF4444;"></i></td></tr>
+                        <tr><td style="font-weight: 600; color: var(--text-main);">HR</td><td><i class="fas fa-check" style="color: #10B981;"></i></td></tr>
+                        <tr><td style="font-weight: 600; color: var(--text-main);">Operations</td><td><i class="fas fa-check" style="color: #10B981;"></i></td></tr>
                     </tbody>
                 </table>
             </div>
 
             <!-- Designation Master -->
-            <div class="card">
+            <div class="card" style="padding: 20px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h4>Designations</h4>
-                    <button class="btn-primary" style="padding: 4px 8px; font-size: 12px;"><i class="fas fa-plus"></i></button>
+                    <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--text-main);"><i class="fas fa-award" style="color: var(--accent-purple); margin-right: 6px;"></i> Designations</h3>
+                    <a href="/masters/designations" class="btn-primary btn-sm" style="text-decoration: none; background: var(--accent-purple);"><i class="fas fa-arrow-right"></i> Manage</a>
                 </div>
-                <table>
+                <table class="table">
                     <thead>
                         <tr><th>Name</th><th style="width: 50px;"></th></tr>
                     </thead>
                     <tbody>
-                        <tr><td>Manager</td><td><i class="fas fa-trash" style="color: #EF4444;"></i></td></tr>
-                        <tr><td>Supervisor</td><td><i class="fas fa-trash" style="color: #EF4444;"></i></td></tr>
+                        <tr><td style="font-weight: 600; color: var(--text-main);">Manager</td><td><i class="fas fa-check" style="color: #10B981;"></i></td></tr>
+                        <tr><td style="font-weight: 600; color: var(--text-main);">Supervisor</td><td><i class="fas fa-check" style="color: #10B981;"></i></td></tr>
                     </tbody>
                 </table>
             </div>
 
             <!-- Shift Master -->
-            <div class="card">
+            <div class="card" style="padding: 20px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h4>Shifts</h4>
-                    <button class="btn-primary" style="padding: 4px 8px; font-size: 12px;"><i class="fas fa-plus"></i></button>
+                    <h3 style="margin: 0; font-size: 15px; font-weight: 700; color: var(--text-main);"><i class="fas fa-clock" style="color: #F59E0B; margin-right: 6px;"></i> Shifts</h3>
+                    <a href="/masters/shifts" class="btn-primary btn-sm" style="text-decoration: none; background: #F59E0B;"><i class="fas fa-arrow-right"></i> Manage</a>
                 </div>
-                <table>
+                <table class="table">
                     <thead>
                         <tr><th>Shift</th><th>Timing</th></tr>
                     </thead>
                     <tbody>
-                        <tr><td>General</td><td>09:00 - 18:00</td></tr>
-                        <tr><td>Night</td><td>20:00 - 05:00</td></tr>
+                        <tr><td style="font-weight: 600; color: var(--text-main);">General</td><td>09:00 - 18:00</td></tr>
+                        <tr><td style="font-weight: 600; color: var(--text-main);">Night</td><td>20:00 - 05:00</td></tr>
                     </tbody>
                 </table>
             </div>

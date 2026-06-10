@@ -3,21 +3,28 @@
       th:replace="~{layout :: main-layout(~{::section}, 'System Settings', 'system')}">
 <body>
     <section>
-        <div style="max-width: 800px; margin: 0 auto;">
+        <div class="module-header">
+            <div>
+                <h2 class="module-title">System Settings</h2>
+                <div class="module-sub">Configure database connectors, manage ADMS services, and perform system backups</div>
+            </div>
+        </div>
+
+        <div style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px;">
             <!-- Database Settings -->
-            <div class="card">
-                <h3 style="display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-database" style="color: var(--accent-purple);"></i>
+            <div class="card" style="padding: 24px;">
+                <h3 style="display: flex; align-items: center; gap: 10px; margin: 0 0 20px 0; font-size: 16px; font-weight: 700; color: var(--text-main);">
+                    <i class="fas fa-database" style="color: var(--accent-primary);"></i>
                     Database Configuration
                 </h3>
-                <div style="margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
                     <div>
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px;">Host</label>
-                        <input type="text" value="localhost" style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 8px;">
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Host</label>
+                        <input type="text" value="localhost" autocomplete="off" class="form-control">
                     </div>
                     <div>
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 8px;">Database Name</label>
-                        <input type="text" value="bhspl_attendance" style="width: 100%; padding: 10px; border: 1px solid #E2E8F0; border-radius: 8px;">
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Database Name</label>
+                        <input type="text" value="bhspl_attendance" autocomplete="off" class="form-control">
                     </div>
                 </div>
                 <div style="margin-top: 20px; text-align: right;">
@@ -26,14 +33,14 @@
             </div>
 
             <!-- Server Settings -->
-            <div class="card">
-                <h3 style="display: flex; align-items: center; gap: 10px;">
+            <div class="card" style="padding: 24px;">
+                <h3 style="display: flex; align-items: center; gap: 10px; margin: 0 0 20px 0; font-size: 16px; font-weight: 700; color: var(--text-main);">
                     <i class="fas fa-server" style="color: var(--accent-purple);"></i>
                     Server Status
                 </h3>
-                <div style="margin-top: 20px;">
-                    <div style="display: flex; justify-content: space-between; padding: 12px; background: #F8FAFC; border-radius: 8px; margin-bottom: 10px;">
-                        <span>Push Service (ADMS)</span>
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #F8FAFC; border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--border);">
+                        <span style="font-weight: 600; color: var(--text-main);">Push Service (ADMS)</span>
                         <div style="text-align: right;">
                             <span th:text="${admsStatus == 'Active (Listening)' ? 'Running on Port ' + admsPort : (admsStatus == 'Occupied (External)' ? 'Occupied (Ghost Process Found)' : 'Service Inactive')}"
                                   th:style="${admsStatus == 'Active (Listening)' ? 'color: #10B981; font-weight: 700;' : 'color: #EF4444; font-weight: 700;'}">
@@ -44,31 +51,31 @@
                                 <span th:text="${admsError}">Error</span>
                             </div>
                             <form th:if="${admsStatus == 'Active (Listening)' || admsStatus == 'Occupied (External)'}" th:action="@{/system/settings/stop-adms}" method="post" style="margin-top: 10px;">
-                                <button type="submit" class="btn-primary" style="padding: 5px 15px; font-size: 12px; background: #EF4444;">
+                                <button type="submit" class="btn-primary btn-sm" style="background: #EF4444;">
                                     <i class="fas fa-stop"></i> Stop ADMS Service
                                 </button>
                             </form>
                             <form th:if="${admsStatus == 'Inactive'}" th:action="@{/system/settings/start-adms}" method="post" style="margin-top: 10px;">
-                                <button type="submit" class="btn-primary" style="padding: 5px 15px; font-size: 12px; background: #10B981;">
+                                <button type="submit" class="btn-primary btn-sm" style="background: #10B981;">
                                     <i class="fas fa-play"></i> Start ADMS Service
                                 </button>
                             </form>
                         </div>
                     </div>
-                    <div style="display: flex; justify-content: space-between; padding: 12px; background: #F8FAFC; border-radius: 8px; margin-bottom: 10px;">
-                        <span>Web Server</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px; background: #F8FAFC; border-radius: 12px; border: 1px solid var(--border);">
+                        <span style="font-weight: 600; color: var(--text-main);">Web Server</span>
                         <span style="color: #10B981; font-weight: 700;">Running on Port 8080</span>
                     </div>
                 </div>
             </div>
 
             <!-- Backup & Restore -->
-            <div class="card">
-                <h3 style="display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-undo" style="color: var(--accent-purple);"></i>
+            <div class="card" style="padding: 24px;">
+                <h3 style="display: flex; align-items: center; gap: 10px; margin: 0 0 20px 0; font-size: 16px; font-weight: 700; color: var(--text-main);">
+                    <i class="fas fa-shield-alt" style="color: var(--accent-secondary);"></i>
                     Backup & Maintenance
                 </h3>
-                <div style="margin-top: 20px; display: flex; gap: 15px;">
+                <div style="display: flex; gap: 15px;">
                     <button class="btn-primary" style="background: #334155;"><i class="fas fa-download"></i> Backup Database</button>
                     <button class="btn-primary" style="background: #EF4444;"><i class="fas fa-trash-alt"></i> Clear Old Logs</button>
                 </div>

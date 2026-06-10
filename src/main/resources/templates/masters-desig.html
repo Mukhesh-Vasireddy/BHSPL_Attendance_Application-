@@ -3,44 +3,50 @@
       th:replace="~{layout :: main-layout(~{::section}, 'Designations', 'masters')}">
 <body>
     <section>
+        <div class="module-header">
+            <div>
+                <h2 class="module-title">Designations</h2>
+                <div class="module-sub">Configure role designations and levels within the company hierarchy</div>
+            </div>
+        </div>
+
         <!-- Toolbar -->
-        <div class="card" style="margin-bottom: 15px; padding: 15px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="filter-bar">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                 <div style="display: flex; gap: 10px; align-items: center;">
                     <button class="btn-primary" style="background: #10B981;" onclick="openDesigModal()"><i class="fas fa-plus"></i> Add New Designation</button>
-                    <button class="btn-primary" style="background: rgba(51, 65, 85, 0.1); color: #334155; border: 1px solid rgba(51, 65, 85, 0.2);" onclick="exportTableToExcel('Designations.xls')"><i class="fas fa-file-excel"></i> Export</button>
-                    <button class="btn-primary" style="background: #f1f5f9; color: var(--text-main); border: 1px solid var(--glass-border);" onclick="refreshAndSync()"><i class="fas fa-sync"></i> Refresh</button>
+                    <button class="btn-primary" style="background: rgba(51, 65, 85, 0.08); color: #334155; border: 1px solid rgba(51, 65, 85, 0.15);" onclick="exportTableToExcel('Designations.xls')"><i class="fas fa-file-excel"></i> Export</button>
+                    <button class="btn-primary" style="background: #64748B;" onclick="refreshAndSync()"><i class="fas fa-sync"></i> Refresh</button>
                 </div>
-                <!-- ... -->
             </div>
         </div>
 
         <!-- Data Table -->
-        <div class="card">
-            <table>
+        <div class="card" style="padding: 0; overflow-x: auto;">
+            <table class="table">
                 <thead>
-                    <tr style="background: #f8fafc;">
-                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; width: 60px;">ID</th>
-                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Designation Name</th>
-                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; width: 100px;">Level</th>
-                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Description</th>
-                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; width: 120px;">Status</th>
-                        <th style="padding: 15px 20px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; width: 100px; text-align: center;">Action</th>
+                    <tr>
+                        <th style="width: 70px;">ID</th>
+                        <th>Designation Name</th>
+                        <th style="width: 100px; text-align: center;">Level</th>
+                        <th>Description</th>
+                        <th style="width: 120px;">Status</th>
+                        <th style="width: 100px; text-align: center;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr th:each="d : ${designations}" th:data-id="${d.id}" th:data-name="${d.desig_name}" th:data-level="${d.level_order}" th:data-desc="${d.description}" th:data-status="${d.status}">
-                        <td th:text="${d.id}" style="padding: 15px 20px;">1</td>
-                        <td th:text="${d.desig_name}" style="padding: 15px 20px; font-weight: 600; color: var(--text-main);">Software Engineer</td>
-                        <td th:text="${d.level_order}" style="padding: 15px 20px; text-align: center;">1</td>
-                        <td th:text="${d.description}" style="padding: 15px 20px;">Core development role</td>
-                        <td style="padding: 15px 20px;">
+                        <td th:text="${d.id}">1</td>
+                        <td th:text="${d.desig_name}" style="font-weight: 600; color: var(--text-main);">Software Engineer</td>
+                        <td th:text="${d.level_order}" style="text-align: center;">1</td>
+                        <td th:text="${d.description}">Core development role</td>
+                        <td>
                             <span th:text="${d.status}" 
                                   th:classappend="${d.status == 'Active' ? 'badge-success' : 'badge-danger'}"
                                   class="badge">Active</span>
                         </td>
                         <td>
-                            <div class="action-col">
+                            <div class="action-col" style="justify-content: center;">
                                 <button class="action-btn edit" title="Edit" onclick="editDesig(this)"><i class="fas fa-pen"></i></button>
                                 <button class="action-btn delete" title="Delete" onclick="deleteDesig(this)"><i class="fas fa-trash"></i></button>
                             </div>
@@ -48,7 +54,9 @@
                     </tr>
                 </tbody>
             </table>
-            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/masters/designations')}"></div>
+            <div style="padding: 15px;">
+                <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/masters/designations')}"></div>
+            </div>
         </div>
 
         <!-- Desig Modal -->
@@ -58,7 +66,7 @@
                     <h3 id="modalTitle">Add New Designation</h3>
                     <span class="close" onclick="closeDesigModal()">&times;</span>
                 </div>
-                <form action="/masters/designations/save" method="post" id="desigForm" style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
+                <form action="/masters/designations/save" method="post" id="desigForm" autocomplete="off" style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
                     <input type="hidden" name="id" id="fieldId">
                     <div class="modal-body">
                         <div class="form-group">

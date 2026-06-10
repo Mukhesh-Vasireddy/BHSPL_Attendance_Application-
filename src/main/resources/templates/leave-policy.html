@@ -3,12 +3,22 @@
 
 <body>
     <section>
+        <div class="module-header">
+            <div>
+                <h2 class="module-title">Leave Policies</h2>
+                <div class="module-sub">Configure and manage leave policies and rules</div>
+            </div>
+        </div>
+
         <!-- Toolbar -->
-        <div class="card" style="margin-bottom: 15px; padding: 15px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div class="filter-bar">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
                 <div style="display: flex; gap: 10px; align-items: center;">
-                    <input type="text" id="policySearch" class="form-control" style="width: 250px;"
-                        placeholder="Search leave type..." onkeyup="searchPolicy()">
+                    <div style="position: relative; display: flex; align-items: center;">
+                        <i class="fas fa-search" style="position: absolute; left: 12px; color: #94a3b8; font-size: 14px;"></i>
+                        <input type="text" id="policySearch" autocomplete="off" class="form-control" style="width: 250px; padding-left: 36px;"
+                            placeholder="Search leave type..." onkeyup="searchPolicy()">
+                    </div>
                     <button class="btn-primary" onclick="searchPolicy()"><i class="fas fa-search"></i> Search</button>
                 </div>
                 <div style="display: flex; gap: 10px;">
@@ -21,8 +31,8 @@
         </div>
 
         <!-- Data Table -->
-        <div class="card" style="overflow-x: auto;">
-            <table id="policyTable">
+        <div class="card" style="overflow-x: auto; padding: 0;">
+            <table id="policyTable" class="table">
                 <thead>
                     <tr>
                         <th>ID</th>
@@ -47,17 +57,17 @@
                         <td th:text="${p['credit_method']}">Monthly</td>
                         <td>
                             <span th:if="${p['carry_forward'] == 1 or p['carry_forward'] == true}" class="badge badge-success"><i class="fas fa-check"></i> Yes</span>
-                            <span th:unless="${p['carry_forward'] == 1 or p['carry_forward'] == true}" style="color: #94A3B8;">No</span>
+                            <span th:unless="${p['carry_forward'] == 1 or p['carry_forward'] == true}" class="badge badge-muted">No</span>
                         </td>
                         <td th:text="${p['max_carry']}">10</td>
                         <td th:text="${p['expire_months']}">0</td>
                         <td>
                             <span th:if="${p['encashable'] == 1 or p['encashable'] == true}" class="badge badge-success"><i class="fas fa-check"></i> Yes</span>
-                            <span th:unless="${p['encashable'] == 1 or p['encashable'] == true}" style="color: #94A3B8;">No</span>
+                            <span th:unless="${p['encashable'] == 1 or p['encashable'] == true}" class="badge badge-muted">No</span>
                         </td>
                         <td>
                             <span th:if="${p['pro_rata'] == 1 or p['pro_rata'] == true}" class="badge badge-success"><i class="fas fa-check"></i> Yes</span>
-                            <span th:unless="${p['pro_rata'] == 1 or p['pro_rata'] == true}" style="color: #94A3B8;">No</span>
+                            <span th:unless="${p['pro_rata'] == 1 or p['pro_rata'] == true}" class="badge badge-muted">No</span>
                         </td>
                         <td th:text="${p['min_service_days']}">0</td>
                         <td>
@@ -66,7 +76,7 @@
                                 class="badge">Active</span>
                         </td>
                         <td>
-                            <div class="action-col">
+                            <div class="action-col" style="justify-content: center;">
                                 <button class="action-btn edit" title="Edit" onclick="editPolicy(this)"><i
                                         class="fas fa-pen"></i></button>
                                 <button class="action-btn delete" title="Delete" onclick="deletePolicy(this)"><i
@@ -75,16 +85,18 @@
                         </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(policies)}">
-                        <td colspan="12" style="text-align: center; padding: 40px; color: #94A3B8;">
-                            <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
-                                <i class="fas fa-folder-open" style="font-size: 32px; opacity: 0.3;"></i>
-                                <span>No leave policies defined.</span>
+                        <td colspan="12">
+                            <div class="empty-state">
+                                <i class="fas fa-folder-open"></i>
+                                <p>No leave policies defined.</p>
                             </div>
                         </td>
                     </tr>
                 </tbody>
             </table>
-            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/leave/policy')}"></div>
+            <div style="padding: 15px;">
+                <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/leave/policy')}"></div>
+            </div>
         </div>
 
         <!-- Policy Modal -->

@@ -3,72 +3,88 @@
       th:replace="~{layout :: main-layout(~{::section}, 'OD Requests', 'leave')}">
 <body>
     <section>
-        <!-- Info Box -->
-        <div style="background: #DCFCE7; border: 1px solid #BBF7D0; padding: 12px; border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 20px;">📌</span>
-            <p style="margin: 0; color: #166534; font-size: 13px;">
-                OD = Employee is On Duty outside office / field work / client visit. Attendance marked Present. Leave balance not deducted.
+        <!-- Info Banner -->
+        <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); padding: 14px 20px; border-radius: 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; box-shadow: var(--card-shadow);">
+            <i class="fas fa-info-circle" style="color: #10B981; font-size: 18px;"></i>
+            <p style="margin: 0; color: #065f46; font-size: 13px; font-weight: 500;">
+                <strong>On Duty (OD) Policy:</strong> Marked when an employee works outside the office (e.g. field/client visits). Attendance is registered as Present, and leave balance remains unaffected.
             </p>
         </div>
 
-        <!-- Action Toolbar -->
-        <div class="card" style="margin-bottom: 15px; padding: 15px;">
-            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-                <button class="btn-primary" style="background: #10B981;" onclick="openODModal()"><i class="fas fa-plus"></i> Apply OD</button>
-                <button class="btn-primary" style="background: #475569;" onclick="refreshAndSync()"><i class="fas fa-sync"></i> Refresh</button>
+        <!-- Modern Page Header -->
+        <div class="module-header">
+            <div>
+                <h1 class="module-title">On Duty (OD) Requests</h1>
+                <div class="module-sub">Approve and manage client location and off-site duty requests</div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button class="btn-primary" onclick="openODModal()"><i class="fas fa-plus"></i> Apply OD</button>
+                <button class="btn-primary btn-outline" onclick="refreshAndSync()"><i class="fas fa-sync"></i> Refresh</button>
             </div>
         </div>
 
         <!-- Data Table -->
-        <div class="card" style="overflow-x: auto;">
-            <table id="odTable">
-                <thead>
-                    <tr>
-                        <th>Employee</th>
-                        <th>Dept</th>
-                        <th>From Date</th>
-                        <th>To Date</th>
-                        <th>Days</th>
-                        <th>Type</th>
-                        <th>Location</th>
-                        <th>Status</th>
-                        <th>Applied On</th>
-                        <th style="text-align: center;">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="o : ${ods}" th:data-status="${o.status}" th:data-dept="${o.department}" th:data-id="${o.id}"
-                        th:data-empid="${o.emp_id}" th:data-from="${o.od_from}" th:data-to="${o.od_to}" th:data-days="${o.od_days}"
-                        th:data-type="${o.od_type}" th:data-location="${o.location}">
-                        <td>
-                            <div style="display: flex; flex-direction: column; gap: 4px;">
-                                <span style="color: var(--text-main); font-weight: 600; font-size: 14px;" th:text="${o.emp_name}">Employee Name</span>
-                                <span style="color: var(--accent-primary); font-size: 12px;" th:text="${'ID: ' + o.emp_id}">ID: 101</span>
-                            </div>
-                        </td>
-                        <td th:text="${o.department}">Sales</td>
-                        <td th:text="${o.od_from}">2026-05-06</td>
-                        <td th:text="${o.od_to}">2026-05-06</td>
-                        <td th:text="${o.od_days}">1.0</td>
-                        <td th:text="${o.od_type}">Full Day</td>
-                        <td th:text="${o.location}">Client Office</td>
-                        <td>
-                            <span th:text="${o.status}" 
-                                  th:classappend="${o.status == 'Approved' ? 'badge-success' : (o.status == 'Rejected' ? 'badge-danger' : 'badge-warning')}"
-                                  class="badge">Pending</span>
-                        </td>
-                        <td th:text="${o.applied_on}">2026-05-05</td>
-                        <td>
-                            <div class="action-col">
-                                <button class="action-btn" style="color: #10B981;" title="Approve" onclick="updateRowStatus(this, 'Approved')"><i class="fas fa-check"></i></button>
-                                <button class="action-btn" style="color: #EF4444;" title="Reject" onclick="updateRowStatus(this, 'Rejected')"><i class="fas fa-times"></i></button>
-                                <button class="action-btn edit" title="Edit" onclick="editOD(this)"><i class="fas fa-pen"></i></button>
-                                <button class="action-btn delete" title="Delete" onclick="deleteOD(this)"><i class="fas fa-trash"></i></button>
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="card" style="padding: 0; overflow: hidden;">
+            <div style="overflow-x: auto;">
+                <table id="odTable" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Dept</th>
+                            <th>From Date</th>
+                            <th>To Date</th>
+                            <th>Days</th>
+                            <th>Type</th>
+                            <th>Location</th>
+                            <th>Status</th>
+                            <th>Applied On</th>
+                            <th style="width: 180px; text-align: center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="o : ${ods}" th:data-status="${o.status}" th:data-dept="${o.department}" th:data-id="${o.id}"
+                            th:data-empid="${o.emp_id}" th:data-from="${o.od_from}" th:data-to="${o.od_to}" th:data-days="${o.od_days}"
+                            th:data-type="${o.od_type}" th:data-location="${o.location}"
+                            style="border-bottom: 1px solid var(--glass-border); transition: background 0.2s;">
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div class="tbl-avatar" th:text="${o.emp_name != null && !o.emp_name.isEmpty() ? #strings.substring(o.emp_name, 0, 1) : 'E'}">E</div>
+                                    <div style="display: flex; flex-direction: column;">
+                                        <span style="color: var(--text-main); font-weight: 700;" th:text="${o.emp_name}">Employee Name</span>
+                                        <span style="color: var(--text-muted); font-size: 11px;" th:text="${'ID: ' + o.emp_id}">ID: 101</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td th:text="${o.department}">Sales</td>
+                            <td th:text="${o.od_from}">2026-05-06</td>
+                            <td th:text="${o.od_to}">2026-05-06</td>
+                            <td th:text="${o.od_days}" style="font-weight: 700;">1.0</td>
+                            <td th:text="${o.od_type}">Full Day</td>
+                            <td th:text="${o.location}">Client Office</td>
+                            <td>
+                                <span class="badge" th:classappend="${o.status == 'Approved' ? 'badge-success' : (o.status == 'Rejected' ? 'badge-danger' : 'badge-warning')}" th:text="${o.status}">Pending</span>
+                            </td>
+                            <td th:text="${o.applied_on}" style="color: var(--text-muted);">2026-05-05</td>
+                            <td>
+                                <div class="action-col" style="justify-content: center;">
+                                    <button class="action-btn" style="color: #10B981; border-color: rgba(16, 185, 129, 0.2);" title="Approve" onclick="updateRowStatus(this, 'Approved')"><i class="fas fa-check"></i></button>
+                                    <button class="action-btn" style="color: #EF4444; border-color: rgba(239, 68, 68, 0.2);" title="Reject" onclick="updateRowStatus(this, 'Rejected')"><i class="fas fa-times"></i></button>
+                                    <button class="action-btn edit" title="Edit" onclick="editOD(this)"><i class="fas fa-pen"></i></button>
+                                    <button class="action-btn delete" title="Delete" onclick="deleteOD(this)"><i class="fas fa-trash"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(ods)}">
+                            <td colspan="10">
+                                <div class="empty-state">
+                                    <i class="fas fa-route"></i>
+                                    <p>No On-Duty requests found.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
             <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/leave/od')}"></div>
         </div>
 

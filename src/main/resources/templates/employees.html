@@ -4,100 +4,113 @@
 
 <body>
     <section>
-        <div class="card" style="padding: 0; overflow: hidden; display: flex; flex-direction: column;">
-            <div style="padding: 25px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h3>Employee Directory</h3>
-                <div style="display: flex; gap: 10px; align-items: center;">
-                    <form action="/employees" method="get" style="display: flex; gap: 10px;">
-                        <input type="hidden" name="size" th:value="${pageSize != null ? pageSize : 10}">
-                        <input type="text" name="search" th:value="${selSearch}" placeholder="Search employees..."
-                            style="padding: 8px 12px; border: 1px solid #E2E8F0; border-radius: 6px;">
-                        <button type="submit" class="btn-primary" style="background: #64748B;">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <circle cx="11" cy="11" r="8"></circle>
-                                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                            </svg>
-                        </button>
-                    </form>
-                    <!-- Excel Export Group -->
-                    <div style="display: flex; gap: 2px;">
-                        <button type="button" onclick="performFullExport('Employees.xls')" class="btn-primary" style="background: #10b981; color: #fff; border-radius: 12px 0 0 12px; font-size: 13px; padding: 8px 12px; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px;" title="Export ALL records across all pages">
-                            <i class="fas fa-database"></i> Full Excel
-                        </button>
-                        <button type="button" onclick="exportCurrentPage('Employees.xls')" class="btn-primary" style="background: #059669; color: #fff; border-radius: 0 12px 12px 0; font-size: 13px; padding: 8px 10px; border: none; cursor: pointer; display: flex; align-items: center;" title="Export current page only">
-                            <i class="fas fa-file-alt"></i> Page
-                        </button>
-                    </div>
-                    <button type="button" class="btn-primary" style="background: rgba(13, 148, 136, 0.1); color: #2DD4BF; border: 1px solid rgba(13, 148, 136, 0.2); border-radius: 12px; font-size: 13px; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;" onclick="exportTableToCSV('Employees.csv')">
-                        <i class="fas fa-file-csv"></i> Export CSV
+        <!-- Modern Page Header -->
+        <div class="module-header">
+            <div>
+                <h1 class="module-title">Employee Directory</h1>
+                <div class="module-sub">Manage organization employees, profiles, and shifts</div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button type="button" class="btn-primary" style="background: #10b981; color: #fff; border-radius: 12px; font-size: 13px; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; border: none;" onclick="openDeviceImportModal()">
+                    <i class="fas fa-sync"></i> Import from Device
+                </button>
+                <button class="btn-primary" onclick="openModal()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="8.5" cy="7" r="4"></circle>
+                        <line x1="20" y1="8" x2="20" y2="14"></line>
+                        <line x1="23" y1="11" x2="17" y2="11"></line>
+                    </svg>
+                    Add Employee
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter / Search Bar -->
+        <div class="filter-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+            <form action="/employees" method="get" autocomplete="off" style="display: flex; gap: 10px; margin: 0; align-items: center;">
+                <input type="hidden" name="size" th:value="${pageSize != null ? pageSize : 10}">
+                <div style="position: relative;">
+                    <input type="text" name="search" th:value="${selSearch}" autocomplete="off" placeholder="Search employees..." class="form-control" style="width: 280px; padding: 10px 15px 10px 40px; border-radius: 12px;">
+                    <i class="fas fa-search" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 14px;"></i>
+                </div>
+                <button type="submit" class="btn-primary" style="background: var(--accent-primary); border-radius: 12px; padding: 10px 20px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
+                    Search
+                </button>
+            </form>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <!-- Excel Export Group -->
+                <div style="display: flex; gap: 2px;">
+                    <button type="button" onclick="performFullExport('Employees.xls')" class="btn-primary" style="background: #10b981; color: #fff; border-radius: 12px 0 0 12px; font-size: 13px; padding: 8px 12px; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px;" title="Export ALL records across all pages">
+                        <i class="fas fa-database"></i> Full Excel
                     </button>
-                    <button type="button" class="btn-primary" style="background: #10b981; color: #fff; border-radius: 12px; font-size: 13px; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; border: none;" onclick="openDeviceImportModal()">
-                        <i class="fas fa-sync"></i> Import from Device
-                    </button>
-                    <button class="btn-primary" onclick="openModal()">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="8.5" cy="7" r="4"></circle>
-                            <line x1="20" y1="8" x2="20" y2="14"></line>
-                            <line x1="23" y1="11" x2="17" y2="11"></line>
-                        </svg>
-                        Add Employee
+                    <button type="button" onclick="exportCurrentPage('Employees.xls')" class="btn-primary" style="background: #059669; color: #fff; border-radius: 0 12px 12px 0; font-size: 13px; padding: 8px 10px; border: none; cursor: pointer; display: flex; align-items: center;" title="Export current page only">
+                        <i class="fas fa-file-alt"></i> Page
                     </button>
                 </div>
+                <button type="button" class="btn-primary" style="background: rgba(13, 148, 136, 0.1); color: #2DD4BF; border: 1px solid rgba(13, 148, 136, 0.2); border-radius: 12px; font-size: 13px; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;" onclick="exportTableToCSV('Employees.csv')">
+                    <i class="fas fa-file-csv"></i> Export CSV
+                </button>
             </div>
-            <table id="mainDataTable" class="table">
-                <thead>
-                    <tr>
-                        <th>Emp ID</th>
-                        <th>Name</th>
-                        <th>Department</th>
-                        <th>Designation</th>
-                        <th>Status</th>
-                        <th style="width: 100px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr th:each="emp : ${employees}" style="border-bottom: 1px solid #eee;">
-                        <td th:text="${emp['emp_id']}" style="padding: 12px;">001</td>
-                        <td style="padding: 12px; font-weight: bold;">
-                            <a th:href="@{/employees/profile/{id}(id=${emp['emp_id']})}"
-                               style="color: var(--accent-primary); text-decoration: underline; text-underline-offset: 4px; transition: color 0.2s, text-decoration-color 0.2s;"
-                               onmouseover="this.style.color='var(--accent-secondary)'; this.style.textDecorationColor='var(--accent-secondary)';"
-                               onmouseout="this.style.color='var(--accent-primary)'; this.style.textDecorationColor='var(--accent-primary)';"
-                               title="View Employee Profile Dashboard">
-                               <span th:text="${emp['emp_name']}"></span>
-                            </a>
-                        </td>
-                        <td th:text="${emp['department']}" style="padding: 12px;">Department</td>
-                        <td th:text="${emp['designation']}" style="padding: 12px;">Designation</td>
-                        <td style="padding: 12px;">
-                            <span class="badge"
-                                th:classappend="${emp['status'] == 'Active' ? 'badge-success' : 'badge-danger'}">
-                                <i
-                                    th:class="${emp['status'] == 'Active' ? 'fas fa-check-circle' : 'fas fa-times-circle'}"></i>
-                                <span th:text="${emp['status']}">Active</span>
-                            </span>
-                        </td>
-                        <td style="padding: 12px;">
-                            <div class="action-col">
-                                <a class="action-btn view" title="View Employee Profile Dashboard" th:href="@{/employees/profile/{id}(id=${emp['emp_id']})}" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
-                                    <i class="fas fa-id-card"></i>
-                                </a>
-                                <button class="action-btn edit" title="Edit" th:attr="data-id=${emp['emp_id']}"
-                                    onclick="editEmployee(this.getAttribute('data-id'))"><i
-                                        class="fas fa-pen"></i></button>
-                                <button class="action-btn delete" title="Delete" th:attr="data-id=${emp['emp_id']}"
-                                    onclick="deleteEmp(this)"><i class="fas fa-trash"></i></button>
-                            </div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-            </div>
+        </div>
 
+        <!-- Employees Table -->
+        <div class="card" style="padding: 0; overflow: hidden;">
+            <div style="overflow-x: auto;">
+                <table id="mainDataTable" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th>Emp ID</th>
+                            <th>Name</th>
+                            <th>Department</th>
+                            <th>Designation</th>
+                            <th>Status</th>
+                            <th style="width: 120px; text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="emp : ${employees}" style="border-bottom: 1px solid var(--glass-border); transition: background 0.2s;">
+                            <td th:text="${emp['emp_id']}" style="font-weight: 500; color: var(--text-muted);">001</td>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div class="tbl-avatar" th:text="${emp['emp_name'] != null && !emp['emp_name'].isEmpty() ? #strings.substring(emp['emp_name'], 0, 1) : 'E'}">J</div>
+                                    <span th:text="${emp['emp_name']}" style="font-weight: 700; color: var(--text-main);">Name</span>
+                                </div>
+                            </td>
+                            <td th:text="${emp['department'] ?: '--'}">Department</td>
+                            <td th:text="${emp['designation'] ?: '--'}">Designation</td>
+                            <td>
+                                <span class="badge" th:classappend="${emp['status'] == 'Active' ? 'badge-success' : 'badge-danger'}">
+                                    <i th:class="${emp['status'] == 'Active' ? 'fas fa-check-circle' : 'fas fa-times-circle'}"></i>
+                                    <span th:text="${emp['status']}">Active</span>
+                                </span>
+                            </td>
+                            <td style="text-align: center;">
+                                <div class="action-col" style="justify-content: center;">
+                                    <a class="action-btn view" title="View Employee Profile Dashboard" th:href="@{/employees/profile/{id}(id=${emp['emp_id']})}" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
+                                        <i class="fas fa-id-card"></i>
+                                    </a>
+                                    <button class="action-btn edit" title="Edit" th:attr="data-id=${emp['emp_id']}" onclick="editEmployee(this.getAttribute('data-id'))">
+                                        <i class="fas fa-pen"></i>
+                                    </button>
+                                    <button class="action-btn delete" title="Delete" th:attr="data-id=${emp['emp_id']}" onclick="deleteEmp(this)">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr th:if="${#lists.isEmpty(employees)}">
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <i class="fas fa-users"></i>
+                                    <p>No employees found matching the search criteria.</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
             <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/employees')}"></div>
         </div>
 
@@ -108,7 +121,7 @@
                     <h3 id="modalTitle">Add New Employee</h3>
                     <span class="close" onclick="closeModal()">&times;</span>
                 </div>
-                <form action="/employees/save" method="post" id="empForm" style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
+                <form action="/employees/save" method="post" id="empForm" autocomplete="off" style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
                     <input type="hidden" name="is_edit" id="form_is_edit" value="false">
                     
                     <div class="modal-body">
@@ -168,15 +181,23 @@
                 </div>
                 <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 25px; display: flex; flex-direction: column; gap: 20px; background: var(--body-bg);">
                     <!-- Step 1: Device Selector & Fetch -->
-                    <div style="display: flex; gap: 20px; align-items: flex-end; background: var(--glass-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border); box-shadow: var(--card-shadow);">
-                        <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
+                    <div style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; background: var(--glass-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--glass-border); box-shadow: var(--card-shadow);">
+                        <div style="display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 200px;">
                             <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Select Active Biometric Device</label>
-                            <select id="importDeviceSelect" class="form-control" style="padding: 10px 14px; border-radius: 8px; border: 1px solid #E2E8F0; width: 100%;">
+                            <select id="importDeviceSelect" class="form-control" style="padding: 10px 45px 10px 14px; border-radius: 8px; border: 1px solid #E2E8F0; width: 100%; max-width: 100%; min-width: 0;">
                                 <option th:each="dev : ${activeDevices}" th:value="${dev['device_id']}" th:text="${dev['device_name'] + ' (SN: ' + dev['serial_number'] + ')'}">P4 office</option>
                                 <option th:if="${#lists.isEmpty(activeDevices)}" value="" disabled selected>No active devices found</option>
                             </select>
                         </div>
-                        <button type="button" id="btnFetchDeviceUsers" onclick="fetchDeviceUsers()" class="btn-primary" style="background: #3B82F6; border: none; border-radius: 8px; padding: 10px 20px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; height: 42px;" th:disabled="${#lists.isEmpty(activeDevices)}">
+                        <div style="display: flex; flex-direction: column; gap: 8px; width: 160px; flex-shrink: 0;">
+                            <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">From Date</label>
+                            <input type="date" id="importFromDate" autocomplete="off" class="form-control" style="padding: 10px 14px; border-radius: 8px; border: 1px solid #E2E8F0; width: 100%;">
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 8px; width: 160px; flex-shrink: 0;">
+                            <label style="font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">To Date</label>
+                            <input type="date" id="importToDate" autocomplete="off" class="form-control" style="padding: 10px 14px; border-radius: 8px; border: 1px solid #E2E8F0; width: 100%;">
+                        </div>
+                        <button type="button" id="btnFetchDeviceUsers" onclick="fetchDeviceUsers()" class="btn-primary" style="background: #3B82F6; border: none; border-radius: 8px; padding: 10px 20px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; height: 42px; flex-shrink: 0;" th:disabled="${#lists.isEmpty(activeDevices)}">
                             <i class="fas fa-download"></i> Fetch Device Employees
                         </button>
                     </div>
@@ -274,6 +295,8 @@
             function openDeviceImportModal() {
                 document.getElementById('deviceImportModal').style.display = 'flex';
                 // Reset state
+                document.getElementById('importFromDate').value = '';
+                document.getElementById('importToDate').value = '';
                 document.getElementById('importLoadingContainer').style.display = 'none';
                 document.getElementById('importTableContainer').style.display = 'none';
                 document.getElementById('importEmptyState').style.display = 'none';
@@ -291,6 +314,12 @@
                 const deviceId = select.value;
                 if (!deviceId) return showAlert("Error", "Please select a biometric device.");
 
+                const fromDate = document.getElementById('importFromDate').value;
+                const toDate = document.getElementById('importToDate').value;
+                if (fromDate && toDate && new Date(toDate) < new Date(fromDate)) {
+                    return showAlert("Invalid Date Range", "To Date cannot be earlier than From Date.");
+                }
+
                 const btn = document.getElementById('btnFetchDeviceUsers');
                 const originalHTML = btn.innerHTML;
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching...';
@@ -303,7 +332,10 @@
                 document.getElementById('btnSubmitDeviceImport').style.display = 'none';
 
                 try {
-                    const response = await fetch(`/api/employees/import-device-preview?deviceId=${deviceId}`);
+                    let url = `/api/employees/import-device-preview?deviceId=${deviceId}`;
+                    if (fromDate) url += `&fromDate=${encodeURIComponent(fromDate)}`;
+                    if (toDate) url += `&toDate=${encodeURIComponent(toDate)}`;
+                    const response = await fetch(url);
                     const res = await response.json();
 
                     if (res.status === 'success') {
@@ -365,13 +397,13 @@
                     // Name Input
                     const tdName = document.createElement('td');
                     tdName.style.padding = '8px 12px';
-                    tdName.innerHTML = `<input type="text" class="form-control import-field-name" value="${user.name}" style="padding: 6px 10px; border-radius: 6px; font-size: 12px; width: 100%; border: 1px solid #cbd5e1;">`;
+                    tdName.innerHTML = `<input type="text" class="form-control import-field-name" value="${user.name}" autocomplete="off" style="padding: 6px 10px; border-radius: 6px; font-size: 12px; width: 100%; border: 1px solid #cbd5e1;">`;
                     tr.appendChild(tdName);
 
                     // Corporate Code (emp_id) Input
                     const tdCode = document.createElement('td');
                     tdCode.style.padding = '8px 12px';
-                    tdCode.innerHTML = `<input type="text" class="form-control import-field-code" value="${user.user_id}" style="padding: 6px 10px; border-radius: 6px; font-size: 12px; width: 100%; border: 1px solid #cbd5e1;" oninput="this.value = this.value.replace(/[^0-9]/g, '')">`;
+                    tdCode.innerHTML = `<input type="text" class="form-control import-field-code" value="${user.user_id}" autocomplete="off" style="padding: 6px 10px; border-radius: 6px; font-size: 12px; width: 100%; border: 1px solid #cbd5e1;" oninput="this.value = this.value.replace(/[^0-9]/g, '')">`;
                     tr.appendChild(tdCode);
 
                     // Department Dropdown Select
@@ -382,13 +414,13 @@
                         const dName = d.dept_name || d['dept_name'];
                         deptOptions += `<option value="${dName}">${dName}</option>`;
                     });
-                    tdDept.innerHTML = `<select class="form-control import-field-dept" style="padding: 6px 10px; border-radius: 6px; font-size: 12px; width: 100%; border: 1px solid #cbd5e1; height: 32px; background: #fff;">${deptOptions}</select>`;
+                    tdDept.innerHTML = `<select class="form-control import-field-dept" style="padding: 6px 30px 6px 10px; border-radius: 6px; font-size: 12px; width: 100%; border: 1px solid #cbd5e1; height: 32px; background: #fff;">${deptOptions}</select>`;
                     tr.appendChild(tdDept);
 
                     // Designation Input
                     const tdDesig = document.createElement('td');
                     tdDesig.style.padding = '8px 12px';
-                    tdDesig.innerHTML = `<input type="text" class="form-control import-field-desig" placeholder="Designation" style="padding: 6px 10px; border-radius: 6px; font-size: 12px; width: 100%; border: 1px solid #cbd5e1;">`;
+                    tdDesig.innerHTML = `<input type="text" class="form-control import-field-desig" placeholder="Designation" autocomplete="off" style="padding: 6px 10px; border-radius: 6px; font-size: 12px; width: 100%; border: 1px solid #cbd5e1;">`;
                     tr.appendChild(tdDesig);
 
                     // Shift Dropdown Select
@@ -403,7 +435,7 @@
                     if (availableShifts.length === 0) {
                         shiftOptions = '<option value="General" selected>General</option><option value="Day">Day</option><option value="Night">Night</option>';
                     }
-                    tdShift.innerHTML = `<select class="form-control import-field-shift" style="padding: 6px 10px; border-radius: 6px; font-size: 12px; width: 100%; border: 1px solid #cbd5e1; height: 32px; background: #fff;">${shiftOptions}</select>`;
+                    tdShift.innerHTML = `<select class="form-control import-field-shift" style="padding: 6px 30px 6px 10px; border-radius: 6px; font-size: 12px; width: 100%; border: 1px solid #cbd5e1; height: 32px; background: #fff;">${shiftOptions}</select>`;
                     tr.appendChild(tdShift);
 
                     tbody.appendChild(tr);

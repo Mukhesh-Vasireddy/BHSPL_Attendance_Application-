@@ -3,60 +3,67 @@
       th:replace="~{layout :: main-layout(~{::section}, 'Settings', 'system')}">
 <body>
     <section>
-        <div style="display: flex; justify-content: center; padding-top: 20px;">
-            <div class="card" style="width: 100%; max-width: 650px; padding: 40px;">
-                <h2 style="text-align: center; color: var(--accent-purple); margin-bottom: 30px; font-weight: 700;">
+        <div class="module-header" style="max-width: 650px; margin: 0 auto 20px;">
+            <div>
+                <h2 class="module-title">System Configuration</h2>
+                <div class="module-sub">Overview of active software runtime, persistence engines, and service ports</div>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: center;">
+            <div class="card" style="width: 100%; max-width: 650px; padding: 30px;">
+                <h3 style="color: var(--accent-primary); font-weight: 700; margin: 0 0 25px 0; font-size: 16px; text-align: center;">
                     Application Infrastructure Profile
-                </h2>
+                </h3>
                 
-                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 20px 40px;">
-                    <div style="text-align: right; font-weight: 700; color: var(--text-muted);">Application Name:</div>
-                    <div th:text="${appName}" style="font-weight: 500; color: var(--text-main);">BHSPL Attendance</div>
+                <div style="display: grid; grid-template-columns: 200px 1fr; gap: 15px 30px; align-items: center; border: 1px solid var(--border); padding: 20px; border-radius: 12px; background: #f8fafc;">
+                    <div style="text-align: right; font-weight: 700; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Application Name:</div>
+                    <div th:text="${appName}" style="font-weight: 600; color: var(--text-main); font-size: 14px;">BHSPL Attendance</div>
                     
-                    <div style="text-align: right; font-weight: 700; color: var(--text-muted);">Software Version:</div>
-                    <div th:text="${version}" style="font-weight: 500; color: var(--text-main);">2.0.42</div>
+                    <div style="text-align: right; font-weight: 700; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Software Version:</div>
+                    <div th:text="${version}" style="font-weight: 600; color: var(--text-main); font-size: 14px;">2.0.42</div>
                     
-                    <div style="text-align: right; font-weight: 700; color: var(--text-muted);">Runtime Env:</div>
-                    <div th:text="${runtime}" style="font-weight: 500; color: var(--text-main);">Java 17</div>
+                    <div style="text-align: right; font-weight: 700; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Runtime Env:</div>
+                    <div th:text="${runtime}" style="font-weight: 600; color: var(--text-main); font-size: 14px;">Java 17</div>
                     
-                    <div style="text-align: right; font-weight: 700; color: var(--text-muted);">Core Framework:</div>
-                    <div th:text="${framework}" style="font-weight: 500; color: var(--text-main);">Spring Boot</div>
+                    <div style="text-align: right; font-weight: 700; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Core Framework:</div>
+                    <div th:text="${framework}" style="font-weight: 600; color: var(--text-main); font-size: 14px;">Spring Boot</div>
                     
-                    <div style="text-align: right; font-weight: 700; color: var(--text-muted);">Persistence:</div>
-                    <div th:text="${db}" style="font-weight: 500; color: var(--text-main);">MySQL</div>
+                    <div style="text-align: right; font-weight: 700; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Persistence:</div>
+                    <div th:text="${db}" style="font-weight: 600; color: var(--text-main); font-size: 14px;">MySQL</div>
                     
-                    <div style="text-align: right; font-weight: 700; color: var(--text-muted);">ADMS Protocol:</div>
+                    <div style="text-align: right; font-weight: 700; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">ADMS Protocol:</div>
                     <div style="display: flex; flex-direction: column;">
                         <div th:text="${admsStatus}" 
                              th:style="${#strings.contains(admsStatus, 'Active') ? 'color: #10B981; font-weight: 700;' : 'color: #EF4444; font-weight: 700;'}">
                             Active
                         </div>
                         <div th:if="${admsError != null}" 
-                             th:style="${#strings.contains(admsStatus, 'Active') ? 'display: none;' : 'color: #EF4444; font-size: 12px; margin-top: 4px; font-style: italic;'}">
+                             th:style="${#strings.contains(admsStatus, 'Active') ? 'display: none;' : 'color: #EF4444; font-size: 11px; margin-top: 4px; font-style: italic;'}">
                             Error: <span th:text="${admsError}">Error message</span>
                         </div>
                     </div>
                     
-                    <div style="text-align: right; font-weight: 700; color: var(--text-muted);">ADMS Port:</div>
-                    <div th:text="${admsPort}" style="font-weight: 500; color: var(--text-main);">8081</div>
+                    <div style="text-align: right; font-weight: 700; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">ADMS Port:</div>
+                    <div th:text="${admsPort}" style="font-weight: 600; color: var(--text-main); font-size: 14px;">8081</div>
                     
-                    <div style="text-align: right; font-weight: 700; color: var(--text-muted);">Module Status:</div>
-                    <div style="color: #10B981; font-weight: 700;">Running / Connected</div>
+                    <div style="text-align: right; font-weight: 700; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Module Status:</div>
+                    <div style="color: #10B981; font-weight: 700; font-size: 14px;">Running / Connected</div>
                 </div>
                 
-                <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--glass-border); display: flex; justify-content: center; gap: 15px;">
-                    <button class="btn-primary" onclick="refreshAndSync()" style="background: #f1f5f9; color: var(--text-main); border: 1px solid var(--glass-border);">
+                <div style="margin-top: 35px; padding-top: 20px; border-top: 1px solid var(--glass-border); display: flex; justify-content: center; gap: 15px;">
+                    <button class="btn-primary" onclick="refreshAndSync()" style="background: #64748B; border: none; font-size: 13px;">
                         <i class="fas fa-sync"></i> Refresh
                     </button>
                     
                     <form th:if="${!#strings.contains(admsStatus, 'Active')}" th:action="@{/system/settings/start-adms}" method="post" style="margin: 0;">
-                        <button type="submit" class="btn-primary" style="background: #10B981;">
+                        <button type="submit" class="btn-primary" style="background: #10B981; border: none; font-size: 13px;">
                             <i class="fas fa-play"></i> Start ADMS Service
                         </button>
                     </form>
                     
                     <form th:if="${#strings.contains(admsStatus, 'Active')}" th:action="@{/system/settings/stop-adms}" method="post" style="margin: 0;">
-                        <button type="submit" class="btn-primary" style="background: #EF4444;">
+                        <button type="submit" class="btn-primary" style="background: #EF4444; border: none; font-size: 13px;">
                             <i class="fas fa-stop"></i> Stop ADMS Service
                         </button>
                     </form>

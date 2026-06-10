@@ -3,32 +3,38 @@
       th:replace="~{layout :: main-layout(~{::section}, 'User Management', 'system')}">
 <body>
     <section>
+        <div class="module-header">
+            <div>
+                <h2 class="module-title">User Accounts</h2>
+                <div class="module-sub">Manage system operators, access permissions, and roles</div>
+            </div>
+        </div>
+
         <!-- Toolbar -->
-        <div class="card" style="margin-bottom: 15px; padding: 15px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; color: var(--accent-purple);"><i class="fas fa-users-cog"></i> User Management</h3>
-                <div style="display: flex; gap: 10px; align-items: center;">
+        <div class="filter-bar">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                     <!-- Excel Export Group -->
-                    <div style="display: flex; gap: 2px;">
-                        <button type="button" onclick="performFullExport('System_Users.xls')" class="btn-primary" style="background: #10b981; color: #fff; border-radius: 12px 0 0 12px; font-size: 13px; padding: 10px 15px; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px;" title="Export ALL records across all pages">
+                    <div style="display: flex; align-items: center;">
+                        <button type="button" onclick="performFullExport('System_Users.xls')" class="btn-primary" style="background: #10b981; color: #fff; border-radius: 10px 0 0 10px; font-size: 12px; padding: 10px 12px;" title="Export ALL records across all pages">
                             <i class="fas fa-database"></i> Full Excel
                         </button>
-                        <button type="button" onclick="exportCurrentPage('System_Users.xls')" class="btn-primary" style="background: #059669; color: #fff; border-radius: 0 12px 12px 0; font-size: 13px; padding: 10px 12px; border: none; cursor: pointer; display: flex; align-items: center;" title="Export current page only">
+                        <button type="button" onclick="exportCurrentPage('System_Users.xls')" class="btn-primary" style="background: #059669; color: #fff; border-radius: 0 10px 10px 0; font-size: 12px; padding: 10px 8px; border-left: 1px solid rgba(255,255,255,0.15);" title="Export current page only">
                             <i class="fas fa-file-alt"></i> Page
                         </button>
                     </div>
-                    <button type="button" class="btn-primary" style="background: rgba(13, 148, 136, 0.1); color: #2DD4BF; border: 1px solid rgba(13, 148, 136, 0.2); border-radius: 12px; font-size: 13px; padding: 10px 15px; cursor: pointer; display: flex; align-items: center; gap: 8px;" onclick="exportTableToCSV('System_Users.csv')">
+                    <button type="button" class="btn-primary" style="background: rgba(13, 148, 136, 0.08); color: #0d9488; border: 1px solid rgba(13, 148, 136, 0.15); font-size: 12px; padding: 10px 12px;" onclick="exportTableToCSV('System_Users.csv')">
                         <i class="fas fa-file-csv"></i> Export CSV
                     </button>
                     <button class="btn-primary" style="background: #10B981;" onclick="openUserModal()"><i class="fas fa-plus"></i> Add User</button>
-                    <button class="btn-primary" style="background: #f1f5f9; color: var(--text-main); border: 1px solid var(--glass-border);" onclick="refreshAndSync()"><i class="fas fa-sync"></i> Refresh</button>
+                    <button class="btn-primary" style="background: #64748B;" onclick="refreshAndSync()"><i class="fas fa-sync"></i> Refresh</button>
                 </div>
             </div>
         </div>
 
         <!-- Data Table -->
-        <div class="card">
-            <table id="mainDataTable">
+        <div class="card" style="padding: 0; overflow-x: auto;">
+            <table id="mainDataTable" class="table">
                 <thead>
                     <tr>
                         <th>ID</th>
@@ -43,7 +49,7 @@
                 <tbody>
                     <tr th:each="u : ${users}" th:data-id="${u.id}" th:data-user="${u.username}" th:data-role="${u.role}" th:data-empid="${u.emp_id}" th:data-status="${u.status}">
                         <td th:text="${u.id}">1</td>
-                        <td th:text="${u.username}" style="font-weight: 600;">admin</td>
+                        <td th:text="${u.username}" style="font-weight: 600; color: var(--text-main);">admin</td>
                         <td th:text="${u.role}">Admin</td>
                         <td th:text="${u.emp_id}">N/A</td>
                         <td>
@@ -53,17 +59,19 @@
                         </td>
                         <td th:text="${u.last_login}">2026-05-06 10:00:00</td>
                         <td>
-                            <div class="action-col">
+                            <div class="action-col" style="justify-content: center; gap: 6px;">
                                 <button class="action-btn edit" title="Edit" onclick="editUser(this)"><i class="fas fa-pen"></i></button>
-                                <button class="action-btn edit" style="color: #F59E0B; background: rgba(245, 158, 11, 0.1);" title="Reset Password" onclick="resetUserPass(this)"><i class="fas fa-key"></i></button>
-                                <button class="action-btn edit" style="color: #334155; background: rgba(51, 65, 85, 0.1);" title="Toggle Status" onclick="toggleUserStatus(this)"><i class="fas fa-exchange-alt"></i></button>
+                                <button class="action-btn edit" style="color: #F59E0B; background: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.15);" title="Reset Password" onclick="resetUserPass(this)"><i class="fas fa-key"></i></button>
+                                <button class="action-btn edit" style="color: #334155; background: rgba(51, 65, 85, 0.08); border-color: rgba(51, 65, 85, 0.15);" title="Toggle Status" onclick="toggleUserStatus(this)"><i class="fas fa-exchange-alt"></i></button>
                                 <button class="action-btn delete" title="Delete" onclick="deleteUser(this)"><i class="fas fa-trash"></i></button>
                             </div>
                         </td>
                     </tr>
                 </tbody>
             </table>
-            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/system/users')}"></div>
+            <div style="padding: 15px;">
+                <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/system/users')}"></div>
+            </div>
         </div>
 
         <!-- User Modal -->
@@ -114,7 +122,7 @@
                     <h3>Reset User Password</h3>
                     <span class="close" onclick="document.getElementById('resetPassModal').style.display='none'">&times;</span>
                 </div>
-                <form action="/system/users/reset-password" method="POST">
+                <form action="/system/users/reset-password" method="POST" autocomplete="off">
                     <input type="hidden" name="id" id="resetUserId">
                     <div style="padding: 25px;">
                         <div class="form-group">

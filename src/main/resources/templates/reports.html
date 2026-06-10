@@ -3,13 +3,13 @@
       th:replace="~{layout :: main-layout(~{::section}, 'Reports Dashboard', 'reports')}">
 <body>
     <section>
-        <div style="margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end;">
+        <div class="module-header">
             <div>
-                <h2 style="color: var(--accent-purple); margin: 0;">Attendance Reports</h2>
-                <p style="color: #64748B; margin: 5px 0 0;">Generate and export detailed attendance summaries</p>
+                <h2 class="module-title">Attendance Reports</h2>
+                <div class="module-sub">Generate and export detailed attendance summaries and records</div>
             </div>
-            <div style="display: flex; gap: 10px;">
-                <button class="btn-primary" style="background: #334155;" onclick="processLogs()">
+            <div>
+                <button class="btn-primary" style="background: #334155; border: none;" onclick="processLogs()">
                     <i class="fas fa-microchip"></i> Process Attendance
                 </button>
             </div>
@@ -32,72 +32,79 @@
             }
         </script>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 25px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
             <!-- Daily Report Card -->
-            <a href="/reports/daily" class="card" style="text-decoration: none; padding: 30px; transition: transform 0.2s; cursor: pointer;">
+            <a href="/reports/daily" class="card report-nav-card" style="text-decoration: none; padding: 24px; transition: all 0.2s ease; cursor: pointer; display: block;">
                 <div style="display: flex; align-items: center; gap: 20px;">
-                    <div style="background: #E0E7FF; color: #4F46E5; width: 60px; height: 60px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                    <div class="report-icon-box" style="background: rgba(99,102,241,0.08); color: #6366F1; width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; transition: all 0.2s ease;">
                         <i class="fas fa-calendar-day"></i>
                     </div>
                     <div>
-                        <h3 style="margin: 0; color: #1E293B;">Daily Attendance</h3>
-                        <p style="margin: 5px 0 0; color: #64748B; font-size: 14px;">Detailed in-out logs for a specific date</p>
+                        <h3 style="margin: 0; color: var(--text-main); font-size: 16px; font-weight: 700;">Daily Attendance</h3>
+                        <p style="margin: 4px 0 0; color: #64748B; font-size: 13px; line-height: 1.4;">Detailed in-out logs for a specific date</p>
                     </div>
                 </div>
             </a>
 
             <!-- Monthly Summary Card -->
-            <a href="/reports/monthly" class="card" style="text-decoration: none; padding: 30px; transition: transform 0.2s; cursor: pointer;">
+            <a href="/reports/monthly" class="card report-nav-card" style="text-decoration: none; padding: 24px; transition: all 0.2s ease; cursor: pointer; display: block;">
                 <div style="display: flex; align-items: center; gap: 20px;">
-                    <div style="background: #DCFCE7; color: #16A34A; width: 60px; height: 60px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                    <div class="report-icon-box" style="background: rgba(16,185,129,0.08); color: #10B981; width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; transition: all 0.2s ease;">
                         <i class="fas fa-calendar-alt"></i>
                     </div>
                     <div>
-                        <h3 style="margin: 0; color: #1E293B;">Monthly Summary</h3>
-                        <p style="margin: 5px 0 0; color: #64748B; font-size: 14px;">Present/Absent totals and work hours</p>
+                        <h3 style="margin: 0; color: var(--text-main); font-size: 16px; font-weight: 700;">Monthly Summary</h3>
+                        <p style="margin: 4px 0 0; color: #64748B; font-size: 13px; line-height: 1.4;">Present/Absent totals and work hours</p>
                     </div>
                 </div>
             </a>
 
-        <!-- Leave Report Card -->
-            <a href="/reports/leave" class="card" style="text-decoration: none; padding: 30px; transition: transform 0.2s; cursor: pointer;">
+            <!-- Leave Report Card -->
+            <a href="/reports/leave" class="card report-nav-card" style="text-decoration: none; padding: 24px; transition: all 0.2s ease; cursor: pointer; display: block;">
                 <div style="display: flex; align-items: center; gap: 20px;">
-                    <div style="background: #FEF3C7; color: #D97706; width: 60px; height: 60px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                    <div class="report-icon-box" style="background: rgba(245,158,11,0.08); color: #F59E0B; width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; transition: all 0.2s ease;">
                         <i class="fas fa-plane-departure"></i>
                     </div>
                     <div>
-                        <h3 style="margin: 0; color: #1E293B;">Leave Report</h3>
-                        <p style="margin: 5px 0 0; color: #64748B; font-size: 14px;">Approved leave records and balances</p>
+                        <h3 style="margin: 0; color: var(--text-main); font-size: 16px; font-weight: 700;">Leave Report</h3>
+                        <p style="margin: 4px 0 0; color: #64748B; font-size: 13px; line-height: 1.4;">Approved leave records and balances</p>
                     </div>
                 </div>
             </a>
 
             <!-- Exceptions Report Card -->
-            <a href="/reports/exceptions" class="card" style="text-decoration: none; padding: 30px; transition: transform 0.2s; cursor: pointer; border-left: 4px solid #EF4444;">
+            <a href="/reports/exceptions" class="card report-nav-card" style="text-decoration: none; padding: 24px; transition: all 0.2s ease; cursor: pointer; display: block; border-left: 4px solid #EF4444;">
                 <div style="display: flex; align-items: center; gap: 20px;">
-                    <div style="background: #FEE2E2; color: #EF4444; width: 60px; height: 60px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                    <div class="report-icon-box" style="background: rgba(239,68,68,0.08); color: #EF4444; width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 22px; transition: all 0.2s ease;">
                         <i class="fas fa-exclamation-triangle"></i>
                     </div>
                     <div>
-                        <h3 style="margin: 0; color: #1E293B;">Attendance Exceptions</h3>
-                        <p style="margin: 5px 0 0; color: #64748B; font-size: 14px;">Identify missing or unmatched punches</p>
+                        <h3 style="margin: 0; color: var(--text-main); font-size: 16px; font-weight: 700;">Attendance Exceptions</h3>
+                        <p style="margin: 4px 0 0; color: #64748B; font-size: 13px; line-height: 1.4;">Identify missing or unmatched punches</p>
                     </div>
                 </div>
             </a>
         </div>
 
-        <div class="card" style="margin-top: 40px; padding: 40px; text-align: center; background: linear-gradient(135deg, #0284c7 0%, #0d9488 100%); color: white; border: none;">
-            <i class="fas fa-info-circle" style="font-size: 40px; margin-bottom: 20px; opacity: 0.8;"></i>
-            <h3>Reporting Engine v2.0</h3>
-            <p style="opacity: 0.9; max-width: 600px; margin: 10px auto;">Select a report type above to filter by department, date range, or employee. All reports can be exported to Excel or PDF for payroll processing.</p>
+        <div class="card" style="margin-top: 30px; padding: 30px; text-align: center; background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%); color: white; border: none; border-radius: 16px;">
+            <i class="fas fa-info-circle" style="font-size: 36px; margin-bottom: 15px; opacity: 0.8;"></i>
+            <h3 style="font-size: 18px; font-weight: 700; margin: 0;">Reporting Engine v2.0</h3>
+            <p style="opacity: 0.9; max-width: 600px; margin: 8px auto 0; font-size: 13px; line-height: 1.5;">Select a report type above to filter by department, date range, or employee. All reports can be exported to Excel or PDF for payroll processing.</p>
         </div>
     </section>
 
     <style>
-        .card:hover {
-            transform: translateY(-5px);
-            border-color: var(--accent-purple);
+        .report-nav-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            border-color: var(--accent-primary) !important;
+        }
+        .report-nav-card:hover .report-icon-box {
+            background: var(--accent-primary) !important;
+            color: white !important;
         }
     </style>
+</body>
+</html>
 </body>
 </html>

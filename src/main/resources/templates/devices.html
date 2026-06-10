@@ -4,63 +4,59 @@
 
 <body>
     <section>
-        <div class="card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
-                <h3 style="color: var(--text-main); font-size: 20px; font-weight: 700;">Device Management</h3>
-                <button class="btn-primary" onclick="openDeviceModal()"><i class="fas fa-plus"></i> Add Device</button>
+        <!-- Modern Page Header -->
+        <div class="module-header">
+            <div>
+                <h1 class="module-title">Device Management</h1>
+                <div class="module-sub">Configure and monitor biometric devices and synchronization status</div>
             </div>
+            <button class="btn-primary" onclick="openDeviceModal()"><i class="fas fa-plus"></i> Add Device</button>
+        </div>
 
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 25px;">
-                <div th:each="dev : ${devices}" class="card"
-                    style="background: #ffffff; border: 1px solid var(--glass-border); margin: 0; padding: 25px; border-radius: 20px; box-shadow: var(--card-shadow);">
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
-                        <div>
-                            <h4 th:text="${dev.device_name}"
-                                style="margin: 0; color: var(--text-main); font-size: 18px; font-weight: 700;">Office
-                                Entry</h4>
-                            <p th:text="${'SN: ' + (dev.serial_number != null ? dev.serial_number : 'Unknown')}"
-                                style="margin: 6px 0; font-size: 12px; color: var(--text-muted); font-weight: 500;">SN:
-                                JJA1253800527</p>
-                        </div>
-                        <span th:text="${dev.status}"
-                            th:classappend="${dev.status == 'Active' ? 'pill-green' : 'pill-red'}"
-                            class="status-pill">Active</span>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 25px; margin-bottom: 25px;">
+            <div th:each="dev : ${devices}" class="card"
+                style="background: #ffffff; border: 1px solid var(--glass-border); margin: 0; padding: 25px; border-radius: 20px; box-shadow: var(--card-shadow); transition: transform 0.3s ease, box-shadow 0.3s ease;"
+                onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 12px 24px rgba(0,0,0,0.08)';"
+                onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='var(--card-shadow)';">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                    <div>
+                        <h4 th:text="${dev.device_name}" style="margin: 0; color: var(--text-main); font-size: 18px; font-weight: 700;">Office Entry</h4>
+                        <p th:text="${'SN: ' + (dev.serial_number != null ? dev.serial_number : 'Unknown')}" style="margin: 6px 0; font-size: 12px; color: var(--text-muted); font-weight: 500;">SN: JJA1253800527</p>
                     </div>
-                    <div style="font-size: 14px; color: var(--text-main);">
-                        <div
-                            style="display: flex; justify-content: space-between; margin-bottom: 12px; background: rgba(255,255,255,0.02); padding: 8px 12px; border-radius: 10px;">
-                            <span style="color: var(--text-muted);">IP Address</span>
-                            <span th:text="${dev.ip_address + ':' + dev.port}"
-                                style="font-weight: 600; color: var(--text-main);">192.168.1.201:4370</span>
-                        </div>
-                        <div
-                            style="display: flex; justify-content: space-between; margin-bottom: 12px; background: #f8fafc; padding: 8px 12px; border-radius: 10px;">
-                            <span style="color: var(--text-muted);">Last Sync</span>
-                            <span th:text="${dev.last_sync != null ? dev.last_sync : 'Never'}"
-                                style="font-weight: 600; color: var(--text-main);">2026-05-05 17:58</span>
-                        </div>
+                    <span th:text="${dev.status}"
+                        th:classappend="${dev.status == 'Active' ? 'badge-success' : 'badge-danger'}"
+                        class="badge">Active</span>
+                </div>
+                <div style="font-size: 14px; color: var(--text-main);">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px; background: rgba(99, 102, 241, 0.04); padding: 8px 12px; border-radius: 10px;">
+                        <span style="color: var(--text-muted); font-weight: 500;">IP Address</span>
+                        <span th:text="${dev.ip_address + ':' + dev.port}" style="font-weight: 600; color: var(--text-main);">192.168.1.201:4370</span>
                     </div>
-                    <div style="display: flex; gap: 12px; margin-top: 25px;">
-                        <button th:onclick="'window.location.href=\'/system/sync?redirect=/devices\''"
-                            style="flex: 1; padding: 12px; background: #f1f5f9; border: 1px solid var(--glass-border); border-radius: 12px; color: var(--text-main); cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s;">
-                            <i class="fas fa-sync"></i> Sync
-                        </button>
-                        <button th:onclick="'editDevice(' + ${dev.device_id} + ')'"
-                            style="flex: 1; padding: 12px; background: #f1f5f9; border: 1px solid var(--glass-border); border-radius: 12px; color: var(--text-main); cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s;">
-                            <i class="fas fa-cog"></i> Config
-                        </button>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px; background: #f8fafc; padding: 8px 12px; border-radius: 10px;">
+                        <span style="color: var(--text-muted); font-weight: 500;">Last Sync</span>
+                        <span th:text="${dev.last_sync != null ? dev.last_sync : 'Never'}" style="font-weight: 600; color: var(--text-main);">2026-05-05 17:58</span>
                     </div>
                 </div>
+                <div style="display: flex; gap: 12px; margin-top: 25px;">
+                    <button th:onclick="'window.location.href=\'/system/sync?redirect=/devices\''"
+                        style="flex: 1; padding: 12px; background: #f1f5f9; border: 1px solid var(--glass-border); border-radius: 12px; color: var(--text-main); cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s;"
+                        onmouseover="this.style.background='#e2e8f0';" onmouseout="this.style.background='#f1f5f9';">
+                        <i class="fas fa-sync"></i> Sync
+                    </button>
+                    <button th:onclick="'editDevice(' + ${dev.device_id} + ')'"
+                        style="flex: 1; padding: 12px; background: #f1f5f9; border: 1px solid var(--glass-border); border-radius: 12px; color: var(--text-main); cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.3s;"
+                        onmouseover="this.style.background='#e2e8f0';" onmouseout="this.style.background='#f1f5f9';">
+                        <i class="fas fa-cog"></i> Config
+                    </button>
+                </div>
             </div>
-
-            <div th:if="${devices == null or devices.empty}"
-                style="text-align: center; padding: 60px; color: var(--text-muted);">
-                <i class="fas fa-microchip" style="font-size: 64px; margin-bottom: 25px; opacity: 0.1;"></i>
-                <p style="font-size: 16px; font-weight: 500;">No devices configured in the system.</p>
-            </div>
-            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/devices')}"></div>
         </div>
+
+        <div th:if="${devices == null or devices.empty}" class="empty-state">
+            <i class="fas fa-microchip"></i>
+            <p>No devices configured in the system.</p>
+        </div>
+        <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/devices')}"></div>
 
         <!-- Device Modal -->
         <div id="deviceModal" class="modal">
@@ -70,7 +66,7 @@
                     <span class="close" onclick="closeDeviceModal()">&times;</span>
                 </div>
 
-                <form action="/devices/save" method="post" id="deviceForm" style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
+                <form action="/devices/save" method="post" id="deviceForm" autocomplete="off" style="display: flex; flex-direction: column; height: 100%; overflow: hidden;">
                     <input type="hidden" name="device_id" id="form_device_id" value="0">
 
                     <div class="modal-body">

@@ -4,54 +4,50 @@
 
 <body>
     <section>
-        <!-- Header Actions -->
-        <div class="card" style="margin-bottom: 25px; padding: 25px;">
-            <div
-                style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px;">
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <h2 style="margin: 0; font-size: 22px; font-weight: 700; color: var(--text-main);">Daily Attendance View</h2>
-                    <button onclick="refreshAndSync()" class="btn-primary" style="background: var(--glass-bg); color: var(--text-main); border: 1px solid var(--glass-border); padding: 8px 12px; border-radius: 10px; font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                        <i class="fas fa-sync-alt"></i> Sync
+        <!-- Modern Page Header -->
+        <div class="module-header">
+            <div>
+                <h1 class="module-title">Daily Attendance View</h1>
+                <div class="module-sub">Monitor employee daily sign-ins, hours, and sync status</div>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button onclick="refreshAndSync()" class="btn-primary" style="background: var(--glass-bg); color: var(--text-main); border: 1px solid var(--glass-border); padding: 8px 12px; border-radius: 10px; font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                    <i class="fas fa-sync-alt"></i> Sync
+                </button>
+                <!-- Excel Export Group -->
+                <div style="display: flex; gap: 2px;">
+                    <button type="button" onclick="performFullExport('Attendance_Logs.xls')" class="btn-primary" style="background: #10b981; color: #fff; border-radius: 12px 0 0 12px; font-size: 12px; padding: 8px 12px; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px;" title="Export ALL records across all pages">
+                        <i class="fas fa-database"></i> Full Excel
                     </button>
-                    <!-- Excel Export Group -->
-                    <div style="display: flex; gap: 2px;">
-                        <button type="button" onclick="performFullExport('Attendance_Logs.xls')" class="btn-primary" style="background: #10b981; color: #fff; border-radius: 12px 0 0 12px; font-size: 12px; padding: 8px 12px; border: none; cursor: pointer; display: flex; align-items: center; gap: 6px;" title="Export ALL records across all pages">
-                            <i class="fas fa-database"></i> Full Excel
-                        </button>
-                        <button type="button" onclick="exportCurrentPage('Attendance_Logs.xls')" class="btn-primary" style="background: #059669; color: #fff; border-radius: 0 12px 12px 0; font-size: 12px; padding: 8px 10px; border: none; cursor: pointer; display: flex; align-items: center;" title="Export current page only">
-                            <i class="fas fa-file-alt"></i> Page
-                        </button>
-                    </div>
-                    <button type="button" class="btn-primary" style="background: rgba(13, 148, 136, 0.1); color: #2DD4BF; border: 1px solid rgba(13, 148, 136, 0.2); border-radius: 12px; font-size: 12px; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;" onclick="exportTableToCSV('Attendance_Logs.csv')">
-                        <i class="fas fa-file-csv"></i> Export CSV
+                    <button type="button" onclick="exportCurrentPage('Attendance_Logs.xls')" class="btn-primary" style="background: #059669; color: #fff; border-radius: 0 12px 12px 0; font-size: 12px; padding: 8px 10px; border: none; cursor: pointer; display: flex; align-items: center;" title="Export current page only">
+                        <i class="fas fa-file-alt"></i> Page
                     </button>
                 </div>
-                <form action="/attendance" method="get" style="display: flex; gap: 15px; align-items: flex-end;">
-                    <input type="hidden" name="size" th:value="${pageSize != null ? pageSize : 10}">
-                    <div>
-                        <label
-                            style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Attendance
-                            Date</label>
-                        <input type="date" name="date" class="form-control" th:value="${selDate}"
-                            style="width: 180px; background: #ffffff; border: 1px solid #e2e8f0; color: var(--text-main); border-radius: 12px; padding: 10px 15px;">
-                    </div>
-                    <div>
-                        <label
-                            style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Filter
-                            Status</label>
-                        <select name="status" class="form-control"
-                            style="width: 150px; background-color: #ffffff; border: 1px solid #e2e8f0; color: var(--text-main); border-radius: 12px; padding: 10px 15px;">
-                            <option value="All" th:selected="${selStatus == 'All'}">All Records</option>
-                            <option value="Present" th:selected="${selStatus == 'Present'}">Present Only</option>
-                            <option value="Late" th:selected="${selStatus == 'Late'}">Late Only</option>
-                            <option value="Absent" th:selected="${selStatus == 'Absent'}">Absent Only</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn-primary"
-                        style="height: 45px; padding: 0 25px; background: var(--accent-primary);"><i
-                            class="fas fa-filter"></i> Apply Filter</button>
-                </form>
+                <button type="button" class="btn-primary" style="background: rgba(13, 148, 136, 0.1); color: #2DD4BF; border: 1px solid rgba(13, 148, 136, 0.2); border-radius: 12px; font-size: 12px; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;" onclick="exportTableToCSV('Attendance_Logs.csv')">
+                    <i class="fas fa-file-csv"></i> Export CSV
+                </button>
             </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <form action="/attendance" method="get" autocomplete="off" style="display: flex; gap: 15px; align-items: flex-end; justify-content: flex-end; flex-wrap: wrap; margin: 0;">
+                <input type="hidden" name="size" th:value="${pageSize != null ? pageSize : 10}">
+                <div class="form-group" style="margin: 0;">
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Attendance Date</label>
+                    <input type="date" name="date" autocomplete="off" class="form-control" th:value="${selDate}" style="width: 180px; padding: 10px 15px;">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Filter Status</label>
+                    <select name="status" class="form-control" style="width: 180px; padding: 10px 15px;">
+                        <option value="All" th:selected="${selStatus == 'All'}">All Records</option>
+                        <option value="Present" th:selected="${selStatus == 'Present'}">Present Only</option>
+                        <option value="Late" th:selected="${selStatus == 'Late'}">Late Only</option>
+                        <option value="Absent" th:selected="${selStatus == 'Absent'}">Absent Only</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary" style="height: 45px; padding: 0 25px; background: var(--accent-primary); border-radius: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;"><i class="fas fa-filter"></i> Apply Filter</button>
+            </form>
         </div>
 
         <!-- Attendance Table -->
@@ -59,66 +55,42 @@
             <div style="overflow-x: auto;">
                 <table id="mainDataTable" style="width: 100%; border-collapse: collapse; min-width: 900px;">
                     <thead>
-                        <tr style="background: #f8fafc;">
-                            <th
-                                style="padding: 18px 25px; text-align: left; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--glass-border);">
-                                Employee ID</th>
-                            <th
-                                style="padding: 18px 25px; text-align: left; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--glass-border);">
-                                Employee Name</th>
-                            <th
-                                style="padding: 18px 25px; text-align: left; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--glass-border);">
-                                Shift</th>
-                            <th
-                                style="padding: 18px 25px; text-align: left; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--glass-border);">
-                                In Time</th>
-                            <th
-                                style="padding: 18px 25px; text-align: left; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--glass-border);">
-                                Out Time</th>
-                            <th
-                                style="padding: 18px 25px; text-align: left; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--glass-border);">
-                                Total Hours</th>
-                            <th
-                                style="padding: 18px 25px; text-align: center; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--glass-border);">
-                                Status</th>
+                        <tr>
+                            <th>Employee ID</th>
+                            <th>Employee Name</th>
+                            <th>Shift</th>
+                            <th>In Time</th>
+                            <th>Out Time</th>
+                            <th>Total Hours</th>
+                            <th style="text-align: center;">Status</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr th:each="a : ${attendance}"
-                            style="border-bottom: 1px solid var(--glass-border); transition: background 0.2s;">
-                            <td th:text="${a['emp_id']}"
-                                style="padding: 18px 25px; font-weight: 500; color: var(--text-muted);">101</td>
-                            <td th:text="${a['emp_name']}"
-                                style="padding: 18px 25px; font-weight: 700; color: var(--text-main);">John Doe</td>
-                            <td th:text="${a['shift'] ?: '--'}" style="padding: 18px 25px; color: var(--text-main);">Day
-                            </td>
-                            <td class="format-time" th:text="${a['in_time_formatted'] != null ? a['in_time_formatted'] : (a['in_time'] != null ? a['in_time'] : '--:--')}"
-                                style="padding: 18px 25px; color: var(--text-main); font-weight: 600;">09:00 AM</td>
-                            <td class="format-time" th:text="${(a['out_time'] != null && a['in_time'] != null && !a['out_time'].toString().equals(a['in_time'].toString())) ? (a['out_time_formatted'] != null ? a['out_time_formatted'] : a['out_time']) : '--:--'}"
-                                style="padding: 18px 25px; color: var(--text-main); font-weight: 600;">06:00 PM</td>
-                            <td th:text="${a['work_hours'] != null ? #numbers.formatDecimal(a['work_hours'], 1, 2) : '0.00'}"
-                                style="padding: 18px 25px; color: var(--text-main); font-weight: 700;">8.00</td>
-                            <td style="padding: 18px 25px; text-align: center;">
-                                <span th:if="${a['status'] == 'P' or a['status'] == 'Present'}"
-                                    style="background: rgba(16, 185, 129, 0.1); color: #10B981; padding: 6px 12px; border-radius: 10px; font-size: 11px; font-weight: 700; border: 1px solid rgba(16, 185, 129, 0.2);">
-                                    <i class="fas fa-check-circle" style="margin-right: 5px;"></i> PRESENT
+                        <tr th:each="a : ${attendance}" style="border-bottom: 1px solid var(--glass-border); transition: background 0.2s;">
+                            <td th:text="${a['emp_id']}" style="font-weight: 500; color: var(--text-muted);">101</td>
+                            <td th:text="${a['emp_name']}" style="font-weight: 700; color: var(--text-main);">John Doe</td>
+                            <td th:text="${a['shift'] ?: '--'}">Day</td>
+                            <td class="format-time" th:text="${a['in_time_formatted'] != null ? a['in_time_formatted'] : (a['in_time'] != null ? a['in_time'] : '--:--')}" style="font-weight: 600;">09:00 AM</td>
+                            <td class="format-time" th:text="${(a['out_time'] != null && a['in_time'] != null && !a['out_time'].toString().equals(a['in_time'].toString())) ? (a['out_time_formatted'] != null ? a['out_time_formatted'] : a['out_time']) : '--:--'}" style="font-weight: 600;">06:00 PM</td>
+                            <td th:text="${a['work_hours'] != null ? #numbers.formatDecimal(a['work_hours'], 1, 2) : '0.00'}" style="font-weight: 700;">8.00</td>
+                            <td style="text-align: center;">
+                                <span th:if="${a['status'] == 'P' or a['status'] == 'Present'}" class="badge badge-success">
+                                    <i class="fas fa-check-circle"></i> PRESENT
                                 </span>
-                                <span th:if="${a['status'] == 'Late'}"
-                                    style="background: rgba(245, 158, 11, 0.1); color: #F59E0B; padding: 6px 12px; border-radius: 10px; font-size: 11px; font-weight: 700; border: 1px solid rgba(245, 158, 11, 0.2);">
-                                    <i class="far fa-clock" style="margin-right: 5px;"></i> LATE
+                                <span th:if="${a['status'] == 'Late'}" class="badge badge-warning">
+                                    <i class="far fa-clock"></i> LATE
                                 </span>
-                                <span th:if="${a['status'] == 'A' or a['status'] == null}"
-                                    style="background: rgba(239, 68, 68, 0.1); color: #EF4444; padding: 6px 12px; border-radius: 10px; font-size: 11px; font-weight: 700; border: 1px solid rgba(239, 68, 68, 0.2);">
-                                    <i class="fas fa-times-circle" style="margin-right: 5px;"></i> ABSENT
+                                <span th:if="${a['status'] == 'A' or a['status'] == null}" class="badge badge-danger">
+                                    <i class="fas fa-times-circle"></i> ABSENT
                                 </span>
                             </td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(attendance)}">
-                            <td colspan="7" style="text-align: center; padding: 80px; color: var(--text-muted);">
-                                <i class="fas fa-user-clock"
-                                    style="font-size: 48px; margin-bottom: 20px; opacity: 0.2;"></i>
-                                <p style="font-size: 16px; font-weight: 500;">No attendance records found for this date.
-                                </p>
+                            <td colspan="7">
+                                <div class="empty-state">
+                                    <i class="fas fa-user-clock"></i>
+                                    <p>No attendance records found for this date.</p>
+                                </div>
                             </td>
                         </tr>
                     </tbody>

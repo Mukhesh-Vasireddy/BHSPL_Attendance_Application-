@@ -3,65 +3,69 @@
       th:replace="~{layout :: main-layout(~{::section}, 'Weekly Off', 'masters')}">
 <body>
     <section>
-        <!-- Toolbar -->
-        <div class="card" style="margin-bottom: 15px; padding: 15px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; color: var(--accent-purple);"><i class="fas fa-calendar-week"></i> Weekly Off</h3>
+        <div class="module-header">
+            <div>
+                <h2 class="module-title">Weekly Off Assignments</h2>
+                <div class="module-sub">Assign and track weekly off-day schedules for employees</div>
+            </div>
+        </div>
+
+        <!-- Unified Toolbar & Filter Bar -->
+        <div class="filter-bar">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; width: 100%;">
+                <form action="/masters/weekly-off" method="get" autocomplete="off" style="display: flex; gap: 10px; align-items: center; margin: 0;">
+                    <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">Department:</span>
+                    <select name="dept" class="form-control" style="width: 160px;">
+                        <option>All</option>
+                        <option th:each="d : ${depts}" th:value="${d.dept_name}" th:text="${d.dept_name}" th:selected="${selDept == d.dept_name}"></option>
+                    </select>
+                    <button type="submit" class="btn-primary"><i class="fas fa-filter"></i> Filter</button>
+                </form>
                 <div style="display: flex; gap: 10px;">
                     <button class="btn-primary" style="background: #10B981;" onclick="openOffModal()"><i class="fas fa-plus"></i> Assign Off</button>
-                    <button class="btn-primary" style="background: #f1f5f9; color: var(--text-main); border: 1px solid var(--glass-border);" onclick="refreshAndSync()"><i class="fas fa-sync"></i> Refresh</button>
+                    <button class="btn-primary" style="background: #64748B;" onclick="refreshAndSync()"><i class="fas fa-sync"></i> Refresh</button>
                 </div>
             </div>
         </div>
 
-        <!-- Filter Bar -->
-        <div class="card" style="margin-bottom: 15px; padding: 15px;">
-            <form action="/masters/weekly-off" method="get" style="display: flex; gap: 10px; align-items: center;">
-                <span style="font-size: 13px; font-weight: 600; color: #64748B;">Dept:</span>
-                <select name="dept" class="form-control" style="width: 150px;">
-                    <option>All</option>
-                    <option th:each="d : ${depts}" th:value="${d.dept_name}" th:text="${d.dept_name}" th:selected="${selDept == d.dept_name}"></option>
-                </select>
-                <button type="submit" class="btn-primary"><i class="fas fa-filter"></i> Filter</button>
-            </form>
-        </div>
-
         <!-- Data Table -->
-        <div class="card">
-            <table>
+        <div class="card" style="padding: 0; overflow-x: auto;">
+            <table class="table">
                 <thead>
-                    <tr style="background: #f8fafc;">
-                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">ID</th>
-                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Emp ID</th>
-                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Name</th>
-                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Dept</th>
-                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Off Day 1</th>
-                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">Off Day 2</th>
-                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">From</th>
-                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;">To</th>
-                        <th style="padding: 12px 15px; color: var(--text-main); font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; text-align: center;">Action</th>
+                    <tr>
+                        <th>ID</th>
+                        <th>Emp ID</th>
+                        <th>Name</th>
+                        <th>Dept</th>
+                        <th>Off Day 1</th>
+                        <th>Off Day 2</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th style="text-align: center;">Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr th:each="o : ${offs}" th:data-id="${o.id}" th:data-empid="${o.emp_id}" th:data-day1="${o.off_day1}" th:data-day2="${o.off_day2}" th:data-from="${o.effective_from}" th:data-to="${o.effective_to}">
-                        <td th:text="${o.id}" style="padding: 12px 15px;">1</td>
-                        <td th:text="${o.emp_id}" style="padding: 12px 15px;">101</td>
-                        <td th:text="${o.emp_name}" style="padding: 12px 15px; font-weight: 600; color: var(--text-main);">John Doe</td>
-                        <td th:text="${o.dept_name}" style="padding: 12px 15px;">Sales</td>
-                        <td th:text="${o.off_day1}" style="padding: 12px 15px;">Sunday</td>
-                        <td th:text="${o.off_day2}" style="padding: 12px 15px;">None</td>
-                        <td th:text="${o.effective_from}" style="padding: 12px 15px;">2026-05-01</td>
-                        <td th:text="${o.effective_to}" style="padding: 12px 15px;">2099-12-31</td>
-                        <td style="padding: 12px 15px;">
-                            <div class="action-col">
+                        <td th:text="${o.id}">1</td>
+                        <td th:text="${o.emp_id}">101</td>
+                        <td th:text="${o.emp_name}" style="font-weight: 600; color: var(--text-main);">John Doe</td>
+                        <td th:text="${o.dept_name}">Sales</td>
+                        <td th:text="${o.off_day1}">Sunday</td>
+                        <td th:text="${o.off_day2}">None</td>
+                        <td th:text="${o.effective_from}">2026-05-01</td>
+                        <td th:text="${o.effective_to}">2099-12-31</td>
+                        <td>
+                            <div class="action-col" style="justify-content: center;">
                                 <button class="action-btn edit" title="Edit" onclick="editOff(this)"><i class="fas fa-pen"></i></button>
-                                <button class="action-btn delete" title="Delete" onclick="deleteOff(this)"><i class="fas fa-trash"></i></button>
+                                <button class="action-btn delete" title="Delete" onclick="deleteWeeklyOff(this)"><i class="fas fa-trash"></i></button>
                             </div>
                         </td>
                     </tr>
                 </tbody>
             </table>
-            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/masters/weekly-off')}"></div>
+            <div style="padding: 15px;">
+                <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/masters/weekly-off')}"></div>
+            </div>
         </div>
 
         <!-- Off Modal -->
@@ -71,7 +75,7 @@
                     <h3 id="modalTitle">Assign Weekly Off</h3>
                     <span class="close" onclick="closeOffModal()">&times;</span>
                 </div>
-                <form action="/masters/weekly-off/save" method="post" id="offForm">
+                <form action="/masters/weekly-off/save" method="post" id="offForm" autocomplete="off">
                     <input type="hidden" name="id" id="fieldId">
                     <div style="padding: 20px;">
                         <div class="form-group">

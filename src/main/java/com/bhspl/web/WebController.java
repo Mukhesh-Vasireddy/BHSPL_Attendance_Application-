@@ -113,7 +113,8 @@ public class WebController {
                     .get("dashboard_stats");
             if (stats == null || !stats.containsKey("weeklyPresentCounts")) {
                 String todayStr = java.time.LocalDate.now().toString();
-                String dayName = java.time.LocalDate.now().getDayOfWeek().getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH);
+                String dayName = java.time.LocalDate.now().getDayOfWeek()
+                        .getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH);
 
                 stats = new java.util.HashMap<>();
                 long totalEmpsVal = db.queryLong("SELECT COUNT(*) FROM employees WHERE status='Active'");
@@ -246,10 +247,29 @@ public class WebController {
 
             model.addAttribute("weeklyPresentCounts", weeklyPresentCounts);
 
-            // Fetch Latest Sync Time
-            String lastSync = db.queryString("SELECT DATE_FORMAT(MAX(last_sync), '%Y-%m-%d %I:%i:%s %p') FROM devices");
-            model.addAttribute("lastSync", lastSync != null ? lastSync : "Never");
+            // Fetch Latest Sync Time & Device Sync Metrics
+            String lastSyncTime = db.queryString("SELECT DATE_FORMAT(MAX(last_sync), '%h:%i:%s %p') FROM devices");
+            model.addAttribute("lastSyncTime", lastSyncTime != null ? lastSyncTime : "Never");
             model.addAttribute("autoSyncActive", com.bhspl.service.SyncService.isRunning());
+
+            // Today's punch count (total raw logs received today)
+            long todayPunches = db.queryLong(
+                "SELECT COUNT(*) FROM raw_logs WHERE punch_time >= CURDATE() AND punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY)");
+            model.addAttribute("todayPunches", todayPunches);
+
+            // Today's synced logs (processed into attendance_logs or daily_attendance)
+            long todaySyncedLogs = db.queryLong(
+                "SELECT COUNT(*) FROM raw_logs r " +
+                "JOIN employees e ON r.emp_id = e.emp_id " +
+                "WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) " +
+                "AND e.status = 'Active'");
+            model.addAttribute("todaySyncedLogs", todaySyncedLogs);
+
+            // Sync success rate
+            double syncSuccessRate = (todayPunches > 0)
+                ? Math.round((todaySyncedLogs * 100.0 / todayPunches) * 10.0) / 10.0
+                : 100.0;
+            model.addAttribute("syncSuccessRate", syncSuccessRate);
 
             if (!recentLogs.isEmpty()) {
                 StringBuilder empIds = new StringBuilder();
@@ -296,6 +316,17 @@ public class WebController {
             model.addAttribute("weekDates", weekDates);
             model.addAttribute("weekDays", weekDays);
             model.addAttribute("weeklyData", weeklyData);
+
+            // Employees with odd punch count today (missing OUT punch)
+            long missingPunches = db.queryLong(
+                "SELECT COUNT(*) FROM (" +
+                "  SELECT r.emp_id FROM raw_logs r " +
+                "  JOIN employees e ON r.emp_id = e.emp_id " +
+                "  WHERE r.punch_time >= CURDATE() AND r.punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) " +
+                "  AND e.status = 'Active' " +
+                "  GROUP BY r.emp_id HAVING COUNT(*) % 2 = 1" +
+                ") t");
+            model.addAttribute("missingPunches", missingPunches);
 
             // Recent Live Punches Activity (last 10 punches today) - Optimized to run point
             // queries in Java
@@ -570,7 +601,7 @@ public class WebController {
                 CacheManager.getInstance().put("list_departments", cachedDepts, 3600000); // 1 hour
             }
             model.addAttribute("depts", cachedDepts);
-            
+
             List<Map<String, Object>> shiftsList = db
                     .query("SELECT shift_name FROM shifts WHERE status='Active' ORDER BY shift_name");
             model.addAttribute("shifts", shiftsList);
@@ -728,6 +759,8 @@ public class WebController {
     @ResponseBody
     public ResponseEntity<Map<String, Object>> importDevicePreview(
             @RequestParam("deviceId") int deviceId,
+            @RequestParam(value = "fromDate", required = false) String fromDateStr,
+            @RequestParam(value = "toDate", required = false) String toDateStr,
             HttpSession session) {
 
         Map<String, Object> response = new HashMap<>();
@@ -765,14 +798,89 @@ public class WebController {
             }
 
             List<Map<String, String>> deviceUsers;
+            List<Map<String, Object>> attendanceRecords = null;
             try {
                 deviceUsers = zk.getUsers();
+                if ((fromDateStr != null && !fromDateStr.trim().isEmpty()) ||
+                        (toDateStr != null && !toDateStr.trim().isEmpty())) {
+                    attendanceRecords = zk.getAttendanceRecords();
+                }
             } finally {
                 zk.disconnect();
             }
 
             if (deviceUsers == null) {
                 deviceUsers = new ArrayList<>();
+            }
+
+            if (attendanceRecords != null) {
+                java.time.LocalDate fromDate = null;
+                java.time.LocalDate toDate = null;
+                if (fromDateStr != null && !fromDateStr.trim().isEmpty()) {
+                    try {
+                        fromDate = java.time.LocalDate.parse(fromDateStr.trim());
+                    } catch (Exception ignored) {
+                    }
+                }
+                if (toDateStr != null && !toDateStr.trim().isEmpty()) {
+                    try {
+                        toDate = java.time.LocalDate.parse(toDateStr.trim());
+                    } catch (Exception ignored) {
+                    }
+                }
+
+                Set<String> activeUids = new HashSet<>();
+                for (Map<String, Object> rec : attendanceRecords) {
+                    String uid = DatabaseManager.str(rec, "uid").trim();
+                    Object pt = rec.get("punch_time");
+                    java.time.LocalDateTime punchTime = null;
+                    if (pt instanceof java.time.LocalDateTime) {
+                        punchTime = (java.time.LocalDateTime) pt;
+                    } else if (pt instanceof java.sql.Timestamp) {
+                        punchTime = ((java.sql.Timestamp) pt).toLocalDateTime();
+                    } else if (pt != null) {
+                        try {
+                            punchTime = java.time.LocalDateTime.parse(pt.toString().replace(" ", "T").substring(0, 19));
+                        } catch (Exception ignored) {
+                        }
+                    }
+
+                    if (punchTime != null) {
+                        java.time.LocalDate punchDate = punchTime.toLocalDate();
+                        boolean matchesFrom = (fromDate == null || !punchDate.isBefore(fromDate));
+                        boolean matchesTo = (toDate == null || !punchDate.isAfter(toDate));
+                        if (matchesFrom && matchesTo) {
+                            activeUids.add(uid);
+                        }
+                    }
+                }
+
+                List<Map<String, String>> filteredUsers = new ArrayList<>();
+                for (Map<String, String> u : deviceUsers) {
+                    String userId = u.get("user_id").trim();
+                    if (activeUids.contains(userId)) {
+                        filteredUsers.add(u);
+                    } else {
+                        try {
+                            String normUser = String.valueOf(Long.parseLong(userId));
+                            boolean matched = false;
+                            for (String au : activeUids) {
+                                try {
+                                    if (String.valueOf(Long.parseLong(au)).equals(normUser)) {
+                                        matched = true;
+                                        break;
+                                    }
+                                } catch (Exception ignored) {
+                                }
+                            }
+                            if (matched) {
+                                filteredUsers.add(u);
+                            }
+                        } catch (Exception ignored) {
+                        }
+                    }
+                }
+                deviceUsers = filteredUsers;
             }
 
             // Fetch existing database employees
@@ -1111,6 +1219,8 @@ public class WebController {
 
     @GetMapping("/reports/daily")
     public String reportsDaily(Model model,
+            @RequestParam(name = "from", required = false) String from,
+            @RequestParam(name = "to", required = false) String to,
             @RequestParam(name = "date", required = false) String date,
             @RequestParam(name = "dept", required = false) String dept,
             @RequestParam(name = "search", required = false) String search,
@@ -1124,40 +1234,110 @@ public class WebController {
         List<Map<String, Object>> data = new java.util.ArrayList<>();
         try {
             DatabaseManager db = DatabaseManager.getInstance();
-            int offset = (page - 1) * pageSize;
-            String filterDate = (date != null) ? date : java.time.LocalDate.now().toString();
 
-            String where = " WHERE 1=1";
-            List<Object> params = new ArrayList<>();
-            params.add(filterDate);
+            String todayStr = java.time.LocalDate.now().toString();
+            String filterFrom = (from != null && !from.isEmpty()) ? from
+                    : ((date != null && !date.isEmpty()) ? date : todayStr);
+            String filterTo = (to != null && !to.isEmpty()) ? to
+                    : ((date != null && !date.isEmpty()) ? date : todayStr);
 
+            java.time.LocalDate startDate = java.time.LocalDate.parse(filterFrom);
+            java.time.LocalDate endDate = java.time.LocalDate.parse(filterTo);
+            if (startDate.isAfter(endDate)) {
+                java.time.LocalDate temp = startDate;
+                startDate = endDate;
+                endDate = temp;
+                filterFrom = startDate.toString();
+                filterTo = endDate.toString();
+            }
+
+            // Query active employees matching dept and search
+            String empSql = "SELECT e.emp_id, e.emp_name, e.department FROM employees e WHERE 1=1";
+            List<Object> empParams = new ArrayList<>();
             if (dept != null && !"All".equals(dept)) {
-                where += " AND e.department = ?";
-                params.add(dept);
+                empSql += " AND e.department = ?";
+                empParams.add(dept);
             }
             if (search != null && !search.trim().isEmpty()) {
                 String s = search.trim();
-                where += " AND (e.emp_name LIKE ? OR e.emp_id LIKE ?)";
-                params.add("%" + s + "%");
-                params.add("%" + s + "%");
+                empSql += " AND (e.emp_name LIKE ? OR e.emp_id LIKE ?)";
+                empParams.add("%" + s + "%");
+                empParams.add("%" + s + "%");
                 model.addAttribute("selSearch", s);
             } else {
                 model.addAttribute("selSearch", "");
             }
+            empSql += " ORDER BY e.emp_name ASC";
+            List<Map<String, Object>> matchingEmployees = db.query(empSql, empParams.toArray());
 
-            long total = db.queryLong(
-                    "SELECT COUNT(*) FROM employees e LEFT JOIN attendance a ON e.emp_id = a.emp_id AND a.punch_date = ?"
-                            + where,
-                    params.toArray());
+            // Generate list of dates in the range
+            List<java.time.LocalDate> dateList = new ArrayList<>();
+            java.time.LocalDate curr = startDate;
+            while (!curr.isAfter(endDate)) {
+                dateList.add(curr);
+                curr = curr.plusDays(1);
+            }
+
+            long total = (long) matchingEmployees.size() * dateList.size();
             int totalPages = (int) Math.ceil((double) total / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
+            int offset = (page - 1) * pageSize;
 
-            String sql = "SELECT e.emp_id, e.emp_name, e.department, a.status, a.in_time as punch_in, a.out_time as punch_out, a.work_hours "
-                    + "FROM employees e LEFT JOIN attendance a ON e.emp_id = a.emp_id AND a.punch_date = ?" + where
-                    + " ORDER BY e.emp_name ASC LIMIT " + pageSize + " OFFSET " + offset;
+            // Generate combination items for the page
+            List<Map<String, Object>> pageCombos = new ArrayList<>();
+            int count = 0;
+            for (Map<String, Object> emp : matchingEmployees) {
+                for (java.time.LocalDate d : dateList) {
+                    if (count >= offset && count < offset + pageSize) {
+                        Map<String, Object> item = new HashMap<>();
+                        item.put("emp_id", emp.get("emp_id"));
+                        item.put("emp_name", emp.get("emp_name"));
+                        item.put("department", emp.get("department"));
+                        item.put("date", d.toString());
+                        pageCombos.add(item);
+                    }
+                    count++;
+                }
+            }
 
-            data = db.query(sql, params.toArray());
+            // Query attendance records for the range
+            List<Map<String, Object>> attList = db.query(
+                    "SELECT emp_id, punch_date, status, in_time as punch_in, out_time as punch_out, work_hours FROM attendance WHERE punch_date >= ? AND punch_date <= ?",
+                    startDate.toString(), endDate.toString());
+
+            Map<String, Map<String, Map<String, Object>>> attMap = new HashMap<>();
+            for (Map<String, Object> att : attList) {
+                String eid = (String) att.get("emp_id");
+                Object pd = att.get("punch_date");
+                String dateStr = pd != null ? pd.toString() : "";
+                if (!dateStr.isEmpty()) {
+                    attMap.computeIfAbsent(eid, k -> new HashMap<>()).put(dateStr, att);
+                }
+            }
+
+            // Populate combo items with matching attendance or default to Absent
+            for (Map<String, Object> combo : pageCombos) {
+                String eid = (String) combo.get("emp_id");
+                String dStr = (String) combo.get("date");
+                Map<String, Object> att = null;
+                if (attMap.containsKey(eid)) {
+                    att = attMap.get(eid).get(dStr);
+                }
+                if (att != null) {
+                    combo.put("status", att.get("status"));
+                    combo.put("punch_in", att.get("punch_in"));
+                    combo.put("punch_out", att.get("punch_out"));
+                    combo.put("work_hours", att.get("work_hours"));
+                } else {
+                    combo.put("status", "Absent");
+                    combo.put("punch_in", null);
+                    combo.put("punch_out", null);
+                    combo.put("work_hours", 0.0);
+                }
+            }
+
+            data = pageCombos;
 
             // Build employee biometric enrollment map
             Map<String, String> enrollMap = new HashMap<>();
@@ -1185,11 +1365,27 @@ public class WebController {
 
             // Fetch day raw logs for Break Time and Productive Time calculations
             // (respecting punch_type)
-            Map<String, List<Map<String, Object>>> empPunches = new HashMap<>();
+            Map<String, Map<String, List<Map<String, Object>>>> empPunches = new HashMap<>();
             try {
-                List<Map<String, Object>> dayRawLogs = db.query(
-                        "SELECT emp_id, punch_time, punch_type FROM raw_logs WHERE DATE(punch_time) = ? ORDER BY punch_time ASC",
-                        filterDate);
+                Set<String> pageDates = new HashSet<>();
+                for (Map<String, Object> combo : data) {
+                    pageDates.add((String) combo.get("date"));
+                }
+                List<Map<String, Object>> dayRawLogs = new ArrayList<>();
+                if (!pageDates.isEmpty()) {
+                    StringBuilder inClause = new StringBuilder();
+                    List<Object> rawParams = new ArrayList<>();
+                    for (String dStr : pageDates) {
+                        if (inClause.length() > 0)
+                            inClause.append(",");
+                        inClause.append("?");
+                        rawParams.add(dStr);
+                    }
+                    dayRawLogs = db.query(
+                            "SELECT emp_id, punch_time, punch_type FROM raw_logs WHERE DATE(punch_time) IN (" + inClause
+                                    + ") ORDER BY punch_time ASC",
+                            rawParams.toArray());
+                }
                 for (Map<String, Object> log : dayRawLogs) {
                     Object eidObj = log.get("emp_id");
                     if (eidObj == null)
@@ -1223,7 +1419,10 @@ public class WebController {
                             Map<String, Object> pMap = new HashMap<>();
                             pMap.put("time", ldt);
                             pMap.put("type", type);
-                            empPunches.computeIfAbsent(matchedSid, k -> new ArrayList<>()).add(pMap);
+                            String punchDateStr = ldt.toLocalDate().toString();
+                            empPunches.computeIfAbsent(matchedSid, k -> new HashMap<>())
+                                    .computeIfAbsent(punchDateStr, k -> new ArrayList<>())
+                                    .add(pMap);
                         }
                     }
                 }
@@ -1234,7 +1433,11 @@ public class WebController {
             java.time.format.DateTimeFormatter timeFmt = java.time.format.DateTimeFormatter.ofPattern("hh:mm a");
             for (Map<String, Object> r : data) {
                 String empId = r.get("emp_id").toString();
-                List<Map<String, Object>> punches = empPunches.get(empId);
+                String dStr = r.get("date").toString();
+                List<Map<String, Object>> punches = null;
+                if (empPunches.containsKey(empId)) {
+                    punches = empPunches.get(empId).get(dStr);
+                }
 
                 double breakHours = 0;
                 double productiveHours = 0;
@@ -1367,7 +1570,9 @@ public class WebController {
                 }
             }
 
-            model.addAttribute("selDate", filterDate);
+            model.addAttribute("selFrom", filterFrom);
+            model.addAttribute("selTo", filterTo);
+            model.addAttribute("selDate", filterFrom);
             model.addAttribute("selDept", (dept != null) ? dept : "All");
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
@@ -1476,10 +1681,12 @@ public class WebController {
                         double newWh = DatabaseManager.dbl(a, "work_hours");
                         String oldStatus = DatabaseManager.str(existing, "status");
                         String newStatus = DatabaseManager.str(a, "status");
-                        
-                        boolean isOldAbsent = oldStatus.isEmpty() || "Absent".equalsIgnoreCase(oldStatus) || "A".equalsIgnoreCase(oldStatus);
-                        boolean isNewValid = !newStatus.isEmpty() && !"Absent".equalsIgnoreCase(newStatus) && !"A".equalsIgnoreCase(newStatus);
-                        
+
+                        boolean isOldAbsent = oldStatus.isEmpty() || "Absent".equalsIgnoreCase(oldStatus)
+                                || "A".equalsIgnoreCase(oldStatus);
+                        boolean isNewValid = !newStatus.isEmpty() && !"Absent".equalsIgnoreCase(newStatus)
+                                && !"A".equalsIgnoreCase(newStatus);
+
                         if (isOldAbsent && isNewValid) {
                             attendanceMap.put(dayNum, a);
                         } else if (newWh > existingWh) {

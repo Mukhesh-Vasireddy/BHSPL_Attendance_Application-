@@ -3,82 +3,101 @@
       th:replace="~{layout :: main-layout(~{::section}, 'Daily Attendance', 'reports')}">
 <body>
     <section>
+        <div class="module-header">
+            <div>
+                <h2 class="module-title">Daily Attendance Report</h2>
+                <div class="module-sub">Detailed in-out logs and working hours per employee</div>
+            </div>
+        </div>
+
         <!-- Filter Header -->
-        <div class="card" style="margin-bottom: 20px; padding: 20px;">
-            <form action="/reports/daily" method="get" style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
+        <div class="filter-bar" style="margin-bottom: 20px;">
+            <form action="/reports/daily" method="get" autocomplete="off" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
                 <input type="hidden" name="size" th:value="${pageSize != null ? pageSize : 10}">
                 <div>
-                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase;">Select Date</label>
-                    <input type="date" name="date" th:value="${selDate}" class="form-control" style="width: 200px;" required>
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">From Date</label>
+                    <input type="date" name="from" th:value="${selFrom}" autocomplete="off" class="form-control" style="width: 150px;" required>
                 </div>
                 <div>
-                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase;">Department</label>
-                    <select name="dept" class="form-control" style="width: 200px;">
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">To Date</label>
+                    <input type="date" name="to" th:value="${selTo}" autocomplete="off" class="form-control" style="width: 150px;" required>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Department</label>
+                    <select name="dept" class="form-control" style="width: 180px;">
                         <option>All</option>
                         <option th:each="d : ${depts}" th:value="${d['dept_name']}" th:text="${d['dept_name']}" th:selected="${selDept == d['dept_name']}"></option>
                     </select>
                 </div>
                 <div>
-                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase;">Search</label>
-                    <input type="text" name="search" th:value="${selSearch}" class="form-control" style="width: 200px;" placeholder="Emp ID or Name...">
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Search</label>
+                    <input type="text" name="search" th:value="${selSearch}" autocomplete="off" class="form-control" style="width: 180px;" placeholder="Emp ID or Name...">
                 </div>
-                <div style="display: flex; gap: 8px;">
-                    <button type="submit" class="btn-primary" style="background: var(--accent-primary);"><i class="fas fa-file-alt"></i> Generate Report</button>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                    <button type="submit" class="btn-primary" style="background: var(--accent-primary);"><i class="fas fa-file-alt"></i> Generate</button>
                     
                     <!-- Excel Export Group -->
-                    <div style="display: flex; gap: 2px;">
-                        <button type="button" onclick="performFullExport('Daily_Attendance.xls')" class="btn-primary" style="background: #10b981; color: #fff; border-radius: 12px 0 0 12px; font-size: 13px; padding: 10px 15px;" title="Export ALL records across all pages">
+                    <div style="display: flex; align-items: center;">
+                        <button type="button" onclick="performFullExport('Daily_Attendance.xls')" class="btn-primary" style="background: #10b981; color: #fff; border-radius: 10px 0 0 10px; font-size: 12px; padding: 10px 12px;" title="Export ALL records across all pages">
                             <i class="fas fa-database"></i> Full Excel
                         </button>
-                        <button type="button" onclick="exportCurrentPage('Daily_Attendance.xls')" class="btn-primary" style="background: #059669; color: #fff; border-radius: 0 12px 12px 0; font-size: 13px; padding: 10px 12px;" title="Export current page only">
+                        <button type="button" onclick="exportCurrentPage('Daily_Attendance.xls')" class="btn-primary" style="background: #059669; color: #fff; border-radius: 0 10px 10px 0; font-size: 12px; padding: 10px 8px; border-left: 1px solid rgba(255,255,255,0.15);" title="Export current page only">
                             <i class="fas fa-file-alt"></i> Page
                         </button>
                     </div>
 
                     <!-- CSV Export Group -->
-                    <div style="display: flex; gap: 2px;">
-                        <button type="button" onclick="performFullExport('Daily_Attendance.csv')" class="btn-primary" style="background: #0d9488; color: #fff; border-radius: 12px 0 0 12px; font-size: 13px; padding: 10px 15px;" title="Export ALL records as CSV">
+                    <div style="display: flex; align-items: center;">
+                        <button type="button" onclick="performFullExport('Daily_Attendance.csv')" class="btn-primary" style="background: #0d9488; color: #fff; border-radius: 10px 0 0 10px; font-size: 12px; padding: 10px 12px;" title="Export ALL records as CSV">
                             <i class="fas fa-file-csv"></i> Full CSV
                         </button>
-                        <button type="button" onclick="exportCurrentPage('Daily_Attendance.csv')" class="btn-primary" style="background: #0f766e; color: #fff; border-radius: 0 12px 12px 0; font-size: 13px; padding: 10px 12px;" title="Export current page as CSV">
+                        <button type="button" onclick="exportCurrentPage('Daily_Attendance.csv')" class="btn-primary" style="background: #0f766e; color: #fff; border-radius: 0 10px 10px 0; font-size: 12px; padding: 10px 8px; border-left: 1px solid rgba(255,255,255,0.15);" title="Export current page as CSV">
                             <i class="fas fa-file-alt"></i> Page
                         </button>
                     </div>
                 </div>
-                <div style="margin-left: auto; text-align: right;">
-                    <h4 style="margin: 0; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">REPORT DATE</h4>
-                    <p style="margin: 0; font-weight: 700; color: var(--accent-purple); font-size: 15px;" th:text="${selDate}">2026-05-11</p>
+                <div style="margin-left: auto; text-align: right; min-width: 120px;">
+                    <h4 style="margin: 0; color: #94a3b8; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">REPORT DATE</h4>
+                    <p style="margin: 2px 0 0; font-weight: 700; color: var(--accent-primary); font-size: 14px;" th:text="${selFrom == selTo ? selFrom : selFrom + ' to ' + selTo}">2026-05-11</p>
                 </div>
             </form>
         </div>
 
         <!-- Report Results -->
         <div class="card" style="padding: 0; overflow-x: auto;">
-            <table id="mainDataTable" style="width: 100%; border-collapse: collapse;">
+            <table id="mainDataTable" class="table">
                 <thead>
-                    <tr style="background: #f8fafc;">
-                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Emp ID</th>
-                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Employee Name</th>
-                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Department</th>
-                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">In Time</th>
-                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Out Time</th>
-                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Work Hrs</th>
-                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Break Time</th>
-                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Net Working Hours</th>
-                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Status</th>
+                    <tr>
+                        <th>Emp ID</th>
+                        <th>Employee Name</th>
+                        <th>Department</th>
+                        <th>Date</th>
+                        <th>In Time</th>
+                        <th>Out Time</th>
+                        <th>Work Hrs</th>
+                        <th>Break Time</th>
+                        <th>Net Working Hours</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr th:each="r : ${data}" style="border-bottom: 1px solid var(--glass-border);">
-                        <td th:text="${r['emp_id']}" style="padding: 15px 20px; font-weight: 500; color: var(--text-muted);">101</td>
-                        <td th:text="${r['emp_name']}" style="padding: 15px 20px; font-weight: 600; color: var(--text-main);">John Doe</td>
-                        <td th:text="${r['department']}" style="padding: 15px 20px; color: var(--text-muted);">Development</td>
-                        <td th:text="${r['punch_in'] ?: '--'}" style="padding: 15px 20px; color: #10B981; font-weight: 600;">09:00 AM</td>
-                        <td th:text="${r['punch_out'] ?: '--'}" style="padding: 15px 20px; color: #60A5FA; font-weight: 600;">06:00 PM</td>
-                        <td th:text="${r['work_hours'] ?: '0.0'}" th:data-details="${r['work_details']}" onclick="showDetailsModal('Work Hrs Details', this.getAttribute('data-details'))" style="padding: 15px 20px; font-weight: 600; color: var(--text-main); cursor: pointer; text-decoration: underline dotted;" title="Click for details">8.5</td>
-                        <td th:text="${r['break_time'] ?: '00:00'}" th:data-details="${r['break_details']}" onclick="showDetailsModal('Break Time Details', this.getAttribute('data-details'))" style="padding: 15px 20px; font-weight: 600; color: #f59e0b; cursor: pointer; text-decoration: underline dotted;" title="Click for details">00:30</td>
-                        <td th:text="${r['net_working_hours'] ?: '00:00'}" th:data-details="${r['net_details']}" onclick="showDetailsModal('Net Working Hours Details', this.getAttribute('data-details'))" style="padding: 15px 20px; font-weight: 600; color: #10b981; cursor: pointer; text-decoration: underline dotted;" title="Click for details">08:30</td>
-                        <td style="padding: 15px 20px;">
+                    <tr th:each="r : ${data}">
+                        <td th:text="${r['emp_id']}" style="font-weight: 500; color: var(--text-muted);">101</td>
+                        <td th:text="${r['emp_name']}" style="font-weight: 600; color: var(--text-main);">John Doe</td>
+                        <td th:text="${r['department']}" style="color: var(--text-muted);">Development</td>
+                        <td th:text="${r['date']}" style="color: var(--text-muted);">2026-05-11</td>
+                        <td th:text="${r['punch_in'] ?: '--'}" style="color: #10B981; font-weight: 600;">09:00 AM</td>
+                        <td th:text="${r['punch_out'] ?: '--'}" style="color: #3b82f6; font-weight: 600;">06:00 PM</td>
+                        <td>
+                            <span th:text="${r['work_hours'] ?: '0.0'}" th:data-details="${r['work_details']}" onclick="showDetailsModal('Work Hrs Details', this.getAttribute('data-details'))" style="font-weight: 600; color: var(--text-main); cursor: pointer; text-decoration: underline dotted;" title="Click for details">8.5</span>
+                        </td>
+                        <td>
+                            <span th:text="${r['break_time'] ?: '00:00'}" th:data-details="${r['break_details']}" onclick="showDetailsModal('Break Time Details', this.getAttribute('data-details'))" style="font-weight: 600; color: #f59e0b; cursor: pointer; text-decoration: underline dotted;" title="Click for details">00:30</span>
+                        </td>
+                        <td>
+                            <span th:text="${r['net_working_hours'] ?: '00:00'}" th:data-details="${r['net_details']}" onclick="showDetailsModal('Net Working Hours Details', this.getAttribute('data-details'))" style="font-weight: 600; color: #10b981; cursor: pointer; text-decoration: underline dotted;" title="Click for details">08:30</span>
+                        </td>
+                        <td>
                             <span class="badge" th:classappend="${r['status'] == 'Present' || r['status'] == 'OD' ? 'badge-success' : 'badge-danger'}">
                                 <i th:class="${r['status'] == 'Present' || r['status'] == 'OD' ? 'fas fa-check-circle' : 'fas fa-user-slash'}"></i>
                                 <span th:text="${r['status'] ?: 'Absent'}">Present</span>
@@ -86,14 +105,18 @@
                         </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(data)}">
-                        <td colspan="9" style="padding: 60px; text-align: center; color: #94A3B8;">
-                            <i class="fas fa-folder-open" style="font-size: 48px; margin-bottom: 15px; display: block; opacity: 0.5;"></i>
-                            No attendance records found for this criteria.
+                        <td colspan="10">
+                            <div class="empty-state">
+                                <i class="fas fa-folder-open"></i>
+                                <p>No attendance records found for this criteria.</p>
+                            </div>
                         </td>
                     </tr>
                 </tbody>
             </table>
-            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/reports/daily')}"></div>
+            <div style="padding: 15px;">
+                <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/reports/daily')}"></div>
+            </div>
         </div>
 
         <style>

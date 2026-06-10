@@ -3,44 +3,51 @@
       th:replace="~{layout :: main-layout(~{::section}, 'Leave Report', 'reports')}">
 <body>
     <section>
+        <div class="module-header">
+            <div>
+                <h2 class="module-title">Leave Report</h2>
+                <div class="module-sub">Overview of approved leave durations and dates</div>
+            </div>
+        </div>
+
         <!-- Filter Header -->
-        <div class="card" style="margin-bottom: 20px; padding: 20px;">
-            <form action="/reports/leave" method="get" style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
+        <div class="filter-bar" style="margin-bottom: 20px;">
+            <form action="/reports/leave" method="get" autocomplete="off" style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
                 <input type="hidden" name="size" th:value="${pageSize != null ? pageSize : 10}">
                 <div>
-                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase;">From Date</label>
-                    <input type="date" name="from" th:value="${selFrom}" class="form-control" style="width: 170px;">
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">From Date</label>
+                    <input type="date" name="from" th:value="${selFrom}" autocomplete="off" class="form-control" style="width: 150px;">
                 </div>
                 <div>
-                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase;">To Date</label>
-                    <input type="date" name="to" th:value="${selTo}" class="form-control" style="width: 170px;">
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">To Date</label>
+                    <input type="date" name="to" th:value="${selTo}" autocomplete="off" class="form-control" style="width: 150px;">
                 </div>
                 <div>
-                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 8px; text-transform: uppercase;">Department</label>
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Department</label>
                     <select name="dept" class="form-control" style="width: 180px;">
                         <option>All</option>
                         <option th:each="d : ${depts}" th:value="${d['dept_name']}" th:text="${d['dept_name']}" th:selected="${selDept == d['dept_name']}"></option>
                     </select>
                 </div>
-                <div style="display: flex; gap: 8px;">
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                     <button type="submit" class="btn-primary" style="background: var(--accent-primary);"><i class="fas fa-search"></i> Search</button>
                     
                     <!-- Excel Export Group -->
-                    <div style="display: flex; gap: 2px;">
-                        <button type="button" onclick="performFullExport('Leave_Report.xls')" class="btn-primary" style="background: #10b981; color: #fff; border-radius: 12px 0 0 12px; font-size: 13px; padding: 10px 15px; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px;" title="Export ALL records across all pages">
+                    <div style="display: flex; align-items: center;">
+                        <button type="button" onclick="performFullExport('Leave_Report.xls')" class="btn-primary" style="background: #10b981; color: #fff; border-radius: 10px 0 0 10px; font-size: 12px; padding: 10px 12px;" title="Export ALL records across all pages">
                             <i class="fas fa-database"></i> Full Excel
                         </button>
-                        <button type="button" onclick="exportCurrentPage('Leave_Report.xls')" class="btn-primary" style="background: #059669; color: #fff; border-radius: 0 12px 12px 0; font-size: 13px; padding: 10px 12px; border: none; cursor: pointer; display: flex; align-items: center;" title="Export current page only">
+                        <button type="button" onclick="exportCurrentPage('Leave_Report.xls')" class="btn-primary" style="background: #059669; color: #fff; border-radius: 0 10px 10px 0; font-size: 12px; padding: 10px 8px; border-left: 1px solid rgba(255,255,255,0.15);" title="Export current page only">
                             <i class="fas fa-file-alt"></i> Page
                         </button>
                     </div>
 
                     <!-- CSV Export Group -->
-                    <div style="display: flex; gap: 2px;">
-                        <button type="button" onclick="performFullExport('Leave_Report.csv')" class="btn-primary" style="background: #0d9488; color: #fff; border-radius: 12px 0 0 12px; font-size: 13px; padding: 10px 15px; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px;" title="Export ALL records as CSV">
+                    <div style="display: flex; align-items: center;">
+                        <button type="button" onclick="performFullExport('Leave_Report.csv')" class="btn-primary" style="background: #0d9488; color: #fff; border-radius: 10px 0 0 10px; font-size: 12px; padding: 10px 12px;" title="Export ALL records as CSV">
                             <i class="fas fa-file-csv"></i> Full CSV
                         </button>
-                        <button type="button" onclick="exportCurrentPage('Leave_Report.csv')" class="btn-primary" style="background: #0f766e; color: #fff; border-radius: 0 12px 12px 0; font-size: 13px; padding: 10px 12px; border: none; cursor: pointer; display: flex; align-items: center;" title="Export current page as CSV">
+                        <button type="button" onclick="exportCurrentPage('Leave_Report.csv')" class="btn-primary" style="background: #0f766e; color: #fff; border-radius: 0 10px 10px 0; font-size: 12px; padding: 10px 8px; border-left: 1px solid rgba(255,255,255,0.15);" title="Export current page as CSV">
                             <i class="fas fa-file-alt"></i> Page
                         </button>
                     </div>
@@ -50,27 +57,27 @@
 
         <!-- Report Results -->
         <div class="card" style="padding: 0; overflow-x: auto;">
-            <table id="mainDataTable" style="width: 100%; border-collapse: collapse;">
+            <table id="mainDataTable" class="table">
                 <thead>
-                    <tr style="background: #f8fafc;">
-                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Emp ID</th>
-                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Employee Name</th>
-                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">Leave Type</th>
-                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">From</th>
-                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px;">To</th>
-                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px; text-align: center;">Days</th>
-                        <th style="padding: 15px 20px; font-weight: 700; color: var(--text-main); font-size: 11px; text-align: center;">Status</th>
+                    <tr>
+                        <th>Emp ID</th>
+                        <th>Employee Name</th>
+                        <th>Leave Type</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th style="text-align: center;">Days</th>
+                        <th style="text-align: center;">Status</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr th:each="r : ${data}" style="border-bottom: 1px solid var(--glass-border);">
-                        <td th:text="${r['emp_id']}" style="padding: 15px 20px; font-weight: 500; color: var(--text-muted);">101</td>
-                        <td th:text="${r['emp_name']}" style="padding: 15px 20px; font-weight: 600; color: var(--text-main);">John Doe</td>
-                        <td th:text="${r['leave_type']}" style="padding: 15px 20px; color: var(--accent-primary); font-weight: 600;">Casual Leave</td>
-                        <td th:text="${r['from_date']}" style="padding: 15px 20px; color: var(--text-main);">2026-05-01</td>
-                        <td th:text="${r['to_date']}" style="padding: 15px 20px; color: var(--text-main);">2026-05-02</td>
-                        <td th:text="${r['days']}" style="padding: 15px 20px; text-align: center; font-weight: 700; color: var(--text-main);">2.0</td>
-                        <td style="padding: 15px 20px; text-align: center;">
+                    <tr th:each="r : ${data}">
+                        <td th:text="${r['emp_id']}" style="font-weight: 500; color: var(--text-muted);">101</td>
+                        <td th:text="${r['emp_name']}" style="font-weight: 600; color: var(--text-main);">John Doe</td>
+                        <td th:text="${r['leave_type']}" style="color: var(--accent-primary); font-weight: 600;">Casual Leave</td>
+                        <td th:text="${r['from_date']}" style="color: var(--text-main);">2026-05-01</td>
+                        <td th:text="${r['to_date']}" style="color: var(--text-main);">2026-05-02</td>
+                        <td th:text="${r['days']}" style="text-align: center; font-weight: 700; color: var(--text-main);">2.0</td>
+                        <td style="text-align: center;">
                             <span class="badge" th:classappend="${r['status'] == 'Approved' ? 'badge-success' : (r['status'] == 'Rejected' ? 'badge-danger' : 'badge-warning')}">
                                 <i th:class="${r['status'] == 'Approved' ? 'fas fa-check-circle' : (r['status'] == 'Rejected' ? 'fas fa-times-circle' : 'fas fa-clock')}"></i>
                                 <span th:text="${r['status']}">Approved</span>
@@ -78,13 +85,18 @@
                         </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(data)}">
-                        <td colspan="7" style="padding: 60px; text-align: center; color: #94A3B8;">
-                            No leave records found for the selected period.
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <i class="fas fa-folder-open"></i>
+                                <p>No leave records found for the selected period.</p>
+                            </div>
                         </td>
                     </tr>
                 </tbody>
             </table>
-            <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/reports/leave')}"></div>
+            <div style="padding: 15px;">
+                <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/reports/leave')}"></div>
+            </div>
         </div>
     </section>
 </body>
