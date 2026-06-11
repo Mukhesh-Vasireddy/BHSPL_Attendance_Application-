@@ -362,7 +362,7 @@ public class WebController {
             return res;
         }
         try {
-            SyncService.performSync();
+            SyncService.performSync(true); // Force UDP Pull for manual sync
             com.bhspl.util.CacheManager.getInstance().invalidate("dashboard_stats");
             res.put("success", true);
             res.put("message", "Sync completed successfully.");
@@ -3412,6 +3412,7 @@ public class WebController {
         model.addAttribute("admsStatus", statusText);
         model.addAttribute("admsPort", com.bhspl.service.PushService.getPort());
         model.addAttribute("admsError", com.bhspl.service.PushService.getLastError());
+        model.addAttribute("udpPullEnabled", com.bhspl.service.SyncService.isUdpPullEnabled());
         return "system-settings";
     }
 
@@ -3431,6 +3432,16 @@ public class WebController {
     public String stopAdms() {
         try {
             com.bhspl.service.PushService.stop();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return "redirect:/system/settings";
+    }
+
+    @PostMapping("/system/settings/save-sync")
+    public String saveSyncSettings(@RequestParam("udpPullEnabled") String udpPullEnabled) {
+        try {
+            com.bhspl.db.ConfigManager.setProperty("udp_pull_enabled", udpPullEnabled);
         } catch (Exception e) {
             e.printStackTrace();
         }

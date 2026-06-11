@@ -50,8 +50,30 @@
                     <div style="text-align: right; font-weight: 700; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Module Status:</div>
                     <div style="color: #10B981; font-weight: 700; font-size: 14px;">Running / Connected</div>
                 </div>
+
+                <h3 style="color: var(--accent-primary); font-weight: 700; margin: 30px 0 20px 0; font-size: 16px; text-align: center;">
+                    Synchronization Strategy Settings
+                </h3>
                 
-                <div style="margin-top: 35px; padding-top: 20px; border-top: 1px solid var(--glass-border); display: flex; justify-content: center; gap: 15px;">
+                <div style="border: 1px solid var(--border); padding: 20px; border-radius: 12px; background: #f8fafc; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 20px;">
+                        <div style="flex: 1;">
+                            <div style="font-weight: 700; color: var(--text-main); font-size: 14px;">Fallback Background UDP Polling</div>
+                            <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px; line-height: 1.4;">
+                                Periodically poll biometric devices over UDP (Legacy Pull Mode). Keep disabled when ADMS is active to prevent session lockups on the devices.
+                            </div>
+                        </div>
+                        <form th:action="@{/system/settings/save-sync}" method="post" style="margin: 0;">
+                            <input type="hidden" name="udpPullEnabled" th:value="${udpPullEnabled ? 'false' : 'true'}" />
+                            <button type="submit" th:class="${udpPullEnabled ? 'btn-primary' : 'btn-secondary'}" 
+                                    th:style="${udpPullEnabled ? 'background: #10B981; border: none; font-size: 12px; padding: 8px 16px; width: 100px; color: white; cursor: pointer; border-radius: 6px; font-weight: 600;' : 'background: #64748B; border: none; font-size: 12px; padding: 8px 16px; width: 100px; color: white; cursor: pointer; border-radius: 6px; font-weight: 600;'}">
+                                <span th:text="${udpPullEnabled ? 'Enabled' : 'Disabled'}">Disabled</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid var(--glass-border); display: flex; justify-content: center; gap: 15px;">
                     <button class="btn-primary" onclick="refreshAndSync()" style="background: #64748B; border: none; font-size: 13px;">
                         <i class="fas fa-sync"></i> Refresh
                     </button>

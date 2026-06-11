@@ -66,4 +66,30 @@ public class ConfigManager {
     public static boolean isConfigured() {
         return load() != null;
     }
+
+    public static String getProperty(String key, String defaultVal) {
+        File f = getConfigFile();
+        if (!f.exists()) return defaultVal;
+        Properties p = new Properties();
+        try (FileInputStream fis = new FileInputStream(f)) {
+            p.load(fis);
+            return p.getProperty(key, defaultVal);
+        } catch (IOException e) {
+            return defaultVal;
+        }
+    }
+
+    public static void setProperty(String key, String value) {
+        File f = getConfigFile();
+        Properties p = new Properties();
+        if (f.exists()) {
+            try (FileInputStream fis = new FileInputStream(f)) {
+                p.load(fis);
+            } catch (IOException ignored) {}
+        }
+        p.setProperty(key, value);
+        try (FileOutputStream fos = new FileOutputStream(f)) {
+            p.store(fos, "BHSPL Attendance Config Update");
+        } catch (IOException ignored) {}
+    }
 }

@@ -149,39 +149,62 @@ public class PushService {
     static class CDataHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
+            String method = exchange.getRequestMethod();
             String query = exchange.getRequestURI().getQuery();
+            String path = exchange.getRequestURI().getPath();
+            String ip = exchange.getRemoteAddress().getAddress().getHostAddress();
+            
             Map<String, String> params = parseQuery(query);
             String sn = params.get("SN");
-            String table = params.get("table");
-            String options = params.get("options");
+            String table = params.get("TABLE");
+            String options = params.get("OPTIONS");
 
-            if ("POST".equalsIgnoreCase(exchange.getRequestMethod())) {
+            // Check if device is registered in the devices table
+            if (sn != null) {
+                checkDeviceRegistered(sn);
+            }
+
+            if ("POST".equalsIgnoreCase(method)) {
                 InputStream is = exchange.getRequestBody();
-                String body = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                byte[] bodyBytes = is.readAllBytes();
+                int payloadSize = bodyBytes.length;
+                String body = new String(bodyBytes, StandardCharsets.UTF_8);
                 
+                int insertedCount = 0;
+                boolean triggeredAsync = false;
+
                 if ("ATTLOG".equalsIgnoreCase(table)) {
-                    processLogs(sn, body);
+                    insertedCount = processLogs(sn, body);
+                    if (insertedCount > 0) {
+                        triggeredAsync = true;
+                    }
                     sendResponse(exchange, "OK");
                 } else if ("OPERLOG".equalsIgnoreCase(table)) {
-                    System.out.println("PushService: Received OperLog from " + sn);
                     sendResponse(exchange, "OK");
                 } else {
                     sendResponse(exchange, "OK");
                 }
+
+                logRequest(path, method, ip, sn, payloadSize, 
+                           "ATTLOG".equalsIgnoreCase(table) ? insertedCount : null, 
+                           "ATTLOG".equalsIgnoreCase(table) ? triggeredAsync : null);
             } else {
                 // GET requests
+                logRequest(path, method, ip, sn, 0, null, null);
                 if ("all".equalsIgnoreCase(options)) {
                     // Device requesting configuration
-                    String configResponse = "Stamp=1\n" +
-                            "OpStamp=1\n" +
-                            "PhotoStamp=1\n" +
-                            "ErrorDelay=30\n" +
-                            "Delay=10\n" +
-                            "TransTimes=00:00;14:00\n" +
-                            "TransInterval=1\n" +
-                            "TransFlag=1111111111\n" +
-                            "Realtime=1\n" +
-                            "Encrypt=0";
+                    String configResponse = "registry=ok\r\n" +
+                            "RegistryCode=" + (sn != null ? sn : "JJA1253800527") + "\r\n" +
+                            "ServerVersion=3.1.1\r\n" +
+                            "ServerName=ADMS\r\n" +
+                            "PushProtVer=2.4.0\r\n" +
+                            "ErrorDelay=30\r\n" +
+                            "Delay=10\r\n" +
+                            "TransTimes=00:00;14:00\r\n" +
+                            "TransInterval=1\r\n" +
+                            "TransFlag=1111111111\r\n" +
+                            "Realtime=1\r\n" +
+                            "Encrypt=0\r\n";
                     sendResponse(exchange, configResponse);
                 } else {
                     sendResponse(exchange, "OK");
@@ -193,8 +216,25 @@ public class PushService {
     static class GetRequestHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            // ZK devices poll this for commands
-            // For now, we don't have a command queue, so just return OK
+            String method = exchange.getRequestMethod();
+            String query = exchange.getRequestURI().getQuery();
+            String path = exchange.getRequestURI().getPath();
+            String ip = exchange.getRemoteAddress().getAddress().getHostAddress();
+
+            Map<String, String> params = parseQuery(query);
+            String sn = params.get("SN");
+
+            if (sn != null) {
+                checkDeviceRegistered(sn);
+            }
+
+            int payloadSize = 0;
+            if ("POST".equalsIgnoreCase(method)) {
+                InputStream is = exchange.getRequestBody();
+                payloadSize = is.readAllBytes().length;
+            }
+
+            logRequest(path, method, ip, sn, payloadSize, null, null);
             sendResponse(exchange, "OK");
         }
     }
@@ -202,13 +242,31 @@ public class PushService {
     static class DeviceCmdHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            // Device confirming command execution
+            String method = exchange.getRequestMethod();
+            String query = exchange.getRequestURI().getQuery();
+            String path = exchange.getRequestURI().getPath();
+            String ip = exchange.getRemoteAddress().getAddress().getHostAddress();
+
+            Map<String, String> params = parseQuery(query);
+            String sn = params.get("SN");
+
+            if (sn != null) {
+                checkDeviceRegistered(sn);
+            }
+
+            int payloadSize = 0;
+            if ("POST".equalsIgnoreCase(method)) {
+                InputStream is = exchange.getRequestBody();
+                payloadSize = is.readAllBytes().length;
+            }
+
+            logRequest(path, method, ip, sn, payloadSize, null, null);
             sendResponse(exchange, "OK");
         }
     }
 
-    private static void processLogs(String sn, String body) {
-        if (sn == null || body == null) return;
+    private static int processLogs(String sn, String body) {
+        if (sn == null || body == null) return 0;
         
         System.out.println("PushService: Received logs from SN: " + sn);
         String[] lines = body.split("\n");
@@ -295,14 +353,54 @@ public class PushService {
         try {
             db.execute("UPDATE devices SET last_sync=NOW(), status='Active' WHERE serial_number=?", sn);
         } catch (Exception ignored) {}
+
+        if (count > 0) {
+            System.out.println("PushService: Triggering async raw log processing for new logs...");
+            com.bhspl.service.SyncService.processRawLogsAsync();
+        }
+        return count;
     }
 
     private static int getDeviceId(String sn) {
+        if (sn == null || sn.isEmpty()) return 0;
         try {
             Map<String, Object> dev = DatabaseManager.getInstance().fetchOne("SELECT device_id FROM devices WHERE serial_number=?", sn);
             if (dev != null) return (int) dev.get("device_id");
         } catch (Exception ignored) {}
         return 0;
+    }
+
+    private static void checkDeviceRegistered(String sn) {
+        if (sn == null || sn.trim().isEmpty()) return;
+        try {
+            Map<String, Object> dev = DatabaseManager.getInstance().fetchOne("SELECT device_id FROM devices WHERE serial_number=?", sn);
+            if (dev == null) {
+                String warn = "WARNING: Device serial number '" + sn + "' is not registered in the 'devices' table!";
+                System.err.println("PushService: " + warn);
+                logToFile("PushService: " + warn);
+            }
+        } catch (Exception e) {
+            System.err.println("PushService: Error querying devices for SN " + sn + ": " + e.getMessage());
+        }
+    }
+
+    private static void logRequest(String endpoint, String method, String ip, String sn, int payloadSize, Integer insertedCount, Boolean triggeredAsync) {
+        String msg = String.format("ADMS Request - Endpoint: %-18s | Method: %-4s | IP: %-15s | SN: %-15s | PayloadSize: %5d bytes",
+                endpoint, method, ip, sn != null ? sn : "UNKNOWN", payloadSize);
+        if (insertedCount != null) {
+            msg += " | InsertedLogs: " + insertedCount;
+        }
+        if (triggeredAsync != null) {
+            msg += " | TriggeredAsync: " + triggeredAsync;
+        }
+        System.out.println("PushService: " + msg);
+        logToFile("PushService: " + msg);
+    }
+
+    private static void logToFile(String msg) {
+        try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter("sync_debug.txt", true))) {
+            pw.println("[" + new java.util.Date() + "] " + msg);
+        } catch (Exception ignored) {}
     }
 
     private static void sendResponse(HttpExchange exchange, String response) throws IOException {
@@ -318,11 +416,12 @@ public class PushService {
         Map<String, String> result = new HashMap<>();
         if (query == null) return result;
         for (String param : query.split("&")) {
+            if (param.isEmpty()) continue;
             String[] entry = param.split("=");
-            if (entry.length > 1) {
-                result.put(entry[0], entry[1]);
-            } else {
-                result.put(entry[0], "");
+            if (entry.length > 0) {
+                String key = entry[0].trim().toUpperCase();
+                String val = entry.length > 1 ? entry[1].trim() : "";
+                result.put(key, val);
             }
         }
         return result;

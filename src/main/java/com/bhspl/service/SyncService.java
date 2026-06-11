@@ -57,34 +57,57 @@ public class SyncService {
         broadcast("Background polling active (10s interval).");
     }
 
+    public static boolean isUdpPullEnabled() {
+        return "true".equalsIgnoreCase(com.bhspl.db.ConfigManager.getProperty("udp_pull_enabled", "false"));
+    }
+
+    public static void processRawLogsAsync() {
+        scheduler.submit(() -> {
+            try {
+                processRawLogs(null);
+            } catch (Exception e) {
+                System.err.println("SyncService: Async processRawLogs failed: " + e.getMessage());
+            }
+        });
+    }
+
     public static void performSync() {
+        performSync(false);
+    }
+
+    public static void performSync(boolean forceUdpPull) {
         if (!isSyncing.compareAndSet(false, true)) {
             System.out.println("SyncService: Sync already in progress, skipping this run.");
             return;
         }
         long start = System.currentTimeMillis();
         try {
-            broadcast("Checking for active devices...");
-            List<Map<String, Object>> devices;
-            try {
-                devices = DatabaseManager.getInstance().query("SELECT * FROM devices WHERE status='Active'");
-                System.out.println("SyncService: Found " + (devices != null ? devices.size() : 0) + " active devices.");
-            } catch (Exception e) {
-                System.err.println("SyncService: DB Error fetching devices: " + e.getMessage());
-                logToFile("ERROR: DB Fetch devices failed: " + e.getMessage());
-                return;
-            }
+            boolean shouldPull = forceUdpPull || isUdpPullEnabled();
+            if (shouldPull) {
+                broadcast("Checking for active devices...");
+                List<Map<String, Object>> devices;
+                try {
+                    devices = DatabaseManager.getInstance().query("SELECT * FROM devices WHERE status='Active'");
+                    System.out.println("SyncService: Found " + (devices != null ? devices.size() : 0) + " active devices.");
+                } catch (Exception e) {
+                    System.err.println("SyncService: DB Error fetching devices: " + e.getMessage());
+                    logToFile("ERROR: DB Fetch devices failed: " + e.getMessage());
+                    return;
+                }
 
-            if (devices != null) {
-                devices.parallelStream().forEach(d -> {
-                    try {
-                        syncDevice(d, 7);
-                    } catch (Exception e) {
-                        System.err
-                                .println("SyncService: Failed to sync " + d.get("ip_address") + ": " + e.getMessage());
-                        logToFile("ERROR: Sync failed for " + d.get("ip_address") + ": " + e.getMessage());
-                    }
-                });
+                if (devices != null) {
+                    devices.parallelStream().forEach(d -> {
+                        try {
+                            syncDevice(d, 7);
+                        } catch (Exception e) {
+                            System.err
+                                    .println("SyncService: Failed to sync " + d.get("ip_address") + ": " + e.getMessage());
+                            logToFile("ERROR: Sync failed for " + d.get("ip_address") + ": " + e.getMessage());
+                        }
+                    });
+                }
+            } else {
+                broadcast("Skipping background UDP Pull (ADMS-first mode active).");
             }
 
             System.out.println("SyncService: Starting raw log processing...");
@@ -151,7 +174,8 @@ public class SyncService {
                             String u1 = (String) r1.get("uid");
                             String u2 = (String) r2.get("uid");
                             int comp = u1.compareTo(u2);
-                            if (comp != 0) return comp;
+                            if (comp != 0)
+                                return comp;
                             LocalDateTime t1 = (LocalDateTime) r1.get("punch_time");
                             LocalDateTime t2 = (LocalDateTime) r2.get("punch_time");
                             return t1.compareTo(t2);
@@ -179,23 +203,25 @@ public class SyncService {
                         }
                         records = filteredRecords;
 
-                        // 3. Query existing logs in raw_logs to filter database duplicates within 5 minutes
+                        // 3. Query existing logs in raw_logs to filter database duplicates within 5
+                        // minutes
                         LocalDateTime minTime = null;
                         LocalDateTime maxTime = null;
                         for (Map<String, Object> rec : records) {
                             LocalDateTime time = (LocalDateTime) rec.get("punch_time");
-                            if (minTime == null || time.isBefore(minTime)) minTime = time;
-                            if (maxTime == null || time.isAfter(maxTime)) maxTime = time;
+                            if (minTime == null || time.isBefore(minTime))
+                                minTime = time;
+                            if (maxTime == null || time.isAfter(maxTime))
+                                maxTime = time;
                         }
 
                         if (minTime != null && maxTime != null) {
                             String startRange = minTime.minusMinutes(1).toString().replace("T", " ");
                             String endRange = maxTime.plusMinutes(1).toString().replace("T", " ");
-                            
+
                             List<Map<String, Object>> existingList = dbInstance.query(
-                                "SELECT emp_id, punch_time, punch_type FROM raw_logs WHERE punch_time >= ? AND punch_time <= ?",
-                                startRange, endRange
-                            );
+                                    "SELECT emp_id, punch_time, punch_type FROM raw_logs WHERE punch_time >= ? AND punch_time <= ?",
+                                    startRange, endRange);
 
                             Map<String, List<Map<String, Object>>> existingPunches = new HashMap<>();
                             for (Map<String, Object> ex : existingList) {
@@ -210,7 +236,8 @@ public class SyncService {
                                 } else if (pt != null) {
                                     try {
                                         exTime = LocalDateTime.parse(pt.toString().replace(" ", "T").split("\\.")[0]);
-                                    } catch (Exception ignored) {}
+                                    } catch (Exception ignored) {
+                                    }
                                 }
                                 if (exTime != null) {
                                     Map<String, Object> punchInfo = new HashMap<>();
@@ -278,10 +305,11 @@ public class SyncService {
 
     public static void processRawLogs(java.util.function.Consumer<String> logConsumer) {
         DatabaseManager db = DatabaseManager.getInstance();
-        try {
-            db.setAutoCommit(false);
-            List<Map<String, Object>> raw = db
-                    .query("SELECT * FROM raw_logs WHERE synced=0 ORDER BY emp_id, punch_time");
+        synchronized (db) {
+            try {
+                db.setAutoCommit(false);
+                List<Map<String, Object>> raw = db
+                        .query("SELECT * FROM raw_logs WHERE synced=0 ORDER BY emp_id, punch_time");
             if (raw.isEmpty()) {
                 if (logConsumer != null)
                     logConsumer.accept("All logs already synced.");
@@ -298,11 +326,12 @@ public class SyncService {
             for (Map<String, Object> e : employees) {
                 String sid = DatabaseManager.str(e, "emp_id");
                 String eid = DatabaseManager.str(e, "device_enroll_id");
-                
+
                 enrollMap.put(sid, sid);
                 reverseEnrollMap.put(sid, eid.isEmpty() ? sid : eid);
-                if (!eid.isEmpty()) enrollMap.put(eid, sid);
-                
+                if (!eid.isEmpty())
+                    enrollMap.put(eid, sid);
+
                 try {
                     String normSid = String.valueOf(Long.parseLong(sid));
                     enrollMap.put(normSid, sid);
@@ -310,7 +339,8 @@ public class SyncService {
                         String normEid = String.valueOf(Long.parseLong(eid));
                         enrollMap.put(normEid, sid);
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
 
             List<Map<String, Object>> shifts = db.query("SELECT * FROM shifts WHERE status='Active'");
@@ -329,19 +359,20 @@ public class SyncService {
             Set<String> affectedDays = new HashSet<>();
             List<Integer> newRawIds = new ArrayList<>();
             List<String> unknownUids = new ArrayList<>();
-            
+
             try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter("sync_debug.txt", true))) {
                 pw.println("\n--- Processing " + raw.size() + " raw logs at " + new java.util.Date());
                 for (Map<String, Object> r : raw) {
                     String uid = DatabaseManager.str(r, "emp_id");
                     String eid = enrollMap.get(uid);
-                    
+
                     // Try normalized match
                     if (eid == null) {
                         try {
                             String norm = String.valueOf(Long.parseLong(uid));
                             eid = enrollMap.get(norm);
-                        } catch (Exception ignored) {}
+                        } catch (Exception ignored) {
+                        }
                     }
 
                     newRawIds.add(DatabaseManager.num(r, "id"));
@@ -361,10 +392,12 @@ public class SyncService {
                             pw.println("Date parse failed for " + p);
                             continue;
                         }
-                        if (d != null) affectedDays.add(eid + "|" + d);
+                        if (d != null)
+                            affectedDays.add(eid + "|" + d);
                     } else {
                         pw.println("UNMATCHED UID from log entry: '" + uid + "'");
-                        if (!unknownUids.contains(uid)) unknownUids.add(uid);
+                        if (!unknownUids.contains(uid))
+                            unknownUids.add(uid);
                     }
                 }
                 pw.println("Identified " + affectedDays.size() + " distinct day combos to process.");
@@ -418,16 +451,22 @@ public class SyncService {
                             Object et = shift.get("end_time");
                             if (st != null && et != null) {
                                 LocalTime sTime;
-                                if (st instanceof java.sql.Time) sTime = ((java.sql.Time) st).toLocalTime();
-                                else sTime = LocalTime.parse(st.toString().substring(0, 5));
+                                if (st instanceof java.sql.Time)
+                                    sTime = ((java.sql.Time) st).toLocalTime();
+                                else
+                                    sTime = LocalTime.parse(st.toString().substring(0, 5));
 
                                 LocalTime eTime;
-                                if (et instanceof java.sql.Time) eTime = ((java.sql.Time) et).toLocalTime();
-                                else eTime = LocalTime.parse(et.toString().substring(0, 5));
+                                if (et instanceof java.sql.Time)
+                                    eTime = ((java.sql.Time) et).toLocalTime();
+                                else
+                                    eTime = LocalTime.parse(et.toString().substring(0, 5));
 
-                                if (eTime.isBefore(sTime)) overnightFlag = true;
+                                if (eTime.isBefore(sTime))
+                                    overnightFlag = true;
                             }
-                        } catch (Exception ignored) {}
+                        } catch (Exception ignored) {
+                        }
                     }
 
                     final String dStr = date;
@@ -438,27 +477,35 @@ public class SyncService {
                         int type = ptObj != null ? (int) ptObj : 0;
                         try {
                             LocalDateTime ldt;
-                            if (o instanceof LocalDateTime) ldt = (LocalDateTime) o;
-                            else if (o instanceof java.sql.Timestamp) ldt = ((java.sql.Timestamp) o).toLocalDateTime();
-                            else ldt = LocalDateTime.parse(o.toString().replace(" ", "T").split("\\.")[0]);
-                            
-                            if (!isOvernight && !ldt.toLocalDate().toString().equals(dStr)) return null;
-                            
+                            if (o instanceof LocalDateTime)
+                                ldt = (LocalDateTime) o;
+                            else if (o instanceof java.sql.Timestamp)
+                                ldt = ((java.sql.Timestamp) o).toLocalDateTime();
+                            else
+                                ldt = LocalDateTime.parse(o.toString().replace(" ", "T").split("\\.")[0]);
+
+                            if (!isOvernight && !ldt.toLocalDate().toString().equals(dStr))
+                                return null;
+
                             Map<String, Object> pMap = new HashMap<>();
                             pMap.put("time", ldt);
                             pMap.put("type", type);
                             return pMap;
-                        } catch (Exception e) { return null; }
+                        } catch (Exception e) {
+                            return null;
+                        }
                     }).filter(Objects::nonNull).sorted((p1, p2) -> {
                         return ((LocalDateTime) p1.get("time")).compareTo((LocalDateTime) p2.get("time"));
                     }).collect(Collectors.toList());
 
-                    if (list.isEmpty()) continue;
+                    if (list.isEmpty())
+                        continue;
 
                     com.bhspl.util.AttendanceCalculator.Metrics met = new com.bhspl.util.AttendanceCalculator.Metrics();
                     com.bhspl.util.AttendanceCalculator.calculateFromPunches(list, shift, met);
-                    
-                    if (met.firstIn == null) continue;
+
+                    if (met.firstIn == null)
+                        continue;
 
                     db.execute(
                             "INSERT INTO attendance (emp_id, punch_date, in_time, out_time, status, work_hours, overtime, late_mins, early_mins, punch_type, exceptions) "
@@ -477,7 +524,8 @@ public class SyncService {
                 db.execute("UPDATE raw_logs SET synced=1 WHERE id IN (" + idList + ")");
                 try {
                     com.bhspl.util.CacheManager.getInstance().invalidate("dashboard_stats");
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
             db.commit(); // CRITICAL: Save everything to DB
             if (logConsumer != null)
@@ -494,4 +542,5 @@ public class SyncService {
             }
         }
     }
+}
 }
