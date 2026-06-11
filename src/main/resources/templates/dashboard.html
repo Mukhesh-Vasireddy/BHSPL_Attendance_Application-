@@ -593,9 +593,7 @@
                             <input type="text" id="attendanceSearchInput" name="search" th:value="${selSearch}"
                                    autocomplete="off"
                                    placeholder="Search employees..."
-                                   class="att-search-input"
-                                   oninput="if(typeof window.handleSearchInput === 'function') { window.handleSearchInput(this); }"
-                                   onkeyup="if(event.key === 'Backspace' &amp;&amp; typeof window.handleSearchInput === 'function') { window.handleSearchInput(this); }">
+                                   class="att-search-input">
                         </div>
                         <button type="submit" style="background: #0284C7; color: #fff; border: none; padding: 9px 14px; border-radius: 10px; font-size: 12px; font-weight: 700; cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
                             <i class="fas fa-arrow-right"></i>
