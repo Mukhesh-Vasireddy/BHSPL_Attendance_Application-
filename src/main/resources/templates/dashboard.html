@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: main-layout(~{::section}, 'Overview', 'dashboard')}">
+<html xmlns:th="http://www.thymeleaf.org"
+    th:replace="~{layout :: main-layout(~{::section}, 'Dashboard', 'dashboard')}">
 <body>
     <section>
         <!-- ═══════════════════════════════════
@@ -353,7 +354,7 @@
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <div>
                 <h1 style="font-size: 24px; color: var(--text-main); font-weight: 900; margin: 0; letter-spacing: -0.5px;">
-                    Attendance Dashboard
+                    Welcome back to the BHSPL Portal
                 </h1>
                 <div style="font-size: 13px; color: #94a3b8; font-weight: 500; margin-top: 4px; display: flex; align-items: center; gap: 6px;">
                     <i class="fas fa-calendar-alt" style="color: #cbd5e1;"></i>
@@ -562,7 +563,7 @@
             <!-- Weekly Attendance Trend (Bar Chart) -->
             <div class="chart-card">
                 <div class="chart-section-title">
-                    <span class="chart-title-bar" style="background: #0284C7;"></span>
+                    <span class="chart-title-bar" style="background: #6366F1;"></span>
                     Weekly Attendance Trend
                 </div>
                 <div style="position: relative; height: 230px; width: 100%;">
@@ -929,13 +930,13 @@
                                         var chart = context.chart;
                                         var ctx2 = chart.ctx;
                                         var gradient = ctx2.createLinearGradient(0, 0, 0, 220);
-                                        gradient.addColorStop(0, 'rgba(2,132,199,0.85)');
-                                        gradient.addColorStop(1, 'rgba(2,132,199,0.15)');
+                                        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.85)');
+                                        gradient.addColorStop(1, 'rgba(167, 139, 250, 0.15)');
                                         return gradient;
                                     },
                                     borderRadius: 8,
                                     borderSkipped: false,
-                                    hoverBackgroundColor: '#0284C7'
+                                    hoverBackgroundColor: '#4F46E5'
                                 }]
                             },
                             options: {
