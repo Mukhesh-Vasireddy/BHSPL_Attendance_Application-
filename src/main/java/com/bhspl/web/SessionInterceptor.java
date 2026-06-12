@@ -28,7 +28,66 @@ public class SessionInterceptor implements HandlerInterceptor {
             }
             return false;
         }
-        
-        return true;
+
+        // Add Cache-Control headers to prevent browser back-button access after logout
+        response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        response.setHeader("Pragma", "no-cache");
+        response.setDateHeader("Expires", 0);
+
+        // Fetch active tab tokens for this HTTP session
+        @SuppressWarnings("unchecked")
+        java.util.Set<String> activeTabTokens = (java.util.Set<String>) session.getAttribute("activeTabTokens");
+        if (activeTabTokens == null) {
+            activeTabTokens = new java.util.HashSet<>();
+            session.setAttribute("activeTabTokens", activeTabTokens);
+        }
+
+        String loginToken = request.getParameter("loginToken");
+        String tabToken = request.getParameter("tabToken");
+        if (tabToken == null) {
+            tabToken = request.getHeader("X-Tab-Token");
+        }
+
+        // Validate loginToken redirect
+        if (loginToken != null && loginToken.equals(session.getAttribute("loginToken"))) {
+            activeTabTokens.add(loginToken);
+            return true;
+        }
+
+        // Validate tabToken
+        if (tabToken != null && activeTabTokens.contains(tabToken)) {
+            return true;
+        }
+
+        // Token is missing or invalid.
+        // For AJAX/SPA API requests, return 401 Unauthorized
+        if ("XMLHttpRequest".equals(request.getHeader("X-Requested-With")) || 
+            (request.getHeader("Accept") != null && !request.getHeader("Accept").contains("text/html"))) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            return false;
+        }
+
+        // For main page requests, return bootstrapping script to check sessionStorage
+        response.setContentType("text/html;charset=UTF-8");
+        try (java.io.PrintWriter out = response.getWriter()) {
+            out.println("<!DOCTYPE html>");
+            out.println("<html>");
+            out.println("<head>");
+            out.println("<script>");
+            out.println("  const token = sessionStorage.getItem('tabToken');");
+            out.println("  if (token) {");
+            out.println("    const url = new URL(window.location.href);");
+            out.println("    url.searchParams.set('tabToken', token);");
+            out.println("    window.location.replace(url.toString());");
+            out.println("  } else {");
+            out.println("    window.location.replace('/login?reason=missing');");
+            out.println("  }");
+            out.println("</script>");
+            out.println("</head>");
+            out.println("<body></body>");
+            out.println("</html>");
+            out.flush();
+        }
+        return false;
     }
 }

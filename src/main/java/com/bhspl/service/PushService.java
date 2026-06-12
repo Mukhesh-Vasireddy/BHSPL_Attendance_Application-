@@ -24,7 +24,21 @@ public class PushService {
     private static String lastError = null;
 
     public static void start() {
-        start(PORT);
+        int port = PORT;
+        String envPort = System.getenv("ADMS_PORT");
+        if (envPort != null) {
+            try {
+                port = Integer.parseInt(envPort);
+            } catch (NumberFormatException ignored) {}
+        } else {
+            String propPort = com.bhspl.db.ConfigManager.getProperty("adms_port", null);
+            if (propPort != null) {
+                try {
+                    port = Integer.parseInt(propPort);
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        start(port);
     }
 
     public static void start(int port) {

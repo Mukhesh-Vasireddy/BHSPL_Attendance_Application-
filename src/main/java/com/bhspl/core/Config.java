@@ -40,6 +40,17 @@ public class Config {
     }
 
     public static Map<String, String> loadDbConfig() {
+        if (System.getenv("DB_HOST") != null) {
+            Map<String, String> config = new HashMap<>();
+            config.put("host", System.getenv("DB_HOST"));
+            config.put("port", System.getenv("DB_PORT") != null ? System.getenv("DB_PORT") : "3306");
+            config.put("database", System.getenv("DB_NAME") != null ? System.getenv("DB_NAME") : "bhspl_attendance");
+            config.put("user", System.getenv("DB_USER") != null ? System.getenv("DB_USER") : "root");
+            config.put("password", System.getenv("DB_PASSWORD") != null ? System.getenv("DB_PASSWORD") : "");
+            config.put("configured", "1");
+            return config;
+        }
+
         File file = new File(getConfigPath());
         if (!file.exists()) {
             // Check for migration from old folder

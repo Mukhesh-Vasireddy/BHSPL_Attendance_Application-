@@ -4,6 +4,101 @@
 <head>
     <title th:text="${title}">BHSPL Attendance</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script th:inline="javascript">
+        (function() {
+            // Exclude public paths from tab validation check
+            const path = window.location.pathname;
+            if (path === "/login" || path === "/logout" || path.startsWith("/css/") || path.startsWith("/js/") || path.startsWith("/img/")) {
+                return;
+            }
+
+            // Get token from URL if present
+            const urlParams = new URLSearchParams(window.location.search);
+            const loginTokenFromUrl = urlParams.get('loginToken');
+            const tabTokenFromUrl = urlParams.get('tabToken');
+            
+            let currentTabToken = sessionStorage.getItem('tabToken');
+            
+            if (loginTokenFromUrl) {
+                // Fresh login redirection: store token and strip from URL
+                currentTabToken = loginTokenFromUrl;
+                sessionStorage.setItem('tabToken', currentTabToken);
+                urlParams.delete('loginToken');
+                const newSearch = urlParams.toString();
+                window.history.replaceState({}, '', window.location.pathname + (newSearch ? '?' + newSearch : ''));
+            } else if (tabTokenFromUrl) {
+                // Tab token is in URL (bootstrap redirect or pasted link)
+                if (!currentTabToken) {
+                    // sessionStorage is empty (new tab or session clear) - redirect to login
+                    window.location.href = '/login?reason=unauthorized';
+                    return;
+                } else if (currentTabToken !== tabTokenFromUrl) {
+                    // Mismatched token
+                    window.location.href = '/login?reason=mismatch';
+                    return;
+                }
+                // Clean the token from the URL to keep address bar clean
+                urlParams.delete('tabToken');
+                const newSearch = urlParams.toString();
+                window.history.replaceState({}, '', window.location.pathname + (newSearch ? '?' + newSearch : ''));
+            } else {
+                // No token in URL at all
+                if (!currentTabToken) {
+                    // No token in sessionStorage - redirect to login
+                    window.location.href = '/login?reason=missing';
+                    return;
+                } else {
+                    // Token is in sessionStorage, but not URL. Redirection to append token for server validation.
+                    urlParams.set('tabToken', currentTabToken);
+                    window.location.href = window.location.pathname + '?' + urlParams.toString();
+                    return;
+                }
+            }
+
+            // Intercept all form submissions to append tabToken
+            document.addEventListener("submit", function(e) {
+                const form = e.target;
+                const token = sessionStorage.getItem('tabToken');
+                if (token) {
+                    let hiddenInput = form.querySelector('input[name="tabToken"]');
+                    if (!hiddenInput) {
+                        hiddenInput = document.createElement("input");
+                        hiddenInput.type = "hidden";
+                        hiddenInput.name = "tabToken";
+                        form.appendChild(hiddenInput);
+                    }
+                    hiddenInput.value = token;
+                }
+            });
+
+            // Override window.fetch globally to append X-Tab-Token header
+            const originalFetch = window.fetch;
+            window.fetch = function(input, init) {
+                const token = sessionStorage.getItem('tabToken');
+                if (token) {
+                    let url = (typeof input === 'string') ? input : input.url;
+                    try {
+                        const parsedUrl = new URL(url, window.location.origin);
+                        if (parsedUrl.origin === window.location.origin) {
+                            init = init || {};
+                            init.headers = init.headers || {};
+                            if (init.headers instanceof Headers) {
+                                init.headers.set('X-Tab-Token', token);
+                                init.headers.set('X-Requested-With', 'XMLHttpRequest');
+                            } else if (Array.isArray(init.headers)) {
+                                init.headers.push(['X-Tab-Token', token]);
+                                init.headers.push(['X-Requested-With', 'XMLHttpRequest']);
+                            } else {
+                                init.headers['X-Tab-Token'] = token;
+                                init.headers['X-Requested-With'] = 'XMLHttpRequest';
+                            }
+                        }
+                    } catch (e) {}
+                }
+                return originalFetch.call(this, input, init);
+            };
+        })();
+    </script>
     <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="/js/chart.js"></script>

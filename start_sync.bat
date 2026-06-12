@@ -2,7 +2,9 @@
 setlocal enabledelayedexpansion
 
 :: Set java home and path
-set "JAVA_HOME=%~dp0jdk17.0.18_9"
+if "%JAVA_HOME%"=="" (
+    set "JAVA_HOME=%~dp0jdk17.0.18_9"
+)
 set "PATH=%JAVA_HOME%\bin;%PATH%"
 
 cd /d "%~dp0"

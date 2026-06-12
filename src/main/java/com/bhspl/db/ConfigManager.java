@@ -41,6 +41,16 @@ public class ConfigManager {
      * Includes automatic migration from old BHSPL_Attendance folder.
      */
     public static Map<String, String> load() {
+        if (System.getenv("DB_HOST") != null) {
+            Map<String, String> m = new HashMap<>();
+            m.put("host", System.getenv("DB_HOST"));
+            m.put("port", System.getenv("DB_PORT") != null ? System.getenv("DB_PORT") : "3306");
+            m.put("database", System.getenv("DB_NAME") != null ? System.getenv("DB_NAME") : "bhspl_attendance");
+            m.put("user", System.getenv("DB_USER") != null ? System.getenv("DB_USER") : "root");
+            m.put("password", System.getenv("DB_PASSWORD") != null ? System.getenv("DB_PASSWORD") : "");
+            return m;
+        }
+
         File f = getConfigFile();
         if (!f.exists()) return null;
         Properties p = new Properties();

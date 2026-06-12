@@ -1,24 +1,48 @@
+# Build output
 target/
 *.class
-*.log
 *.jar
 *.war
 *.ear
-.project
-.classpath
-.settings/
-.idea/
-*.iml
-*.iws
-.vscode/
-.DS_Store
+
+# Logs
+*.log
+logs/
 sync_debug.txt
 sync_status.txt
 sync_stderr.log
 sync_stdout.log
 app_crash.log
+sync_error.txt
+log.txt
+run_full.log
+run_log.txt
+run_utf8.log
+
+# Local configurations (do not commit)
+bhspl_config.ini
+bhspl_config.properties
+cookie.txt
+dump_output.txt
+save_debug.txt
+
+# IDE files
+.idea/
+*.iml
+*.iws
+.vscode/
+.project
+.classpath
+.settings/
+.DS_Store
+Thumbs.db
+
+# Bundled JDK/tooling (if stored locally)
+jdk17.0.18_9/
+
+# Temporary / Junk files
 null
 =
-bhspl_config.properties
-jdk17.0.18_9/
-.mvn/
+temp_refactor.java
+DebugSync.java
+cleanup_script.ps1

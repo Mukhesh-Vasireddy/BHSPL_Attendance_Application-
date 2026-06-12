@@ -65,7 +65,11 @@ public class WebController {
                 session.setAttribute("user", user.get("username"));
                 session.setAttribute("role", user.get("role"));
                 db.execute("UPDATE users SET last_login=NOW() WHERE id=?", user.get("id"));
-                return "redirect:/dashboard";
+                
+                String loginToken = java.util.UUID.randomUUID().toString();
+                session.setAttribute("loginToken", loginToken);
+                
+                return "redirect:/dashboard?loginToken=" + loginToken;
             } else {
                 model.addAttribute("error", "Invalid username or password");
                 return "login";
