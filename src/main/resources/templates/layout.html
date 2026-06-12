@@ -71,6 +71,23 @@
                 }
             });
 
+            // Override HTMLFormElement.prototype.submit to handle programmatic form submissions
+            const originalSubmit = HTMLFormElement.prototype.submit;
+            HTMLFormElement.prototype.submit = function() {
+                const token = sessionStorage.getItem('tabToken');
+                if (token) {
+                    let hiddenInput = this.querySelector('input[name="tabToken"]');
+                    if (!hiddenInput) {
+                        hiddenInput = document.createElement("input");
+                        hiddenInput.type = "hidden";
+                        hiddenInput.name = "tabToken";
+                        this.appendChild(hiddenInput);
+                    }
+                    hiddenInput.value = token;
+                }
+                originalSubmit.call(this);
+            };
+
             // Override window.fetch globally to append X-Tab-Token header
             const originalFetch = window.fetch;
             window.fetch = function(input, init) {
@@ -1288,7 +1305,10 @@
                     </span>
                     <span id="live-update-text">Live: <span id="live-update-countdown" style="font-family: monospace; font-weight: 700;">10s</span></span>
                 </div>
-                <span id="date-time" style="font-size: 13px; color: #64748B; font-weight: 500;">Tue, 05 May 17:58:00</span>
+                <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #64748B; font-weight: 500;">
+                    <i class="far fa-clock" style="color: #94a3b8;"></i>
+                    <span id="date-time">Tue, 05 May 17:58:00</span>
+                </span>
                 
                 <!-- Profile Dropdown -->
                 <div class="profile-dropdown" id="profileDropdown" th:if="${session.user != null}">
