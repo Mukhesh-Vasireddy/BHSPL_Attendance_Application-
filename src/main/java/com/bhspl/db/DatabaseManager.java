@@ -217,6 +217,7 @@ public class DatabaseManager {
                         "  punch_time    DATETIME," +
                         "  punch_type    INT  DEFAULT 0," +
                         "  synced        TINYINT DEFAULT 0," +
+                        "  cloud_synced  TINYINT DEFAULT 0," +
                         "  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
                         "  UNIQUE KEY uq_emp_time (emp_id, punch_time)" +
                         ")",
@@ -445,6 +446,7 @@ public class DatabaseManager {
                 { "leave_policy", "pro_rata", "TINYINT DEFAULT 1" },
                 { "leave_policy", "applicable_gender", "VARCHAR(15) DEFAULT 'All'" },
                 { "attendance", "exceptions", "VARCHAR(255) DEFAULT ''" },
+                { "raw_logs", "cloud_synced", "TINYINT DEFAULT 0" },
         };
 
         // Custom migration to drop old attendance unique key if present
@@ -722,9 +724,11 @@ public class DatabaseManager {
 
         // Self-healing migration to pad older employee IDs in the attendance table
         try {
-            int updated = execute("UPDATE attendance a JOIN employees e ON CAST(a.emp_id AS UNSIGNED) = CAST(e.emp_id AS UNSIGNED) SET a.emp_id = e.emp_id WHERE a.emp_id != e.emp_id AND a.emp_id REGEXP '^[0-9]+$' AND e.emp_id REGEXP '^[0-9]+$'");
+            int updated = execute(
+                    "UPDATE attendance a JOIN employees e ON CAST(a.emp_id AS UNSIGNED) = CAST(e.emp_id AS UNSIGNED) SET a.emp_id = e.emp_id WHERE a.emp_id != e.emp_id AND a.emp_id REGEXP '^[0-9]+$' AND e.emp_id REGEXP '^[0-9]+$'");
             if (updated > 0) {
-                System.out.println("Database: Fixed " + updated + " historical attendance records with unpadded employee IDs.");
+                System.out.println(
+                        "Database: Fixed " + updated + " historical attendance records with unpadded employee IDs.");
             }
             conn.commit();
         } catch (Exception e) {

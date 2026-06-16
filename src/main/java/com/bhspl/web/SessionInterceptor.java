@@ -13,8 +13,8 @@ public class SessionInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         String path = request.getRequestURI();
         
-        // Exclude login, logout, and static resources
-        if (path.equals("/login") || path.equals("/logout") || path.startsWith("/css/") || path.startsWith("/js/") || path.startsWith("/img/")) {
+        // Exclude login, logout, static resources, and API sync endpoints
+        if (path.equals("/login") || path.equals("/logout") || path.startsWith("/css/") || path.startsWith("/js/") || path.startsWith("/img/") || path.startsWith("/api/sync/")) {
             return true;
         }
 

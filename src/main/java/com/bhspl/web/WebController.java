@@ -65,10 +65,10 @@ public class WebController {
                 session.setAttribute("user", user.get("username"));
                 session.setAttribute("role", user.get("role"));
                 db.execute("UPDATE users SET last_login=NOW() WHERE id=?", user.get("id"));
-                
+
                 String loginToken = java.util.UUID.randomUUID().toString();
                 session.setAttribute("loginToken", loginToken);
-                
+
                 return "redirect:/dashboard?loginToken=" + loginToken;
             } else {
                 model.addAttribute("error", "Invalid username or password");
@@ -258,21 +258,21 @@ public class WebController {
 
             // Today's punch count (total raw logs received today)
             long todayPunches = db.queryLong(
-                "SELECT COUNT(*) FROM raw_logs WHERE punch_time >= CURDATE() AND punch_time <= NOW()");
+                    "SELECT COUNT(*) FROM raw_logs WHERE punch_time >= CURDATE() AND punch_time <= NOW()");
             model.addAttribute("todayPunches", todayPunches);
 
             // Today's synced logs (processed into attendance_logs or daily_attendance)
             long todaySyncedLogs = db.queryLong(
-                "SELECT COUNT(*) FROM raw_logs r " +
-                "JOIN employees e ON r.emp_id = e.emp_id " +
-                "WHERE r.punch_time >= CURDATE() AND r.punch_time <= NOW() " +
-                "AND e.status = 'Active'");
+                    "SELECT COUNT(*) FROM raw_logs r " +
+                            "JOIN employees e ON r.emp_id = e.emp_id " +
+                            "WHERE r.punch_time >= CURDATE() AND r.punch_time <= NOW() " +
+                            "AND e.status = 'Active'");
             model.addAttribute("todaySyncedLogs", todaySyncedLogs);
 
             // Sync success rate
             double syncSuccessRate = (todayPunches > 0)
-                ? Math.round((todaySyncedLogs * 100.0 / todayPunches) * 10.0) / 10.0
-                : 100.0;
+                    ? Math.round((todaySyncedLogs * 100.0 / todayPunches) * 10.0) / 10.0
+                    : 100.0;
             model.addAttribute("syncSuccessRate", syncSuccessRate);
 
             if (!recentLogs.isEmpty()) {
@@ -323,13 +323,13 @@ public class WebController {
 
             // Employees with odd punch count today (missing OUT punch)
             long missingPunches = db.queryLong(
-                "SELECT COUNT(*) FROM (" +
-                "  SELECT r.emp_id FROM raw_logs r " +
-                "  JOIN employees e ON r.emp_id = e.emp_id " +
-                "  WHERE r.punch_time >= CURDATE() AND r.punch_time <= NOW() " +
-                "  AND e.status = 'Active' " +
-                "  GROUP BY r.emp_id HAVING COUNT(*) % 2 = 1" +
-                ") t");
+                    "SELECT COUNT(*) FROM (" +
+                            "  SELECT r.emp_id FROM raw_logs r " +
+                            "  JOIN employees e ON r.emp_id = e.emp_id " +
+                            "  WHERE r.punch_time >= CURDATE() AND r.punch_time <= NOW() " +
+                            "  AND e.status = 'Active' " +
+                            "  GROUP BY r.emp_id HAVING COUNT(*) % 2 = 1" +
+                            ") t");
             model.addAttribute("missingPunches", missingPunches);
 
             // Recent Live Punches Activity (last 10 punches today) - Optimized to run point
@@ -375,6 +375,57 @@ public class WebController {
             res.put("message", e.getMessage());
         }
         return res;
+    }
+
+    @PostMapping("/api/sync/cloud/sync-logs")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> receiveCloudSyncLogs(
+            @RequestBody List<Map<String, Object>> logs,
+            jakarta.servlet.http.HttpServletRequest request) {
+        
+        Map<String, Object> response = new java.util.HashMap<>();
+        
+        // Authenticate using API Key
+        String authHeader = request.getHeader("Authorization");
+        String expectedToken = com.bhspl.db.ConfigManager.getProperty("cloud_sync_api_key", "default_secret_key").trim();
+        
+        if (authHeader == null || !authHeader.equals("Bearer " + expectedToken)) {
+            response.put("success", false);
+            response.put("message", "Unauthorized. Invalid or missing API key.");
+            return ResponseEntity.status(401).body(response);
+        }
+        
+        // Process logs (Simulate central database duplicate prevention and saving)
+        System.out.println("[MOCK CLOUD SERVER] Received " + logs.size() + " biometric logs.");
+        int processedCount = 0;
+        int duplicateCount = 0;
+        
+        // Set of mock existing log keys to simulate duplicate prevention
+        Set<String> mockDbPunches = new java.util.HashSet<>();
+        // Pre-populate duplicate map to simulate duplicate detection
+        mockDbPunches.add("15241|2024-04-22 10:30:05");
+        
+        for (Map<String, Object> log : logs) {
+            String empId = (String) log.get("emp_id");
+            String punchTime = (String) log.get("punch_time");
+            int punchType = log.get("punch_type") != null ? ((Number) log.get("punch_type")).intValue() : 0;
+            String deviceSn = (String) log.get("device_sn");
+            
+            String logKey = empId + "|" + punchTime;
+            if (mockDbPunches.contains(logKey)) {
+                System.out.println(String.format("[MOCK CLOUD SERVER] DUPLICATE PREVENTED: EmpId: %s | Time: %s", empId, punchTime));
+                duplicateCount++;
+            } else {
+                System.out.println(String.format("[MOCK CLOUD SERVER] Saved Punch Log: EmpId: %s | Time: %s | Type: %d | Device SN: %s",
+                        empId, punchTime, punchType, deviceSn));
+                mockDbPunches.add(logKey);
+                processedCount++;
+            }
+        }
+        
+        response.put("success", true);
+        response.put("message", "Processed " + processedCount + " logs. " + duplicateCount + " duplicates skipped.");
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/api/system/status")

@@ -88,7 +88,8 @@ public class SyncService {
                 List<Map<String, Object>> devices;
                 try {
                     devices = DatabaseManager.getInstance().query("SELECT * FROM devices WHERE status='Active'");
-                    System.out.println("SyncService: Found " + (devices != null ? devices.size() : 0) + " active devices.");
+                    System.out.println(
+                            "SyncService: Found " + (devices != null ? devices.size() : 0) + " active devices.");
                 } catch (Exception e) {
                     System.err.println("SyncService: DB Error fetching devices: " + e.getMessage());
                     logToFile("ERROR: DB Fetch devices failed: " + e.getMessage());
@@ -101,7 +102,8 @@ public class SyncService {
                             syncDevice(d, 7);
                         } catch (Exception e) {
                             System.err
-                                    .println("SyncService: Failed to sync " + d.get("ip_address") + ": " + e.getMessage());
+                                    .println("SyncService: Failed to sync " + d.get("ip_address") + ": "
+                                            + e.getMessage());
                             logToFile("ERROR: Sync failed for " + d.get("ip_address") + ": " + e.getMessage());
                         }
                     });
@@ -310,237 +312,240 @@ public class SyncService {
                 db.setAutoCommit(false);
                 List<Map<String, Object>> raw = db
                         .query("SELECT * FROM raw_logs WHERE synced=0 ORDER BY emp_id, punch_time");
-            if (raw.isEmpty()) {
+                if (raw.isEmpty()) {
+                    if (logConsumer != null)
+                        logConsumer.accept("All logs already synced.");
+                    return;
+                }
+
                 if (logConsumer != null)
-                    logConsumer.accept("All logs already synced.");
-                return;
-            }
+                    logConsumer.accept("Processing " + raw.size() + " new logs...");
 
-            if (logConsumer != null)
-                logConsumer.accept("Processing " + raw.size() + " new logs...");
+                List<Map<String, Object>> employees = db
+                        .query("SELECT emp_id, emp_name, shift, device_enroll_id FROM employees WHERE status='Active'");
+                Map<String, String> enrollMap = new HashMap<>();
+                Map<String, String> reverseEnrollMap = new HashMap<>();
+                for (Map<String, Object> e : employees) {
+                    String sid = DatabaseManager.str(e, "emp_id");
+                    String eid = DatabaseManager.str(e, "device_enroll_id");
 
-            List<Map<String, Object>> employees = db
-                    .query("SELECT emp_id, emp_name, shift, device_enroll_id FROM employees WHERE status='Active'");
-            Map<String, String> enrollMap = new HashMap<>();
-            Map<String, String> reverseEnrollMap = new HashMap<>();
-            for (Map<String, Object> e : employees) {
-                String sid = DatabaseManager.str(e, "emp_id");
-                String eid = DatabaseManager.str(e, "device_enroll_id");
+                    enrollMap.put(sid, sid);
+                    reverseEnrollMap.put(sid, eid.isEmpty() ? sid : eid);
+                    if (!eid.isEmpty())
+                        enrollMap.put(eid, sid);
 
-                enrollMap.put(sid, sid);
-                reverseEnrollMap.put(sid, eid.isEmpty() ? sid : eid);
-                if (!eid.isEmpty())
-                    enrollMap.put(eid, sid);
-
-                try {
-                    String normSid = String.valueOf(Long.parseLong(sid));
-                    enrollMap.put(normSid, sid);
-                    if (!eid.isEmpty()) {
-                        String normEid = String.valueOf(Long.parseLong(eid));
-                        enrollMap.put(normEid, sid);
-                    }
-                } catch (Exception ignored) {
-                }
-            }
-
-            List<Map<String, Object>> shifts = db.query("SELECT * FROM shifts WHERE status='Active'");
-            Map<String, Map<String, Object>> shiftMap = new HashMap<>();
-            for (Map<String, Object> s : shifts) {
-                shiftMap.put(DatabaseManager.str(s, "shift_name"), s);
-            }
-
-            Map<String, Map<String, Object>> empToShiftMap = new HashMap<>();
-            for (Map<String, Object> e : employees) {
-                String sn = (String) e.get("shift");
-                if (shiftMap.containsKey(sn))
-                    empToShiftMap.put((String) e.get("emp_id"), shiftMap.get(sn));
-            }
-
-            Set<String> affectedDays = new HashSet<>();
-            List<Integer> newRawIds = new ArrayList<>();
-            List<String> unknownUids = new ArrayList<>();
-
-            try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter("sync_debug.txt", true))) {
-                pw.println("\n--- Processing " + raw.size() + " raw logs at " + new java.util.Date());
-                for (Map<String, Object> r : raw) {
-                    String uid = DatabaseManager.str(r, "emp_id");
-                    String eid = enrollMap.get(uid);
-
-                    // Try normalized match
-                    if (eid == null) {
-                        try {
-                            String norm = String.valueOf(Long.parseLong(uid));
-                            eid = enrollMap.get(norm);
-                        } catch (Exception ignored) {
+                    try {
+                        String normSid = String.valueOf(Long.parseLong(sid));
+                        enrollMap.put(normSid, sid);
+                        if (!eid.isEmpty()) {
+                            String normEid = String.valueOf(Long.parseLong(eid));
+                            enrollMap.put(normEid, sid);
                         }
+                    } catch (Exception ignored) {
                     }
+                }
 
-                    newRawIds.add(DatabaseManager.num(r, "id"));
-                    if (eid != null) {
-                        Object p = r.get("punch_time");
-                        LocalDate d = null;
-                        try {
-                            if (p instanceof LocalDateTime) {
-                                d = ((LocalDateTime) p).toLocalDate();
-                            } else if (p instanceof java.sql.Timestamp) {
-                                d = ((java.sql.Timestamp) p).toLocalDateTime().toLocalDate();
-                            } else {
-                                String s = p.toString().replace("T", " ").split(" ")[0];
-                                d = LocalDate.parse(s);
+                List<Map<String, Object>> shifts = db.query("SELECT * FROM shifts WHERE status='Active'");
+                Map<String, Map<String, Object>> shiftMap = new HashMap<>();
+                for (Map<String, Object> s : shifts) {
+                    shiftMap.put(DatabaseManager.str(s, "shift_name"), s);
+                }
+
+                Map<String, Map<String, Object>> empToShiftMap = new HashMap<>();
+                for (Map<String, Object> e : employees) {
+                    String sn = (String) e.get("shift");
+                    if (shiftMap.containsKey(sn))
+                        empToShiftMap.put((String) e.get("emp_id"), shiftMap.get(sn));
+                }
+
+                Set<String> affectedDays = new HashSet<>();
+                List<Integer> newRawIds = new ArrayList<>();
+                List<String> unknownUids = new ArrayList<>();
+
+                try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter("sync_debug.txt", true))) {
+                    pw.println("\n--- Processing " + raw.size() + " raw logs at " + new java.util.Date());
+                    for (Map<String, Object> r : raw) {
+                        String uid = DatabaseManager.str(r, "emp_id");
+                        String eid = enrollMap.get(uid);
+
+                        // Try normalized match
+                        if (eid == null) {
+                            try {
+                                String norm = String.valueOf(Long.parseLong(uid));
+                                eid = enrollMap.get(norm);
+                            } catch (Exception ignored) {
                             }
-                        } catch (Exception ex) {
-                            pw.println("Date parse failed for " + p);
-                            continue;
                         }
-                        if (d != null)
-                            affectedDays.add(eid + "|" + d);
-                    } else {
-                        pw.println("UNMATCHED UID from log entry: '" + uid + "'");
-                        if (!unknownUids.contains(uid))
-                            unknownUids.add(uid);
+
+                        newRawIds.add(DatabaseManager.num(r, "id"));
+                        if (eid != null) {
+                            Object p = r.get("punch_time");
+                            LocalDate d = null;
+                            try {
+                                if (p instanceof LocalDateTime) {
+                                    d = ((LocalDateTime) p).toLocalDate();
+                                } else if (p instanceof java.sql.Timestamp) {
+                                    d = ((java.sql.Timestamp) p).toLocalDateTime().toLocalDate();
+                                } else {
+                                    String s = p.toString().replace("T", " ").split(" ")[0];
+                                    d = LocalDate.parse(s);
+                                }
+                            } catch (Exception ex) {
+                                pw.println("Date parse failed for " + p);
+                                continue;
+                            }
+                            if (d != null)
+                                affectedDays.add(eid + "|" + d);
+                        } else {
+                            pw.println("UNMATCHED UID from log entry: '" + uid + "'");
+                            if (!unknownUids.contains(uid))
+                                unknownUids.add(uid);
+                        }
+                    }
+                    pw.println("Identified " + affectedDays.size() + " distinct day combos to process.");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+                for (String dayKey : affectedDays) {
+                    try {
+                        String[] parts = dayKey.split("\\|");
+                        String empId = parts[0];
+                        String date = parts[1];
+                        String enrollId = reverseEnrollMap.get(empId);
+
+                        String filter = "emp_id=?";
+                        List<Object> params = new ArrayList<>();
+                        params.add(empId);
+                        if (enrollId != null && !enrollId.equals(empId)) {
+                            filter = "(emp_id=? OR emp_id=?)";
+                            params.add(enrollId);
+                        }
+
+                        String startRange = date + " 00:00:00";
+                        String endRange = LocalDate.parse(date).plusDays(1).toString() + " 10:00:00";
+
+                        if (logConsumer != null)
+                            logConsumer.accept("Processing " + empId + " for " + date);
+
+                        List<Object> sqlParams = new ArrayList<>();
+                        if (params.size() > 1) {
+                            sqlParams.add(params.get(0));
+                            sqlParams.add(params.get(1));
+                        } else {
+                            sqlParams.add(params.get(0));
+                        }
+                        sqlParams.add(startRange);
+                        sqlParams.add(endRange);
+
+                        List<Map<String, Object>> matched = db.fetchAll(
+                                "SELECT punch_time, punch_type FROM raw_logs WHERE " + filter
+                                        + " AND (punch_time >= ? AND punch_time < ?) ORDER BY punch_time ASC",
+                                sqlParams.toArray());
+                        if (matched.isEmpty())
+                            continue;
+
+                        Map<String, Object> shift = empToShiftMap.get(empId);
+                        boolean overnightFlag = false;
+                        if (shift != null) {
+                            try {
+                                Object st = shift.get("start_time");
+                                Object et = shift.get("end_time");
+                                if (st != null && et != null) {
+                                    LocalTime sTime;
+                                    if (st instanceof java.sql.Time)
+                                        sTime = ((java.sql.Time) st).toLocalTime();
+                                    else
+                                        sTime = LocalTime.parse(st.toString().substring(0, 5));
+
+                                    LocalTime eTime;
+                                    if (et instanceof java.sql.Time)
+                                        eTime = ((java.sql.Time) et).toLocalTime();
+                                    else
+                                        eTime = LocalTime.parse(et.toString().substring(0, 5));
+
+                                    if (eTime.isBefore(sTime))
+                                        overnightFlag = true;
+                                }
+                            } catch (Exception ignored) {
+                            }
+                        }
+
+                        final String dStr = date;
+                        final boolean isOvernight = overnightFlag;
+                        List<Map<String, Object>> list = matched.stream().map(m -> {
+                            Object o = m.get("punch_time");
+                            Object ptObj = m.get("punch_type");
+                            int type = ptObj != null ? (int) ptObj : 0;
+                            try {
+                                LocalDateTime ldt;
+                                if (o instanceof LocalDateTime)
+                                    ldt = (LocalDateTime) o;
+                                else if (o instanceof java.sql.Timestamp)
+                                    ldt = ((java.sql.Timestamp) o).toLocalDateTime();
+                                else
+                                    ldt = LocalDateTime.parse(o.toString().replace(" ", "T").split("\\.")[0]);
+
+                                if (!isOvernight && !ldt.toLocalDate().toString().equals(dStr))
+                                    return null;
+
+                                Map<String, Object> pMap = new HashMap<>();
+                                pMap.put("time", ldt);
+                                pMap.put("type", type);
+                                return pMap;
+                            } catch (Exception e) {
+                                return null;
+                            }
+                        }).filter(Objects::nonNull).sorted((p1, p2) -> {
+                            return ((LocalDateTime) p1.get("time")).compareTo((LocalDateTime) p2.get("time"));
+                        }).collect(Collectors.toList());
+
+                        if (list.isEmpty())
+                            continue;
+
+                        com.bhspl.util.AttendanceCalculator.Metrics met = new com.bhspl.util.AttendanceCalculator.Metrics();
+                        com.bhspl.util.AttendanceCalculator.calculateFromPunches(list, shift, met);
+
+                        if (met.firstIn == null)
+                            continue;
+
+                        db.execute(
+                                "INSERT INTO attendance (emp_id, punch_date, in_time, out_time, status, work_hours, overtime, late_mins, early_mins, punch_type, exceptions) "
+                                        + "VALUES (?,?,?,?,?,?,?,?,?, 'Device', ?) ON DUPLICATE KEY UPDATE in_time=VALUES(in_time), out_time=VALUES(out_time), "
+                                        + "work_hours=VALUES(work_hours), overtime=VALUES(overtime), late_mins=VALUES(late_mins), early_mins=VALUES(early_mins), status=VALUES(status), exceptions=VALUES(exceptions)",
+                                empId, date, java.sql.Timestamp.valueOf(met.firstIn),
+                                (met.lastOut != null ? java.sql.Timestamp.valueOf(met.lastOut) : null),
+                                met.status, met.workHours, met.overtime, met.lateMins, met.earlyMins, met.exceptions);
+                    } catch (Exception e) {
+                        if (logConsumer != null)
+                            logConsumer.accept("Error: " + e.getMessage());
                     }
                 }
-                pw.println("Identified " + affectedDays.size() + " distinct day combos to process.");
+                if (!newRawIds.isEmpty()) {
+                    String idList = newRawIds.stream().map(String::valueOf).collect(Collectors.joining(","));
+                    db.execute("UPDATE raw_logs SET synced=1 WHERE id IN (" + idList + ")");
+                    try {
+                        com.bhspl.util.CacheManager.getInstance().invalidate("dashboard_stats");
+                    } catch (Exception ignored) {
+                    }
+                }
+                db.commit(); // CRITICAL: Save everything to DB
+                try {
+                    com.bhspl.service.CloudSyncService.triggerSync();
+                } catch (Exception ignored) {}
+                if (logConsumer != null)
+                    logConsumer.accept("Sync complete. " + affectedDays.size() + " days processed.");
             } catch (Exception e) {
                 e.printStackTrace();
-            }
-
-            for (String dayKey : affectedDays) {
+                if (logConsumer != null)
+                    logConsumer.accept("Fatal Error: " + e.getMessage());
+                db.rollback();
+            } finally {
                 try {
-                    String[] parts = dayKey.split("\\|");
-                    String empId = parts[0];
-                    String date = parts[1];
-                    String enrollId = reverseEnrollMap.get(empId);
-
-                    String filter = "emp_id=?";
-                    List<Object> params = new ArrayList<>();
-                    params.add(empId);
-                    if (enrollId != null && !enrollId.equals(empId)) {
-                        filter = "(emp_id=? OR emp_id=?)";
-                        params.add(enrollId);
-                    }
-
-                    String startRange = date + " 00:00:00";
-                    String endRange = LocalDate.parse(date).plusDays(1).toString() + " 10:00:00";
-
-                    if (logConsumer != null)
-                        logConsumer.accept("Processing " + empId + " for " + date);
-
-                    List<Object> sqlParams = new ArrayList<>();
-                    if (params.size() > 1) {
-                        sqlParams.add(params.get(0));
-                        sqlParams.add(params.get(1));
-                    } else {
-                        sqlParams.add(params.get(0));
-                    }
-                    sqlParams.add(startRange);
-                    sqlParams.add(endRange);
-
-                    List<Map<String, Object>> matched = db.fetchAll(
-                            "SELECT punch_time, punch_type FROM raw_logs WHERE " + filter
-                                    + " AND (punch_time >= ? AND punch_time < ?) ORDER BY punch_time ASC",
-                            sqlParams.toArray());
-                    if (matched.isEmpty())
-                        continue;
-
-                    Map<String, Object> shift = empToShiftMap.get(empId);
-                    boolean overnightFlag = false;
-                    if (shift != null) {
-                        try {
-                            Object st = shift.get("start_time");
-                            Object et = shift.get("end_time");
-                            if (st != null && et != null) {
-                                LocalTime sTime;
-                                if (st instanceof java.sql.Time)
-                                    sTime = ((java.sql.Time) st).toLocalTime();
-                                else
-                                    sTime = LocalTime.parse(st.toString().substring(0, 5));
-
-                                LocalTime eTime;
-                                if (et instanceof java.sql.Time)
-                                    eTime = ((java.sql.Time) et).toLocalTime();
-                                else
-                                    eTime = LocalTime.parse(et.toString().substring(0, 5));
-
-                                if (eTime.isBefore(sTime))
-                                    overnightFlag = true;
-                            }
-                        } catch (Exception ignored) {
-                        }
-                    }
-
-                    final String dStr = date;
-                    final boolean isOvernight = overnightFlag;
-                    List<Map<String, Object>> list = matched.stream().map(m -> {
-                        Object o = m.get("punch_time");
-                        Object ptObj = m.get("punch_type");
-                        int type = ptObj != null ? (int) ptObj : 0;
-                        try {
-                            LocalDateTime ldt;
-                            if (o instanceof LocalDateTime)
-                                ldt = (LocalDateTime) o;
-                            else if (o instanceof java.sql.Timestamp)
-                                ldt = ((java.sql.Timestamp) o).toLocalDateTime();
-                            else
-                                ldt = LocalDateTime.parse(o.toString().replace(" ", "T").split("\\.")[0]);
-
-                            if (!isOvernight && !ldt.toLocalDate().toString().equals(dStr))
-                                return null;
-
-                            Map<String, Object> pMap = new HashMap<>();
-                            pMap.put("time", ldt);
-                            pMap.put("type", type);
-                            return pMap;
-                        } catch (Exception e) {
-                            return null;
-                        }
-                    }).filter(Objects::nonNull).sorted((p1, p2) -> {
-                        return ((LocalDateTime) p1.get("time")).compareTo((LocalDateTime) p2.get("time"));
-                    }).collect(Collectors.toList());
-
-                    if (list.isEmpty())
-                        continue;
-
-                    com.bhspl.util.AttendanceCalculator.Metrics met = new com.bhspl.util.AttendanceCalculator.Metrics();
-                    com.bhspl.util.AttendanceCalculator.calculateFromPunches(list, shift, met);
-
-                    if (met.firstIn == null)
-                        continue;
-
-                    db.execute(
-                            "INSERT INTO attendance (emp_id, punch_date, in_time, out_time, status, work_hours, overtime, late_mins, early_mins, punch_type, exceptions) "
-                                    + "VALUES (?,?,?,?,?,?,?,?,?, 'Device', ?) ON DUPLICATE KEY UPDATE in_time=VALUES(in_time), out_time=VALUES(out_time), "
-                                    + "work_hours=VALUES(work_hours), overtime=VALUES(overtime), late_mins=VALUES(late_mins), early_mins=VALUES(early_mins), status=VALUES(status), exceptions=VALUES(exceptions)",
-                            empId, date, java.sql.Timestamp.valueOf(met.firstIn),
-                            (met.lastOut != null ? java.sql.Timestamp.valueOf(met.lastOut) : null),
-                            met.status, met.workHours, met.overtime, met.lateMins, met.earlyMins, met.exceptions);
-                } catch (Exception e) {
-                    if (logConsumer != null)
-                        logConsumer.accept("Error: " + e.getMessage());
-                }
-            }
-            if (!newRawIds.isEmpty()) {
-                String idList = newRawIds.stream().map(String::valueOf).collect(Collectors.joining(","));
-                db.execute("UPDATE raw_logs SET synced=1 WHERE id IN (" + idList + ")");
-                try {
-                    com.bhspl.util.CacheManager.getInstance().invalidate("dashboard_stats");
+                    db.setAutoCommit(true);
                 } catch (Exception ignored) {
                 }
-            }
-            db.commit(); // CRITICAL: Save everything to DB
-            if (logConsumer != null)
-                logConsumer.accept("Sync complete. " + affectedDays.size() + " days processed.");
-        } catch (Exception e) {
-            e.printStackTrace();
-            if (logConsumer != null)
-                logConsumer.accept("Fatal Error: " + e.getMessage());
-            db.rollback();
-        } finally {
-            try {
-                db.setAutoCommit(true);
-            } catch (Exception ignored) {
             }
         }
     }
-}
 }

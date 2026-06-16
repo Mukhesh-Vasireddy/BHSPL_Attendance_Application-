@@ -46,3 +46,7 @@ null
 temp_refactor.java
 DebugSync.java
 cleanup_script.ps1
+
+# Docker
+Dockerfile
+
