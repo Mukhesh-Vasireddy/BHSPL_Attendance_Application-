@@ -395,32 +395,56 @@ public class WebController {
             return ResponseEntity.status(401).body(response);
         }
         
-        // Process logs (Simulate central database duplicate prevention and saving)
-        System.out.println("[MOCK CLOUD SERVER] Received " + logs.size() + " biometric logs.");
+        // Process logs and save to central database
         int processedCount = 0;
         int duplicateCount = 0;
         
-        // Set of mock existing log keys to simulate duplicate prevention
-        Set<String> mockDbPunches = new java.util.HashSet<>();
-        // Pre-populate duplicate map to simulate duplicate detection
-        mockDbPunches.add("15241|2024-04-22 10:30:05");
-        
-        for (Map<String, Object> log : logs) {
-            String empId = (String) log.get("emp_id");
-            String punchTime = (String) log.get("punch_time");
-            int punchType = log.get("punch_type") != null ? ((Number) log.get("punch_type")).intValue() : 0;
-            String deviceSn = (String) log.get("device_sn");
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            List<Object[]> paramsList = new ArrayList<>();
             
-            String logKey = empId + "|" + punchTime;
-            if (mockDbPunches.contains(logKey)) {
-                System.out.println(String.format("[MOCK CLOUD SERVER] DUPLICATE PREVENTED: EmpId: %s | Time: %s", empId, punchTime));
-                duplicateCount++;
-            } else {
-                System.out.println(String.format("[MOCK CLOUD SERVER] Saved Punch Log: EmpId: %s | Time: %s | Type: %d | Device SN: %s",
-                        empId, punchTime, punchType, deviceSn));
-                mockDbPunches.add(logKey);
-                processedCount++;
+            for (Map<String, Object> log : logs) {
+                String empId = (String) log.get("emp_id");
+                String punchTime = (String) log.get("punch_time");
+                int punchType = log.get("punch_type") != null ? ((Number) log.get("punch_type")).intValue() : 0;
+                String deviceSn = (String) log.get("device_sn");
+                
+                int deviceId = 0;
+                if (deviceSn != null && !deviceSn.isEmpty()) {
+                    Map<String, Object> dev = db.fetchOne("SELECT device_id FROM devices WHERE serial_number=?", deviceSn);
+                    if (dev != null) {
+                        deviceId = (int) dev.get("device_id");
+                    } else {
+                        // Auto-register device on central server
+                        db.execute("INSERT INTO devices (device_name, serial_number, location, status) VALUES (?,?,?,?)",
+                                "Cloud Device " + deviceSn, deviceSn, "Cloud", "Active");
+                        dev = db.fetchOne("SELECT device_id FROM devices WHERE serial_number=?", deviceSn);
+                        if (dev != null) {
+                            deviceId = (int) dev.get("device_id");
+                        }
+                    }
+                }
+                paramsList.add(new Object[] { deviceId, empId, punchTime, punchType });
             }
+            
+            int inserted = db.executeBatch(
+                "INSERT IGNORE INTO raw_logs (device_id, emp_id, punch_time, punch_type, synced, cloud_synced) VALUES (?,?,?,?,0,1)",
+                paramsList
+            );
+            
+            processedCount = inserted;
+            duplicateCount = logs.size() - inserted;
+            
+            if (processedCount > 0) {
+                System.out.println("[CLOUD SERVER] Saved " + processedCount + " new punch logs to database. Triggering raw logs processing...");
+                SyncService.processRawLogsAsync();
+            }
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.put("success", false);
+            response.put("message", "Database error: " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
         }
         
         response.put("success", true);
