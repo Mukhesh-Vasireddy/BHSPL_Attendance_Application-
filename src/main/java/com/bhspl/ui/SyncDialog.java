@@ -148,7 +148,9 @@ public class SyncDialog extends JDialog {
             List<Map<String, Object>> rows = db.query("SELECT * FROM devices WHERE status='Active'");
             deviceCombo.removeAllItems();
             for (Map<String, Object> r : rows) {
-                String label = DatabaseManager.str(r, "device_name") + " (" + DatabaseManager.str(r, "ip_address") + ")";
+                String loc = DatabaseManager.str(r, "location");
+                String displayLoc = (loc != null && !loc.trim().isEmpty()) ? " - " + loc : "";
+                String label = DatabaseManager.str(r, "device_name") + displayLoc + " (" + DatabaseManager.str(r, "ip_address") + ")";
                 deviceCombo.addItem(label);
                 deviceMap.put(label, r);
             }

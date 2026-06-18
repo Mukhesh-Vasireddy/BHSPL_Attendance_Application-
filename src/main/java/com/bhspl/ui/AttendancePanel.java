@@ -21,7 +21,7 @@ public class AttendancePanel extends JPanel {
     private JTextField empSearchField;
 
     private static final String[] COLUMNS = {
-            "Emp ID", "Name", "Date", "In Time", "Out Time", "Work Hrs", "OT Hrs", "Status", "Remarks"
+            "Emp ID", "Name", "Device", "Location", "Date", "In Time", "Out Time", "Work Hrs", "OT Hrs", "Status", "Remarks"
     };
 
     public AttendancePanel() {
@@ -98,8 +98,8 @@ public class AttendancePanel extends JPanel {
         // Table Panel
         tablePanel = new UIHelper.StyledTablePanel(COLUMNS);
         tablePanel.setBorder(UIHelper.createCardBorder());
-        // Emp ID, Name, Date, In Time, Out Time, Work Hrs, OT Hrs, Status, Remarks
-        int[] colW = {80, 180, 110, 90, 90, 90, 80, 100, 200};
+        // Emp ID, Name, Device, Location, Date, In Time, Out Time, Work Hrs, OT Hrs, Status, Remarks
+        int[] colW = {80, 180, 140, 140, 110, 90, 90, 90, 80, 100, 200};
         for (int i = 0; i < colW.length; i++) {
             tablePanel.getTable().getColumnModel().getColumn(i).setPreferredWidth(colW[i]);
         }
@@ -116,36 +116,27 @@ public class AttendancePanel extends JPanel {
             @Override
             protected List<Object[]> doInBackground() throws Exception {
                 String sql = "SELECT e.emp_id, e.emp_name, ? AS punch_date, " +
-                        "DATE_FORMAT(MIN(a.in_time),'%H:%i') AS in_time, " +
-                        "DATE_FORMAT(MAX(a.out_time),'%H:%i') AS out_time, " +
-                        "SUM(a.work_hours) as work_hours, SUM(a.overtime) as overtime, " +
+                        "COALESCE(d.device_name, CASE WHEN a.in_time IS NOT NULL THEN 'Manual/No Device' ELSE '-' END) AS device_name, " +
+                        "COALESCE(d.location, CASE WHEN a.in_time IS NOT NULL THEN 'Not Assigned' ELSE '-' END) AS device_location, " +
+                        "DATE_FORMAT(a.in_time,'%H:%i') AS in_time, " +
+                        "DATE_FORMAT(a.out_time,'%H:%i') AS out_time, " +
+                        "a.work_hours as work_hours, a.overtime as overtime, " +
                         "COALESCE(" +
-                        "  (CASE " +
-                        "    WHEN SUM(CASE WHEN a.status='Half Day' THEN 1 ELSE 0 END) > 0 THEN 'Half Day' " +
-                        "    WHEN SUM(CASE WHEN a.status='Late' THEN 1 ELSE 0 END) > 0 THEN 'Late' " +
-                        "    WHEN SUM(CASE WHEN a.status='OD' OR a.status='On Duty' THEN 1 ELSE 0 END) > 0 THEN 'On Duty' "
-                        +
-                        "    WHEN SUM(CASE WHEN a.status='Present' THEN 1 ELSE 0 END) > 0 THEN 'Present' " +
-                        "    WHEN MAX(a.status) IS NOT NULL THEN MAX(a.status) " +
-                        "  END), " +
-                        "  (SELECT UPPER(leave_type) FROM leaves l WHERE l.emp_id = e.emp_id AND l.status='Approved' AND ? BETWEEN l.from_date AND l.to_date LIMIT 1), "
-                        +
+                        "  a.status, " +
+                        "  (SELECT UPPER(leave_type) FROM leaves l WHERE l.emp_id = e.emp_id AND l.status='Approved' AND ? BETWEEN l.from_date AND l.to_date LIMIT 1), " +
                         "  (SELECT UPPER(holiday_name) FROM holidays h WHERE h.holiday_date = ? LIMIT 1), " +
-                        "  (SELECT UPPER(CASE WHEN DAYNAME(?) = off_day1 THEN off_day1 ELSE off_day2 END) FROM weekly_offs w "
-                        +
-                        "   WHERE w.emp_id = e.emp_id AND (? >= w.effective_from) AND (w.effective_to IS NULL OR ? <= w.effective_to) "
-                        +
+                        "  (SELECT UPPER(CASE WHEN DAYNAME(?) = off_day1 THEN off_day1 ELSE off_day2 END) FROM weekly_offs w " +
+                        "   WHERE w.emp_id = e.emp_id AND (? >= w.effective_from) AND (w.effective_to IS NULL OR ? <= w.effective_to) " +
                         "   AND (DAYNAME(?) = w.off_day1 OR DAYNAME(?) = w.off_day2) LIMIT 1), " +
-                        "  (CASE WHEN DAYNAME(?) = s.weekly_off1 THEN UPPER(s.weekly_off1) WHEN DAYNAME(?) = s.weekly_off2 THEN UPPER(s.weekly_off2) END), "
-                        +
+                        "  (CASE WHEN DAYNAME(?) = s.weekly_off1 THEN UPPER(s.weekly_off1) WHEN DAYNAME(?) = s.weekly_off2 THEN UPPER(s.weekly_off2) END), " +
                         "  'Absent' " +
                         ") as status, " +
-                        "GROUP_CONCAT(a.remarks SEPARATOR '; ') as remarks " +
+                        "a.remarks as remarks " +
                         "FROM employees e " +
                         "LEFT JOIN shifts s ON e.shift = s.shift_name " +
                         "LEFT JOIN attendance a ON e.emp_id=a.emp_id AND a.punch_date=? " +
+                        "LEFT JOIN devices d ON a.device_id=d.device_id " +
                         "WHERE e.status='Active' AND (e.emp_id LIKE ? OR e.emp_name LIKE ?) " +
-                        "GROUP BY e.emp_id, e.emp_name " +
                         "ORDER BY CASE WHEN e.emp_name LIKE ? THEN 0 WHEN e.emp_id LIKE ? THEN 1 ELSE 2 END, e.emp_name ASC";
                 String like = "%" + search + "%";
                 String startsWith = search + "%";
@@ -155,7 +146,10 @@ public class AttendancePanel extends JPanel {
                 List<Object[]> rows = new java.util.ArrayList<>();
                 for (Map<String, Object> r : data) {
                     rows.add(new Object[] {
-                            r.get("emp_id"), r.get("emp_name"), r.get("punch_date"),
+                            r.get("emp_id"), r.get("emp_name"),
+                            r.get("device_name"),
+                            r.get("device_location"),
+                            r.get("punch_date"),
                             r.get("in_time"), r.get("out_time"),
                             com.bhspl.util.AttendanceCalculator.formatDuration(DatabaseManager.dbl(r, "work_hours")),
                             com.bhspl.util.AttendanceCalculator.formatDuration(DatabaseManager.dbl(r, "overtime")),

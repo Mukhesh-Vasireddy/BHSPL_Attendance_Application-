@@ -47,6 +47,8 @@
                         <th>Emp ID</th>
                         <th>Employee Name</th>
                         <th>Department</th>
+                        <th>Device Name</th>
+                        <th>Device Location</th>
                         <th>First In</th>
                         <th>Last Out</th>
                         <th style="color: #EF4444;">Exception Reason</th>
@@ -58,6 +60,8 @@
                         <td th:text="${r['emp_id']}" style="font-weight: 500; color: var(--text-muted);">101</td>
                         <td th:text="${r['emp_name']}" style="font-weight: 600; color: var(--text-main);">John Doe</td>
                         <td th:text="${r['department']}" style="color: var(--text-muted);">Development</td>
+                        <td th:text="${r['device_name'] ?: '-'}" style="color: var(--text-muted);">Device A</td>
+                        <td th:text="${r['device_location'] ?: 'Not Assigned'}" style="color: var(--text-muted);">Vijayawada</td>
                         <td th:text="${r['in_time'] != null ? #strings.substring(r['in_time'], 11, 16) : '--'}" style="color: #10B981; font-weight: 600;">09:00</td>
                         <td th:text="${r['out_time'] != null ? #strings.substring(r['out_time'], 11, 16) : '--'}" style="color: #3b82f6; font-weight: 600;">18:00</td>
                         <td>
@@ -67,7 +71,7 @@
                         </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(data)}">
-                        <td colspan="7">
+                        <td colspan="9">
                             <div class="empty-state">
                                 <i class="fas fa-check-circle" style="color: #10B981;"></i>
                                 <p>No attendance exceptions found for this criteria!</p>

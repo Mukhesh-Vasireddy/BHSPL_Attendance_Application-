@@ -137,10 +137,12 @@ public class DevicePanel extends JPanel {
                     for (Map<String, Object> r : get()) {
                         String lastErr = (String) r.get("last_error");
                         String syncStatus = (lastErr == null) ? "OK" : "Error: " + lastErr;
+                        String loc = (String) r.get("location");
+                        String displayLoc = (loc != null && !loc.trim().isEmpty()) ? loc : "Not Assigned";
                         
                         tablePanel.addRow(new Object[]{
                             r.get("device_id"), r.get("device_name"), r.get("ip_address"),
-                            r.get("serial_number"), r.get("port"), r.get("location"), r.get("status"), r.get("last_sync"),
+                            r.get("serial_number"), r.get("port"), displayLoc, r.get("status"), r.get("last_sync"),
                             syncStatus
                         });
                     }

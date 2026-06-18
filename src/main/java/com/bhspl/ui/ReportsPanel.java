@@ -212,10 +212,10 @@ public class ReportsPanel extends JPanel {
         if ("Leave Report".equals(activeTab)) {
             columns = new String[]{"Emp ID", "Name", "Leave Type", "From", "To", "Days", "Status", "Applied On"};
         } else if ("Monthly".equals(activeTab)) {
-            columns = new String[]{"Emp ID", "Name", "Designation", "Attendance Matrix"};
+            columns = new String[]{"Emp ID", "Name", "Device", "Location", "Designation", "Attendance Matrix"};
         } else {
             columns = new String[]{
-                    "Emp ID", "Name", "Dept", "Shift", "Sched In", "In Time", "Out Time",
+                    "Emp ID", "Name", "Device", "Location", "Dept", "Shift", "Sched In", "In Time", "Out Time",
                     "Sched Out", "Work Hrs", "OT Hrs", "Late IN", "Early OUT", "Status", "Remarks"
             };
         }
@@ -273,14 +273,14 @@ public class ReportsPanel extends JPanel {
                 Component comp = super.getTableCellRendererComponent(t, v, s, f, r, c);
                 
                 if (!s) {
-                    if ("Daily".equals(activeTab) && t.getColumnCount() > 12) {
-                        String status = String.valueOf(t.getValueAt(r, 12));
+                    if ("Daily".equals(activeTab) && t.getColumnCount() > 13) {
+                        String status = String.valueOf(t.getValueAt(r, 13));
                         if ("A".equals(status) || "Absent".equalsIgnoreCase(status)) {
                             comp.setBackground(new Color(0xfee2e2));
                         } else {
                             comp.setBackground(r % 2 == 0 ? Color.WHITE : new Color(0xf8fafc));
                         }
-                    } else if ("Monthly".equals(activeTab) && c > 2 && reportTypeCombo != null && "Attendance Summary (P/A)".equals(reportTypeCombo.getSelectedItem())) {
+                    } else if ("Monthly".equals(activeTab) && c > 3 && reportTypeCombo != null && "Attendance Summary (P/A)".equals(reportTypeCombo.getSelectedItem())) {
                         String status = String.valueOf(t.getValueAt(r, c));
                         if ("A".equals(status)) {
                             comp.setBackground(new Color(0xfee2e2)); // Soft red for absent
@@ -295,7 +295,7 @@ public class ReportsPanel extends JPanel {
                 }
                 
                 if (comp instanceof JLabel) {
-                    ((JLabel) comp).setHorizontalAlignment(c < 3 ? SwingConstants.LEFT : SwingConstants.CENTER);
+                    ((JLabel) comp).setHorizontalAlignment(c < 4 ? SwingConstants.LEFT : SwingConstants.CENTER);
                     ((JLabel) comp).setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 5));
                 }
                 
@@ -308,17 +308,23 @@ public class ReportsPanel extends JPanel {
             int width = 120; // Default
             if (i == 0) width = 80;   // Emp ID
             if (i == 1) width = 180;  // Name
-            if (i == 2) width = 140;  // Designation / Dept
-            
-            // Monthly Matrix columns
-            if ("Monthly".equals(activeTab) && i > 2) {
-                boolean isPa = reportTypeCombo != null && "Attendance Summary (P/A)".equals(reportTypeCombo.getSelectedItem());
-                width = isPa ? 45 : 150;
+            if ("Daily".equals(activeTab)) {
+                if (i == 2) width = 140; // Device
+                if (i == 3) width = 140; // Location
+                if (i == 4) width = 120; // Dept
+                if (i == 5) width = 100; // Shift
+                if (i == 15) width = 200; // Remarks
+            } else if ("Monthly".equals(activeTab)) {
+                if (i == 2) width = 140; // Device
+                if (i == 3) width = 140; // Location
+                if (i == 4) width = 140; // Designation
+                if (i > 4) {
+                    boolean isPa = reportTypeCombo != null && "Attendance Summary (P/A)".equals(reportTypeCombo.getSelectedItem());
+                    width = isPa ? 45 : 150;
+                }
+            } else if ("Leave Report".equals(activeTab)) {
+                if (i == 2 || i == 7) width = 150; // Leave Type / Applied On
             }
-            
-            // Daily/Leave report specific wide columns
-            if ("Daily".equals(activeTab) && i == 13) width = 200; // Remarks
-            if ("Leave Report".equals(activeTab) && (i == 2 || i == 7)) width = 150; // Leave Type / Applied On
 
             table.getColumnModel().getColumn(i).setPreferredWidth(width);
         }
@@ -353,11 +359,11 @@ public class ReportsPanel extends JPanel {
             try {
                 YearMonth ym = YearMonth.parse(monthStr);
                 int days = ym.lengthOfMonth();
-                String[] cols = new String[3 + days];
-                cols[0] = "Emp ID"; cols[1] = "Name"; cols[2] = "Designation";
+                String[] cols = new String[5 + days];
+                cols[0] = "Emp ID"; cols[1] = "Name"; cols[2] = "Device"; cols[3] = "Location"; cols[4] = "Designation";
                 boolean isPa = "Attendance Summary (P/A)".equals(reportTypeCombo.getSelectedItem());
                 for (int i = 1; i <= days; i++) {
-                    cols[2 + i] = isPa ? String.valueOf(i) : i + "/" + ym.getMonthValue() + "/" + ym.getYear();
+                    cols[4 + i] = isPa ? String.valueOf(i) : i + "/" + ym.getMonthValue() + "/" + ym.getYear();
                 }
                 tablePanel.getTable().setModel(new DefaultTableModel(cols, 0));
                 styleTable();
@@ -413,34 +419,18 @@ public class ReportsPanel extends JPanel {
                     for (Map<String, Object> l : leaves) 
                         leaveMap.computeIfAbsent(String.valueOf(l.get("emp_id")), k -> new ArrayList<>()).add(l);
 
-                    // 2. Fetch Attendance
-                    List<Map<String, Object>> attnList = db.fetchAll(
-                        "SELECT emp_id, punch_date, MIN(in_time) as first_in, MAX(out_time) as last_out, SUM(work_hours) as total_hrs " +
-                        "FROM attendance WHERE DATE_FORMAT(punch_date, '%Y-%m') = ? GROUP BY emp_id, punch_date", monthStr);
-
-                    // 3. Map Attendance
-                    Map<String, Map<String, String>> attnMap = new HashMap<>();
-                    for (Map<String, Object> a : attnList) {
-                        String eid = String.valueOf(a.get("emp_id"));
-                        String pdate = String.valueOf(a.get("punch_date"));
-                        Object inVal = a.get("first_in");
-                        Object outVal = a.get("last_out");
-                        double hrs = DatabaseManager.dbl(a, "total_hrs");
-                        
-                        String firstIn = inVal != null ? String.valueOf(inVal) : "";
-                        String lastOut = outVal != null ? String.valueOf(outVal) : "";
-                        
-                        // Extract HH:mm from DATETIME string or format Timestamp
-                        String tIn = firstIn.length() >= 16 ? firstIn.substring(11, 16) : (firstIn.length() >= 5 ? firstIn.substring(0, 5) : "--:--");
-                        String tOut = lastOut.length() >= 16 ? lastOut.substring(11, 16) : (lastOut.length() >= 5 ? lastOut.substring(0, 5) : "--:--");
-                        
-                        String summary;
-                        if ("Attendance Summary (P/A)".equals(reportTypeCombo.getSelectedItem())) {
-                            summary = "P";
-                        } else {
-                            summary = String.format("%s-%s (%s)", tIn, tOut, com.bhspl.util.AttendanceCalculator.formatDuration(hrs));
-                        }
-                        attnMap.computeIfAbsent(eid, k -> new HashMap<>()).put(pdate, summary);
+                    // Fetch devices details
+                    List<Map<String, Object>> allDevices = new ArrayList<>();
+                    try {
+                        allDevices = db.fetchAll("SELECT device_id, device_name, location FROM devices");
+                    } catch (Exception ignored) {}
+                    Map<Integer, String> deviceNamesMap = new HashMap<>();
+                    Map<Integer, String> deviceLocationsMap = new HashMap<>();
+                    for (Map<String, Object> dev : allDevices) {
+                        int devId = (int) dev.get("device_id");
+                        deviceNamesMap.put(devId, (String) dev.get("device_name"));
+                        String loc = (String) dev.get("location");
+                        deviceLocationsMap.put(devId, loc != null && !loc.trim().isEmpty() ? loc : "Not Assigned");
                     }
 
                     // 4. Build Pivoted Rows
@@ -448,64 +438,106 @@ public class ReportsPanel extends JPanel {
                     int daysInMonth = ym.lengthOfMonth();
                     for (Map<String, Object> e : emps) {
                         String eid = String.valueOf(e.get("emp_id"));
-                        Map<String, Object> row = new LinkedHashMap<>(e);
-                        Map<String, String> empAttn = attnMap.getOrDefault(eid, Collections.emptyMap());
+                        List<Map<String, Object>> deviceListDb = new ArrayList<>();
+                        try {
+                            deviceListDb = db.fetchAll(
+                                    "SELECT DISTINCT device_id FROM attendance WHERE emp_id=? AND DATE_FORMAT(punch_date, '%Y-%m') = ?",
+                                    eid, monthStr);
+                        } catch (Exception ignored) {}
+                        List<Integer> deviceIds = new ArrayList<>();
+                        for (Map<String, Object> dMap : deviceListDb) {
+                            deviceIds.add(dMap.get("device_id") != null ? (int) dMap.get("device_id") : 0);
+                        }
+                        if (deviceIds.isEmpty()) {
+                            deviceIds.add(0);
+                        }
+
                         List<Map<String, Object>> empLeaves = leaveMap.getOrDefault(eid, Collections.emptyList());
 
-                        for (int d = 1; d <= daysInMonth; d++) {
-                            LocalDate curr = ym.atDay(d);
-                            String dbDate = curr.toString();
-                            String status = empAttn.get(dbDate);
+                        for (int deviceId : deviceIds) {
+                            String deviceName = deviceNamesMap.getOrDefault(deviceId, deviceId == 0 ? "Manual/No Device" : "Unknown Device");
+                            String deviceLocation = deviceLocationsMap.getOrDefault(deviceId, deviceId == 0 ? "Not Assigned" : "Unknown Location");
+                            Map<String, Object> row = new LinkedHashMap<>(e);
+                            row.put("device_id", deviceId);
+                            row.put("device_name", deviceName);
+                            row.put("device_location", deviceLocation);
 
-                            if (status == null) {
-                                if (curr.isAfter(LocalDate.now())) {
-                                    status = ""; // Don't show status for future days
-                                } else {
-                                    // Check Day of Week for Weekly Off
-                                    String dayName = curr.getDayOfWeek().name(); // MONDAY, etc.
-                                    String off1 = String.valueOf(e.get("weekly_off1")).toUpperCase();
-                                    String off2 = String.valueOf(e.get("weekly_off2")).toUpperCase();
-
-                                    if (holidayMap.containsKey(dbDate)) {
-                                        String hName = holidayMap.get(dbDate);
-                                        status = hName.length() > 12 ? hName.substring(0, 12).toUpperCase() : hName.toUpperCase();
-                                    } else {
-                                        // Check Leaves
-                                        boolean onLeave = false;
-                                        for (Map<String, Object> l : empLeaves) {
-                                            LocalDate start = LocalDate.parse(String.valueOf(l.get("from_date")));
-                                            LocalDate end = LocalDate.parse(String.valueOf(l.get("to_date")));
-                                            if (!curr.isBefore(start) && !curr.isAfter(end)) {
-                                                onLeave = true; break;
-                                            }
-                                        }
-                                        if (onLeave) status = "LVE";
-                                        else if (dayName.equals(off1) || dayName.equals(off2)) status = dayName.substring(0, 3);
-                                        else status = "A";
-                                    }
+                            List<Map<String, Object>> att = db.fetchAll(
+                                    "SELECT punch_date, in_time, out_time, work_hours FROM attendance WHERE emp_id=? AND device_id=? AND DATE_FORMAT(punch_date, '%Y-%m') = ?",
+                                    eid, deviceId, monthStr);
+                            Map<String, Map<String, Object>> attendanceMap = new HashMap<>();
+                            for (Map<String, Object> a : att) {
+                                Object pd = a.get("punch_date");
+                                if (pd != null) {
+                                    attendanceMap.put(pd.toString(), a);
                                 }
                             }
-                            row.put("day_" + d, status);
+
+                            for (int d = 1; d <= daysInMonth; d++) {
+                                LocalDate curr = ym.atDay(d);
+                                String dbDate = curr.toString();
+                                Map<String, Object> cellData = attendanceMap.get(dbDate);
+                                String status = null;
+
+                                if (cellData != null) {
+                                    Object inVal = cellData.get("in_time");
+                                    Object outVal = cellData.get("out_time");
+                                    double hrs = DatabaseManager.dbl(cellData, "work_hours");
+                                    
+                                    String firstIn = inVal != null ? String.valueOf(inVal) : "";
+                                    String lastOut = outVal != null ? String.valueOf(outVal) : "";
+                                    
+                                    String tIn = firstIn.length() >= 16 ? firstIn.substring(11, 16) : (firstIn.length() >= 5 ? firstIn.substring(0, 5) : "--:--");
+                                    String tOut = lastOut.length() >= 16 ? lastOut.substring(11, 16) : (lastOut.length() >= 5 ? lastOut.substring(0, 5) : "--:--");
+                                    
+                                    if ("Attendance Summary (P/A)".equals(reportTypeCombo.getSelectedItem())) {
+                                        status = "P";
+                                    } else {
+                                        status = String.format("%s-%s (%s)", tIn, tOut, com.bhspl.util.AttendanceCalculator.formatDuration(hrs));
+                                    }
+                                }
+
+                                if (status == null) {
+                                    if (curr.isAfter(LocalDate.now())) {
+                                        status = "";
+                                    } else {
+                                        String dayName = curr.getDayOfWeek().name();
+                                        String off1 = String.valueOf(e.get("weekly_off1")).toUpperCase();
+                                        String off2 = String.valueOf(e.get("weekly_off2")).toUpperCase();
+
+                                        if (holidayMap.containsKey(dbDate)) {
+                                            String hName = holidayMap.get(dbDate);
+                                            status = hName.length() > 12 ? hName.substring(0, 12).toUpperCase() : hName.toUpperCase();
+                                        } else {
+                                            boolean onLeave = false;
+                                            for (Map<String, Object> l : empLeaves) {
+                                                LocalDate start = LocalDate.parse(String.valueOf(l.get("from_date")));
+                                                LocalDate end = LocalDate.parse(String.valueOf(l.get("to_date")));
+                                                if (!curr.isBefore(start) && !curr.isAfter(end)) {
+                                                    onLeave = true; break;
+                                                }
+                                            }
+                                            if (onLeave) status = "LVE";
+                                            else if (dayName.equals(off1) || dayName.equals(off2)) status = dayName.substring(0, 3);
+                                            else status = "A";
+                                        }
+                                    }
+                                }
+                                row.put("day_" + d, status);
+                            }
+                            result.add(row);
                         }
-                        result.add(row);
                     }
                     return result;
                 } else {
                     StringBuilder sql = new StringBuilder(
                             "SELECT e.emp_id, e.emp_name, e.department, e.shift, " +
                                     "s.start_time as sched_in, s.end_time as sched_out, " +
-                                    "DATE_FORMAT(MIN(a.in_time), '%H:%i') as in_time, " +
-                                    "DATE_FORMAT(MAX(a.out_time), '%H:%i') as out_time, " +
-                                    "SUM(a.work_hours) as work_hours, SUM(a.overtime) as overtime, " +
-                                    "SUM(a.late_mins) as late_mins, SUM(a.early_mins) as early_mins, " +
+                                    "DATE_FORMAT(a.in_time, '%H:%i') as in_time, " +
+                                    "DATE_FORMAT(a.out_time, '%H:%i') as out_time, " +
+                                    "a.work_hours, a.overtime, a.late_mins, a.early_mins, " +
                                     "COALESCE(" +
-                                    "  (CASE " +
-                                    "    WHEN SUM(CASE WHEN a.status='Half Day' THEN 1 ELSE 0 END) > 0 THEN 'Half Day' " +
-                                    "    WHEN SUM(CASE WHEN a.status='Late' THEN 1 ELSE 0 END) > 0 THEN 'Late' " +
-                                    "    WHEN SUM(CASE WHEN a.status='OD' OR a.status='On Duty' THEN 1 ELSE 0 END) > 0 THEN 'On Duty' " +
-                                    "    WHEN SUM(CASE WHEN a.status='Present' THEN 1 ELSE 0 END) > 0 THEN 'Present' " +
-                                    "    WHEN MAX(a.status) IS NOT NULL THEN MAX(a.status) " +
-                                    "  END), " +
+                                    "  a.status, " +
                                     "  (SELECT UPPER(leave_type) FROM leaves l WHERE l.emp_id = e.emp_id AND l.status='Approved' AND ? BETWEEN l.from_date AND l.to_date LIMIT 1), " +
                                     "  (SELECT UPPER(holiday_name) FROM holidays h WHERE h.holiday_date = ? LIMIT 1), " +
                                     "  (SELECT UPPER(CASE WHEN DAYNAME(?) = off_day1 THEN off_day1 ELSE off_day2 END) FROM weekly_offs w " +
@@ -514,25 +546,29 @@ public class ReportsPanel extends JPanel {
                                     "  (CASE WHEN DAYNAME(?) = s.weekly_off1 THEN UPPER(s.weekly_off1) WHEN DAYNAME(?) = s.weekly_off2 THEN UPPER(s.weekly_off2) END), " +
                                     "  'Absent' " +
                                     ") as status, " +
-                                    "GROUP_CONCAT(a.remarks SEPARATOR '; ') as remarks " +
+                                    "a.remarks, " +
+                                    "COALESCE(d.device_name, CASE WHEN a.in_time IS NOT NULL THEN 'Manual/No Device' ELSE '-' END) AS device_name, " +
+                                    "COALESCE(d.location, CASE WHEN a.in_time IS NOT NULL THEN 'Not Assigned' ELSE '-' END) AS device_location " +
                                     "FROM employees e " +
                                     "LEFT JOIN shifts s ON e.shift = s.shift_name " +
                                     "LEFT JOIN attendance a ON e.emp_id = a.emp_id AND a.punch_date = ? " +
+                                    "LEFT JOIN devices d ON a.device_id = d.device_id " +
                                     "WHERE e.status = 'Active' ");
-                    for (int i = 0; i < 10; i++) params.add(date);
-                    if (!"All".equals(dept)) { sql.append(" AND e.department = ? "); params.add(dept); }
-                    if (!"All".equals(emp)) { sql.append(" AND e.emp_name = ? "); params.add(emp); }
+                    List<Object> queryParams = new ArrayList<>();
+                    for (int i = 0; i < 9; i++) queryParams.add(date);
+                    queryParams.add(date);
+                    if (!"All".equals(dept)) { sql.append(" AND e.department = ? "); queryParams.add(dept); }
+                    if (!"All".equals(emp)) { sql.append(" AND e.emp_name = ? "); queryParams.add(emp); }
                     if (!"All".equals(statusFilter)) {
                         if ("Absent".equals(statusFilter)) {
                             sql.append(" AND (a.status = 'Absent' OR a.status IS NULL) ");
                         } else {
                             sql.append(" AND a.status = ? ");
-                            params.add(statusFilter);
+                            queryParams.add(statusFilter);
                         }
                     }
-                    sql.append(" GROUP BY e.emp_id, e.emp_name, e.department, e.shift, s.start_time, s.end_time ");
                     sql.append(" ORDER BY e.emp_name ASC");
-                    return db.fetchAll(sql.toString(), params.toArray());
+                    return db.fetchAll(sql.toString(), queryParams.toArray());
                 }
             }
 
@@ -560,15 +596,17 @@ public class ReportsPanel extends JPanel {
                                 days = YearMonth.parse(mStr).lengthOfMonth();
                             } catch(Exception ignored){}
                             
-                            Object[] rowData = new Object[3 + days];
-                            rowData[0] = r.get("emp_id");
-                            rowData[1] = r.get("emp_name");
-                            rowData[2] = r.get("designation");
-                            for (int i = 1; i <= days; i++) {
-                                rowData[2 + i] = r.get("day_" + i);
-                            }
-                            model.addRow(rowData);
-                            continue;
+                             Object[] rowData = new Object[5 + days];
+                             rowData[0] = r.get("emp_id");
+                             rowData[1] = r.get("emp_name");
+                             rowData[2] = r.get("device_name");
+                             rowData[3] = r.get("device_location");
+                             rowData[4] = r.get("designation");
+                             for (int i = 1; i <= days; i++) {
+                                 rowData[4 + i] = r.get("day_" + i);
+                             }
+                             model.addRow(rowData);
+                             continue;
                         }
 
                         // Daily Report
@@ -588,30 +626,32 @@ public class ReportsPanel extends JPanel {
                         int rawLate = DatabaseManager.num(r, "late_mins");
                         if (rawLate > 0) late++;
 
-                        String shortStatus = normalizeStatus(st);
-                        model.addRow(new Object[] {
-                                String.valueOf(r.get("emp_id")),
-                                String.valueOf(r.get("emp_name")),
-                                String.valueOf(r.get("department")),
-                                String.valueOf(r.get("shift")),
-                                String.valueOf(r.get("sched_in")),
-                                String.valueOf(r.get("in_time")),
-                                String.valueOf(r.get("out_time")),
-                                String.valueOf(r.get("sched_out")),
-                                com.bhspl.util.AttendanceCalculator.formatDuration(DatabaseManager.dbl(r, "work_hours")),
-                                com.bhspl.util.AttendanceCalculator.formatDuration(DatabaseManager.dbl(r, "overtime")),
-                                rawLate > 0 ? rawLate + "m" : "—",
-                                DatabaseManager.num(r, "early_mins") > 0 ? r.get("early_mins") + "m" : "—",
-                                shortStatus,
-                                String.valueOf(r.get("remarks"))
-                        });
+                         String shortStatus = normalizeStatus(st);
+                         model.addRow(new Object[] {
+                                 String.valueOf(r.get("emp_id")),
+                                 String.valueOf(r.get("emp_name")),
+                                 String.valueOf(r.get("device_name")),
+                                 String.valueOf(r.get("device_location")),
+                                 String.valueOf(r.get("department")),
+                                 String.valueOf(r.get("shift")),
+                                 String.valueOf(r.get("sched_in")),
+                                 String.valueOf(r.get("in_time")),
+                                 String.valueOf(r.get("out_time")),
+                                 String.valueOf(r.get("sched_out")),
+                                 com.bhspl.util.AttendanceCalculator.formatDuration(DatabaseManager.dbl(r, "work_hours")),
+                                 com.bhspl.util.AttendanceCalculator.formatDuration(DatabaseManager.dbl(r, "overtime")),
+                                 rawLate > 0 ? rawLate + "m" : "—",
+                                 DatabaseManager.num(r, "early_mins") > 0 ? r.get("early_mins") + "m" : "—",
+                                 shortStatus,
+                                 String.valueOf(r.get("remarks"))
+                         });
                     }
 
                     if ("Daily".equals(activeTab)) {
                         summaryLabel.setText(String.format("%s | Total: %d | P:%d A:%d HD:%d | Late:%d OT:%d",
                                 dateStr, data.size(), p, a, hd, late, ot));
                     } else if ("Monthly".equals(activeTab)) {
-                        summaryLabel.setText("Monthly Matrix: " + data.size() + " employees loaded for " + monthStr);
+                        summaryLabel.setText("Monthly Matrix: " + data.size() + " employee-device rows loaded for " + monthStr);
                     } else {
                         summaryLabel.setText("Leave Report: " + data.size() + " records found.");
                     }

@@ -125,15 +125,14 @@ public class AttendanceCalculator {
             try {
                 Object st = shift.get("start_time");
                 Object et = shift.get("end_time");
-                if (st != null && et != null) {
-                    schedIn = LocalTime.parse(st.toString().substring(0, 5));
-                    schedOut = LocalTime.parse(et.toString().substring(0, 5));
-                    
-                    grace = DatabaseManager.num(shift, "grace_mins");
-                    otThreshold = DatabaseManager.dbl(shift, "overtime_after");
-                    if (otThreshold <= 0) otThreshold = DatabaseManager.dbl(shift, "work_hours");
-                    if (otThreshold <= 0) otThreshold = 9.0;
-                }
+                
+                schedIn = parseLocalTime(st, schedIn);
+                schedOut = parseLocalTime(et, schedOut);
+                
+                grace = DatabaseManager.num(shift, "grace_mins");
+                otThreshold = DatabaseManager.dbl(shift, "overtime_after");
+                if (otThreshold <= 0) otThreshold = DatabaseManager.dbl(shift, "work_hours");
+                if (otThreshold <= 0) otThreshold = 9.0;
             } catch (Exception e) {
                 System.err.println("AttendanceCalculator: Shift parse error: " + e.getMessage());
             }
@@ -183,6 +182,36 @@ public class AttendanceCalculator {
         
         calculateShiftMetrics(m, shift);
         return m;
+    }
+
+    public static LocalTime parseLocalTime(Object val, LocalTime defaultTime) {
+        if (val == null) return defaultTime;
+        if (val instanceof java.sql.Time) {
+            return ((java.sql.Time) val).toLocalTime();
+        }
+        if (val instanceof java.time.LocalTime) {
+            return (java.time.LocalTime) val;
+        }
+        String s = val.toString().trim();
+        if (s.isEmpty()) return defaultTime;
+        try {
+            boolean isPm = s.toUpperCase().contains("PM");
+            boolean isAm = s.toUpperCase().contains("AM");
+            s = s.toUpperCase().replace("AM", "").replace("PM", "").trim();
+            
+            // Handle HH:mm:ss or HH:mm format
+            String[] parts = s.split(":");
+            if (parts.length >= 2) {
+                int hour = Integer.parseInt(parts[0]);
+                int min = Integer.parseInt(parts[1]);
+                if (isPm && hour < 12) hour += 12;
+                if (isAm && hour == 12) hour = 0;
+                return LocalTime.of(hour, min);
+            }
+        } catch (Exception e) {
+            System.err.println("Error parsing time '" + val + "': " + e.getMessage());
+        }
+        return defaultTime;
     }
 
     /**

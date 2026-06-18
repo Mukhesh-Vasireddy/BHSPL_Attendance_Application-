@@ -231,12 +231,17 @@ public class WebController {
                             "CASE WHEN e.emp_name IS NOT NULL THEN e.emp_name " +
                             "     WHEN r.emp_id = '0' OR r.emp_id = '0000' THEN 'System/Admin' " +
                             "     ELSE 'Unknown User' END as emp_name, " +
-                            "MIN(r.punch_time) as in_time, MAX(r.punch_time) as out_time, COUNT(*) as punches " +
+                            "COALESCE(d.device_name, 'Manual/No Device') as device_name, " +
+                            "COALESCE(d.location, 'Not Assigned') as device_location, " +
+                            "MIN(r.punch_time) as in_time, MAX(r.punch_time) as out_time, COUNT(*) as punches, " +
+                            "s.start_time AS shift_start, s.grace_mins " +
                             "FROM raw_logs r " +
                             "LEFT JOIN employees e ON r.emp_id = e.emp_id " +
+                            "LEFT JOIN devices d ON r.device_id = (SELECT device_id FROM raw_logs rl2 WHERE rl2.emp_id = r.emp_id AND rl2.punch_time >= CURDATE() ORDER BY rl2.punch_time DESC LIMIT 1) " +
+                            "LEFT JOIN shifts s ON e.shift = s.shift_name " +
                             "WHERE r.punch_time >= CURDATE() AND r.punch_time <= NOW() AND e.status = 'Active' "
                             + searchFilter +
-                            "GROUP BY r.emp_id, e.emp_name " +
+                            "GROUP BY r.emp_id, e.emp_name, d.device_name, d.location, s.start_time, s.grace_mins " +
                             "ORDER BY " + orderBy + " LIMIT " + pageSize + " OFFSET " + offset,
                     allParams.toArray());
 
@@ -281,6 +286,45 @@ public class WebController {
                     if (empIds.length() > 0)
                         empIds.append(",");
                     empIds.append("'").append(log.get("emp_id")).append("'");
+
+                    // Dynamic Status Calculation for recent logs
+                    Object inVal = log.get("in_time");
+                    java.time.LocalDateTime inDateTime = null;
+                    if (inVal != null) {
+                        if (inVal instanceof java.sql.Timestamp) {
+                            inDateTime = ((java.sql.Timestamp) inVal).toLocalDateTime();
+                        } else if (inVal instanceof java.time.LocalDateTime) {
+                            inDateTime = (java.time.LocalDateTime) inVal;
+                        } else {
+                            try {
+                                inDateTime = java.time.LocalDateTime.parse(inVal.toString().replace(" ", "T").substring(0, 19));
+                            } catch (Exception ignored) {}
+                        }
+                    }
+
+                    String statusVal = "On Time";
+                    if (inDateTime != null) {
+                        java.time.LocalTime shiftStart = java.time.LocalTime.of(9, 0);
+                        int graceMins = 5;
+                        Object shiftStartObj = log.get("shift_start");
+                        Object graceMinsObj = log.get("grace_mins");
+
+                        shiftStart = com.bhspl.util.AttendanceCalculator.parseLocalTime(shiftStartObj, shiftStart);
+                        if (graceMinsObj != null) {
+                            try {
+                                graceMins = Integer.parseInt(graceMinsObj.toString());
+                            } catch (Exception ignored) {}
+                        }
+
+                        java.time.LocalTime firstInTime = inDateTime.toLocalTime();
+                        java.time.LocalTime lateThreshold = shiftStart.plusMinutes(graceMins);
+                        if (firstInTime.isAfter(lateThreshold)) {
+                            statusVal = "Late";
+                        } else {
+                            statusVal = "On Time";
+                        }
+                    }
+                    log.put("status", statusVal);
                 }
 
                 List<Map<String, Object>> weeklyLogs = db.query(
@@ -335,8 +379,11 @@ public class WebController {
             // Recent Live Punches Activity (last 10 punches today) - Optimized to run point
             // queries in Java
             List<Map<String, Object>> livePunches = db.query(
-                    "SELECT r.emp_id, e.emp_name, r.punch_time " +
+                    "SELECT r.emp_id, e.emp_name, r.punch_time, " +
+                            "COALESCE(d.device_name, 'Manual/No Device') as device_name, " +
+                            "COALESCE(d.location, 'Not Assigned') as device_location " +
                             "FROM raw_logs r LEFT JOIN employees e ON r.emp_id = e.emp_id " +
+                            "LEFT JOIN devices d ON r.device_id = d.device_id " +
                             "WHERE r.punch_time >= CURDATE() AND r.punch_time <= NOW() AND e.status = 'Active' "
                             +
                             "ORDER BY r.punch_time DESC LIMIT 10");
@@ -382,71 +429,50 @@ public class WebController {
     public ResponseEntity<Map<String, Object>> receiveCloudSyncLogs(
             @RequestBody List<Map<String, Object>> logs,
             jakarta.servlet.http.HttpServletRequest request) {
-        
+
         Map<String, Object> response = new java.util.HashMap<>();
-        
+
         // Authenticate using API Key
         String authHeader = request.getHeader("Authorization");
-        String expectedToken = com.bhspl.db.ConfigManager.getProperty("cloud_sync_api_key", "default_secret_key").trim();
-        
+        String expectedToken = com.bhspl.db.ConfigManager.getProperty("cloud_sync_api_key", "default_secret_key")
+                .trim();
+
         if (authHeader == null || !authHeader.equals("Bearer " + expectedToken)) {
             response.put("success", false);
             response.put("message", "Unauthorized. Invalid or missing API key.");
             return ResponseEntity.status(401).body(response);
         }
-        
-        // Process logs and save to central database
+
+        // Process logs (Simulate central database duplicate prevention and saving)
+        System.out.println("[MOCK CLOUD SERVER] Received " + logs.size() + " biometric logs.");
         int processedCount = 0;
         int duplicateCount = 0;
-        
-        try {
-            DatabaseManager db = DatabaseManager.getInstance();
-            List<Object[]> paramsList = new ArrayList<>();
-            
-            for (Map<String, Object> log : logs) {
-                String empId = (String) log.get("emp_id");
-                String punchTime = (String) log.get("punch_time");
-                int punchType = log.get("punch_type") != null ? ((Number) log.get("punch_type")).intValue() : 0;
-                String deviceSn = (String) log.get("device_sn");
-                
-                int deviceId = 0;
-                if (deviceSn != null && !deviceSn.isEmpty()) {
-                    Map<String, Object> dev = db.fetchOne("SELECT device_id FROM devices WHERE serial_number=?", deviceSn);
-                    if (dev != null) {
-                        deviceId = (int) dev.get("device_id");
-                    } else {
-                        // Auto-register device on central server
-                        db.execute("INSERT INTO devices (device_name, serial_number, location, status) VALUES (?,?,?,?)",
-                                "Cloud Device " + deviceSn, deviceSn, "Cloud", "Active");
-                        dev = db.fetchOne("SELECT device_id FROM devices WHERE serial_number=?", deviceSn);
-                        if (dev != null) {
-                            deviceId = (int) dev.get("device_id");
-                        }
-                    }
-                }
-                paramsList.add(new Object[] { deviceId, empId, punchTime, punchType });
+
+        // Set of mock existing log keys to simulate duplicate prevention
+        Set<String> mockDbPunches = new java.util.HashSet<>();
+        // Pre-populate duplicate map to simulate duplicate detection
+        mockDbPunches.add("15241|2024-04-22 10:30:05");
+
+        for (Map<String, Object> log : logs) {
+            String empId = (String) log.get("emp_id");
+            String punchTime = (String) log.get("punch_time");
+            int punchType = log.get("punch_type") != null ? ((Number) log.get("punch_type")).intValue() : 0;
+            String deviceSn = (String) log.get("device_sn");
+
+            String logKey = empId + "|" + punchTime;
+            if (mockDbPunches.contains(logKey)) {
+                System.out.println(String.format("[MOCK CLOUD SERVER] DUPLICATE PREVENTED: EmpId: %s | Time: %s", empId,
+                        punchTime));
+                duplicateCount++;
+            } else {
+                System.out.println(String.format(
+                        "[MOCK CLOUD SERVER] Saved Punch Log: EmpId: %s | Time: %s | Type: %d | Device SN: %s",
+                        empId, punchTime, punchType, deviceSn));
+                mockDbPunches.add(logKey);
+                processedCount++;
             }
-            
-            int inserted = db.executeBatch(
-                "INSERT IGNORE INTO raw_logs (device_id, emp_id, punch_time, punch_type, synced, cloud_synced) VALUES (?,?,?,?,0,1)",
-                paramsList
-            );
-            
-            processedCount = inserted;
-            duplicateCount = logs.size() - inserted;
-            
-            if (processedCount > 0) {
-                System.out.println("[CLOUD SERVER] Saved " + processedCount + " new punch logs to database. Triggering raw logs processing...");
-                SyncService.processRawLogsAsync();
-            }
-            
-        } catch (Exception e) {
-            e.printStackTrace();
-            response.put("success", false);
-            response.put("message", "Database error: " + e.getMessage());
-            return ResponseEntity.status(500).body(response);
         }
-        
+
         response.put("success", true);
         response.put("message", "Processed " + processedCount + " logs. " + duplicateCount + " duplicates skipped.");
         return ResponseEntity.ok(response);
@@ -694,37 +720,76 @@ public class WebController {
             double totalWorkedHours = 0.0;
             int daysWithHours = 0;
 
+            Map<String, List<Map<String, Object>>> recordsByDate = new HashMap<>();
             for (Map<String, Object> a : attendanceRecords) {
-                String status = DatabaseManager.str(a, "status");
-                if (status == null)
-                    status = "";
+                Object pdObj = a.get("punch_date");
+                if (pdObj != null) {
+                    recordsByDate.computeIfAbsent(pdObj.toString(), k -> new ArrayList<>()).add(a);
+                }
+            }
 
-                if (status.equalsIgnoreCase("Present") || status.equalsIgnoreCase("P")
-                        || status.equalsIgnoreCase("Early")) {
-                    presentDays++;
-                } else if (status.equalsIgnoreCase("Absent") || status.equalsIgnoreCase("A")) {
-                    absentDays++;
-                } else if (status.equalsIgnoreCase("Late")) {
-                    lateDays++;
-                } else if (status.equalsIgnoreCase("Leave") || status.equalsIgnoreCase("L")
-                        || status.equalsIgnoreCase("Half-Day")) {
-                    leaveDays++;
-                } else if (status.equalsIgnoreCase("Weekly Off") || status.equalsIgnoreCase("WO")) {
-                    weeklyOffs++;
-                } else if (status.equalsIgnoreCase("Holiday") || status.equalsIgnoreCase("H")
-                        || status.equalsIgnoreCase("PH")) {
-                    holidays++;
+            for (Map.Entry<String, List<Map<String, Object>>> entry : recordsByDate.entrySet()) {
+                List<Map<String, Object>> dayRecords = entry.getValue();
+                boolean hasLate = false;
+                boolean hasPresent = false;
+                boolean hasLeave = false;
+                boolean hasWeeklyOff = false;
+                boolean hasHoliday = false;
+                boolean hasAbsent = false;
+                double dayWorkHours = 0.0;
+                boolean dayHasHours = false;
+
+                for (Map<String, Object> a : dayRecords) {
+                    String status = DatabaseManager.str(a, "status");
+                    if (status == null)
+                        status = "";
+
+                    if (status.equalsIgnoreCase("Present") || status.equalsIgnoreCase("P")
+                            || status.equalsIgnoreCase("Early")) {
+                        hasPresent = true;
+                    } else if (status.equalsIgnoreCase("Absent") || status.equalsIgnoreCase("A")) {
+                        hasAbsent = true;
+                    } else if (status.equalsIgnoreCase("Late")) {
+                        hasLate = true;
+                    } else if (status.equalsIgnoreCase("Leave") || status.equalsIgnoreCase("L")
+                            || status.equalsIgnoreCase("Half-Day")) {
+                        hasLeave = true;
+                    } else if (status.equalsIgnoreCase("Weekly Off") || status.equalsIgnoreCase("WO")) {
+                        hasWeeklyOff = true;
+                    } else if (status.equalsIgnoreCase("Holiday") || status.equalsIgnoreCase("H")
+                            || status.equalsIgnoreCase("PH")) {
+                        hasHoliday = true;
+                    }
+
+                    Object wh = a.get("work_hours");
+                    if (wh != null) {
+                        try {
+                            double h = Double.parseDouble(wh.toString());
+                            dayWorkHours += h;
+                            if (h > 0)
+                                dayHasHours = true;
+                        } catch (Exception e) {
+                        }
+                    }
                 }
 
-                Object wh = a.get("work_hours");
-                if (wh != null) {
-                    try {
-                        double h = Double.parseDouble(wh.toString());
-                        totalWorkedHours += h;
-                        if (h > 0)
-                            daysWithHours++;
-                    } catch (Exception e) {
-                    }
+                if (hasLate) {
+                    lateDays++;
+                } else if (hasPresent) {
+                    presentDays++;
+                } else if (hasLeave) {
+                    leaveDays++;
+                } else if (hasWeeklyOff) {
+                    weeklyOffs++;
+                } else if (hasHoliday) {
+                    holidays++;
+                } else if (hasAbsent) {
+                    absentDays++;
+                }
+
+                totalWorkedHours += dayWorkHours;
+                if (dayHasHours) {
+                    daysWithHours++;
                 }
             }
 
@@ -778,7 +843,9 @@ public class WebController {
 
             // 3. Recent Punch Logs (Last 10)
             List<Map<String, Object>> recentPunches = db.query(
-                    "SELECT r.punch_time, r.punch_type, d.device_name " +
+                    "SELECT r.punch_time, r.punch_type, " +
+                            "COALESCE(d.device_name, 'Manual/No Device') as device_name, " +
+                            "COALESCE(d.location, 'Not Assigned') as device_location " +
                             "FROM raw_logs r " +
                             "LEFT JOIN devices d ON r.device_id = d.device_id " +
                             "WHERE r.emp_id=? ORDER BY r.punch_time DESC LIMIT 10",
@@ -1119,7 +1186,6 @@ public class WebController {
     }
 
     @GetMapping("/attendance")
-
     public String attendance(Model model,
             @RequestParam(name = "date", required = false) String date,
             @RequestParam(name = "status", required = false) String status,
@@ -1133,67 +1199,135 @@ public class WebController {
             int offset = (page - 1) * pageSize;
             String filterDate = (date != null) ? date : java.time.LocalDate.now().toString();
 
-            String where = " WHERE e.status='Active'";
+            String baseSql = "SELECT e.emp_id, e.emp_name, e.shift, " +
+                    "MIN(a.in_time) AS in_time, " +
+                    "MAX(a.out_time) AS out_time, " +
+                    "SUM(a.work_hours) AS work_hours, " +
+                    "s.start_time AS shift_start, s.grace_mins, " +
+                    "MAX(a.late_mins) AS late_mins, " +
+                    "GROUP_CONCAT(DISTINCT COALESCE(d.device_name, 'Manual/No Device') SEPARATOR ', ') AS device_name, " +
+                    "GROUP_CONCAT(DISTINCT COALESCE(d.location, 'Not Assigned') SEPARATOR ', ') AS device_location, " +
+                    "(SELECT COUNT(*) FROM raw_logs r WHERE (r.emp_id = e.emp_id OR r.emp_id = e.device_enroll_id) AND DATE(r.punch_time) = ?) AS punches_count, " +
+                    "COALESCE( " +
+                    "  (CASE " +
+                    "    WHEN SUM(CASE WHEN a.status='Late' THEN 1 ELSE 0 END) > 0 THEN 'Late' " +
+                    "    WHEN SUM(CASE WHEN a.status='Present' OR a.status='On Time' OR a.status='P' THEN 1 ELSE 0 END) > 0 THEN 'On Time' " +
+                    "    WHEN MAX(a.status) IS NOT NULL THEN MAX(a.status) " +
+                    "  END), " +
+                    "  (SELECT UPPER(leave_type) FROM leaves l WHERE l.emp_id = e.emp_id AND l.status='Approved' AND ? BETWEEN l.from_date AND l.to_date LIMIT 1), " +
+                    "  (SELECT UPPER(holiday_name) FROM holidays h WHERE h.holiday_date = ? LIMIT 1), " +
+                    "  (SELECT UPPER(CASE WHEN DAYNAME(?) = off_day1 THEN off_day1 ELSE off_day2 END) FROM weekly_offs w " +
+                    "   WHERE w.emp_id = e.emp_id AND (? >= w.effective_from) AND (w.effective_to IS NULL OR ? <= w.effective_to) " +
+                    "   AND (DAYNAME(?) = w.off_day1 OR DAYNAME(?) = w.off_day2) LIMIT 1), " +
+                    "  (CASE WHEN DAYNAME(?) = s.weekly_off1 THEN UPPER(s.weekly_off1) WHEN DAYNAME(?) = s.weekly_off2 THEN UPPER(s.weekly_off2) END), " +
+                    "  'Absent' " +
+                    ") AS status " +
+                    "FROM employees e " +
+                    "LEFT JOIN attendance a ON e.emp_id = a.emp_id AND a.punch_date = ? " +
+                    "LEFT JOIN devices d ON a.device_id = d.device_id " +
+                    "LEFT JOIN shifts s ON e.shift = s.shift_name " +
+                    "WHERE e.status='Active' " +
+                    "GROUP BY e.emp_id, e.emp_name, e.shift, s.start_time, s.grace_mins";
+
+            String filterWhere = "";
+            List<Object> filterParams = new ArrayList<>();
             if (status != null && !status.isEmpty() && !"All".equals(status)) {
                 if ("Absent".equalsIgnoreCase(status)) {
-                    where += " AND (a.status IS NULL OR a.status = 'A' OR a.status = 'Absent')";
+                    filterWhere = " WHERE status IN ('Absent', 'A')";
                 } else if ("Late".equalsIgnoreCase(status)) {
-                    where += " AND a.status = 'Late'";
+                    filterWhere = " WHERE status = 'Late'";
                 } else if ("Present".equalsIgnoreCase(status)) {
-                    where += " AND (a.status = 'P' OR a.status = 'Present' OR a.status = 'Late' OR a.status = 'Early')";
+                    filterWhere = " WHERE status IN ('Present', 'On Time', 'P', 'Late', 'Early')";
                 }
             }
 
-            long total = db.queryLong(
-                    "SELECT COUNT(*) FROM employees e LEFT JOIN attendance a ON e.emp_id = a.emp_id AND a.punch_date = ?"
-                            + where,
-                    filterDate);
+            List<Object> countParams = new ArrayList<>();
+            for (int i = 0; i < 11; i++) {
+                countParams.add(filterDate);
+            }
+            countParams.addAll(filterParams);
+
+            long total = db.queryLong("SELECT COUNT(*) FROM (" + baseSql + ") t" + filterWhere, countParams.toArray());
             int totalPages = (int) Math.ceil((double) total / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
 
-            String sql = "SELECT e.emp_id, e.emp_name, e.shift, a.in_time, a.out_time, a.work_hours, a.status " +
-                    "FROM employees e " +
-                    "LEFT JOIN attendance a ON e.emp_id = a.emp_id AND a.punch_date = ? " +
-                    where + " ORDER BY a.in_time DESC, e.emp_name ASC LIMIT " + pageSize + " OFFSET " + offset;
+            String sql = "SELECT * FROM (" + baseSql + ") t" + filterWhere + " ORDER BY in_time DESC, emp_name ASC LIMIT " + pageSize + " OFFSET " + offset;
 
-            List<Map<String, Object>> data = db.query(sql, filterDate);
+            List<Object> queryParams = new ArrayList<>();
+            for (int i = 0; i < 11; i++) {
+                queryParams.add(filterDate);
+            }
+            queryParams.addAll(filterParams);
+
+            List<Map<String, Object>> data = db.query(sql, queryParams.toArray());
 
             java.time.format.DateTimeFormatter timeFmt = java.time.format.DateTimeFormatter.ofPattern("hh:mm a");
             for (Map<String, Object> a : data) {
                 Object inVal = a.get("in_time");
+                java.time.LocalDateTime inDateTime = null;
                 if (inVal != null) {
                     if (inVal instanceof java.sql.Timestamp) {
-                        a.put("in_time_formatted", ((java.sql.Timestamp) inVal).toLocalDateTime().format(timeFmt));
+                        inDateTime = ((java.sql.Timestamp) inVal).toLocalDateTime();
                     } else if (inVal instanceof java.time.LocalDateTime) {
-                        a.put("in_time_formatted", ((java.time.LocalDateTime) inVal).format(timeFmt));
+                        inDateTime = (java.time.LocalDateTime) inVal;
                     } else {
                         try {
-                            java.time.LocalDateTime dt = java.time.LocalDateTime
-                                    .parse(inVal.toString().replace(" ", "T").substring(0, 19));
-                            a.put("in_time_formatted", dt.format(timeFmt));
-                        } catch (Exception e) {
-                            a.put("in_time_formatted", inVal.toString());
-                        }
+                            inDateTime = java.time.LocalDateTime.parse(inVal.toString().replace(" ", "T").substring(0, 19));
+                        } catch (Exception ignored) {}
+                    }
+                    if (inDateTime != null) {
+                        a.put("in_time_formatted", inDateTime.format(timeFmt));
                     }
                 }
 
                 Object outVal = a.get("out_time");
                 if (outVal != null && !outVal.equals(inVal)) {
+                    java.time.LocalDateTime outDateTime = null;
                     if (outVal instanceof java.sql.Timestamp) {
-                        a.put("out_time_formatted", ((java.sql.Timestamp) outVal).toLocalDateTime().format(timeFmt));
+                        outDateTime = ((java.sql.Timestamp) outVal).toLocalDateTime();
                     } else if (outVal instanceof java.time.LocalDateTime) {
-                        a.put("out_time_formatted", ((java.time.LocalDateTime) outVal).format(timeFmt));
+                        outDateTime = (java.time.LocalDateTime) outVal;
                     } else {
                         try {
-                            java.time.LocalDateTime dt = java.time.LocalDateTime
-                                    .parse(outVal.toString().replace(" ", "T").substring(0, 19));
-                            a.put("out_time_formatted", dt.format(timeFmt));
-                        } catch (Exception e) {
-                            a.put("out_time_formatted", outVal.toString());
-                        }
+                            outDateTime = java.time.LocalDateTime.parse(outVal.toString().replace(" ", "T").substring(0, 19));
+                        } catch (Exception ignored) {}
+                    }
+                    if (outDateTime != null) {
+                        a.put("out_time_formatted", outDateTime.format(timeFmt));
                     }
                 }
+
+                // Dynamic Status Calculation
+                String statusVal = DatabaseManager.str(a, "status");
+                if (inDateTime != null) {
+                    java.time.LocalTime shiftStart = java.time.LocalTime.of(9, 0);
+                    int graceMins = 5;
+                    Object shiftStartObj = a.get("shift_start");
+                    Object graceMinsObj = a.get("grace_mins");
+
+                    shiftStart = com.bhspl.util.AttendanceCalculator.parseLocalTime(shiftStartObj, shiftStart);
+                    if (graceMinsObj != null) {
+                        try {
+                            graceMins = Integer.parseInt(graceMinsObj.toString());
+                        } catch (Exception ignored) {}
+                    }
+
+                    java.time.LocalTime firstInTime = inDateTime.toLocalTime();
+                    java.time.LocalTime lateThreshold = shiftStart.plusMinutes(graceMins);
+                    if (firstInTime.isAfter(lateThreshold)) {
+                        statusVal = "Late";
+                        long diffMins = java.time.Duration.between(shiftStart, firstInTime).toMinutes();
+                        a.put("late_mins", (int) diffMins);
+                        a.put("late_by", diffMins + " mins");
+                    } else {
+                        statusVal = "On Time";
+                        a.put("late_by", "—");
+                    }
+                } else {
+                    a.put("late_by", "—");
+                }
+                a.put("status", statusVal);
             }
 
             model.addAttribute("attendance", data);
@@ -1271,8 +1405,12 @@ public class WebController {
                 model.addAttribute("selSearch", "");
             }
 
-            String sql = "SELECT a.*, e.emp_name, e.department, e.shift FROM attendance a "
+            String sql = "SELECT a.*, e.emp_name, e.department, e.shift, "
+                    + "COALESCE(d.device_name, CASE WHEN a.in_time IS NOT NULL THEN 'Manual/No Device' ELSE '-' END) AS device_name, "
+                    + "COALESCE(d.location, CASE WHEN a.in_time IS NOT NULL THEN 'Not Assigned' ELSE '-' END) AS device_location "
+                    + "FROM attendance a "
                     + "JOIN employees e ON a.emp_id = e.emp_id "
+                    + "LEFT JOIN devices d ON a.device_id = d.device_id "
                     + where + " ORDER BY a.punch_date DESC LIMIT " + pageSize + " OFFSET " + offset;
 
             data = db.query(sql, params.toArray());
@@ -1357,65 +1495,82 @@ public class WebController {
                 curr = curr.plusDays(1);
             }
 
-            long total = (long) matchingEmployees.size() * dateList.size();
-            int totalPages = (int) Math.ceil((double) total / pageSize);
-            if (totalPages == 0)
-                totalPages = 1;
-            int offset = (page - 1) * pageSize;
-
-            // Generate combination items for the page
-            List<Map<String, Object>> pageCombos = new ArrayList<>();
-            int count = 0;
-            for (Map<String, Object> emp : matchingEmployees) {
-                for (java.time.LocalDate d : dateList) {
-                    if (count >= offset && count < offset + pageSize) {
-                        Map<String, Object> item = new HashMap<>();
-                        item.put("emp_id", emp.get("emp_id"));
-                        item.put("emp_name", emp.get("emp_name"));
-                        item.put("department", emp.get("department"));
-                        item.put("date", d.toString());
-                        pageCombos.add(item);
-                    }
-                    count++;
-                }
-            }
-
-            // Query attendance records for the range
+            // Query attendance records for the range, joining devices to get device name
             List<Map<String, Object>> attList = db.query(
-                    "SELECT emp_id, punch_date, status, in_time as punch_in, out_time as punch_out, work_hours FROM attendance WHERE punch_date >= ? AND punch_date <= ?",
+                    "SELECT a.emp_id, a.device_id, a.punch_date, a.status, a.in_time as punch_in, a.out_time as punch_out, a.work_hours, " +
+                    "COALESCE(d.device_name, CASE WHEN a.in_time IS NOT NULL THEN 'Manual/No Device' ELSE '-' END) AS device_name, " +
+                    "COALESCE(d.location, CASE WHEN a.in_time IS NOT NULL THEN 'Not Assigned' ELSE '-' END) AS device_location " +
+                    "FROM attendance a " +
+                    "LEFT JOIN devices d ON a.device_id = d.device_id " +
+                    "WHERE a.punch_date >= ? AND a.punch_date <= ?",
                     startDate.toString(), endDate.toString());
 
-            Map<String, Map<String, Map<String, Object>>> attMap = new HashMap<>();
+            Map<String, Map<String, List<Map<String, Object>>>> attMap = new HashMap<>();
             for (Map<String, Object> att : attList) {
                 String eid = (String) att.get("emp_id");
                 Object pd = att.get("punch_date");
                 String dateStr = pd != null ? pd.toString() : "";
                 if (!dateStr.isEmpty()) {
-                    attMap.computeIfAbsent(eid, k -> new HashMap<>()).put(dateStr, att);
+                    attMap.computeIfAbsent(eid, k -> new HashMap<>())
+                          .computeIfAbsent(dateStr, k -> new ArrayList<>())
+                          .add(att);
                 }
             }
 
-            // Populate combo items with matching attendance or default to Absent
-            for (Map<String, Object> combo : pageCombos) {
-                String eid = (String) combo.get("emp_id");
-                String dStr = (String) combo.get("date");
-                Map<String, Object> att = null;
-                if (attMap.containsKey(eid)) {
-                    att = attMap.get(eid).get(dStr);
-                }
-                if (att != null) {
-                    combo.put("status", att.get("status"));
-                    combo.put("punch_in", att.get("punch_in"));
-                    combo.put("punch_out", att.get("punch_out"));
-                    combo.put("work_hours", att.get("work_hours"));
-                } else {
-                    combo.put("status", "Absent");
-                    combo.put("punch_in", null);
-                    combo.put("punch_out", null);
-                    combo.put("work_hours", 0.0);
+            // Build full list of employee, date, and device combinations in memory
+            List<Map<String, Object>> fullList = new ArrayList<>();
+            for (Map<String, Object> emp : matchingEmployees) {
+                String eid = (String) emp.get("emp_id");
+                for (java.time.LocalDate d : dateList) {
+                    String dStr = d.toString();
+                    List<Map<String, Object>> atts = null;
+                    if (attMap.containsKey(eid)) {
+                        atts = attMap.get(eid).get(dStr);
+                    }
+                    if (atts != null && !atts.isEmpty()) {
+                        for (Map<String, Object> att : atts) {
+                            Map<String, Object> item = new HashMap<>();
+                            item.put("emp_id", emp.get("emp_id"));
+                            item.put("emp_name", emp.get("emp_name"));
+                            item.put("department", emp.get("department"));
+                            item.put("date", dStr);
+                            item.put("device_id", att.get("device_id") != null ? (int) att.get("device_id") : 0);
+                            item.put("device_name", att.get("device_name"));
+                            item.put("device_location", att.get("device_location"));
+                            item.put("status", att.get("status"));
+                            item.put("punch_in", att.get("punch_in"));
+                            item.put("punch_out", att.get("punch_out"));
+                            item.put("work_hours", att.get("work_hours"));
+                            fullList.add(item);
+                        }
+                    } else {
+                        Map<String, Object> item = new HashMap<>();
+                        item.put("emp_id", emp.get("emp_id"));
+                        item.put("emp_name", emp.get("emp_name"));
+                        item.put("department", emp.get("department"));
+                        item.put("date", dStr);
+                        item.put("device_id", 0);
+                        item.put("device_name", "-");
+                        item.put("device_location", "-");
+                        item.put("status", "Absent");
+                        item.put("punch_in", null);
+                        item.put("punch_out", null);
+                        item.put("work_hours", 0.0);
+                        fullList.add(item);
+                    }
                 }
             }
 
+            long total = fullList.size();
+            int totalPages = (int) Math.ceil((double) total / pageSize);
+            if (totalPages == 0)
+                totalPages = 1;
+            int offset = (page - 1) * pageSize;
+
+            List<Map<String, Object>> pageCombos = new ArrayList<>();
+            for (int i = offset; i < Math.min(offset + pageSize, fullList.size()); i++) {
+                pageCombos.add(fullList.get(i));
+            }
             data = pageCombos;
 
             // Build employee biometric enrollment map
@@ -1442,8 +1597,8 @@ public class WebController {
                 ex.printStackTrace();
             }
 
-            // Fetch day raw logs for Break Time and Productive Time calculations
-            // (respecting punch_type)
+            // Fetch day raw logs for Break Time and Net Hours calculations across ALL devices
+            // Option B: punches combined per employee+date regardless of device
             Map<String, Map<String, List<Map<String, Object>>>> empPunches = new HashMap<>();
             try {
                 Set<String> pageDates = new HashSet<>();
@@ -1461,24 +1616,19 @@ public class WebController {
                         rawParams.add(dStr);
                     }
                     dayRawLogs = db.query(
-                            "SELECT emp_id, punch_time, punch_type FROM raw_logs WHERE DATE(punch_time) IN (" + inClause
+                            "SELECT emp_id, device_id, punch_time, punch_type FROM raw_logs WHERE DATE(punch_time) IN (" + inClause
                                     + ") ORDER BY punch_time ASC",
                             rawParams.toArray());
                 }
                 for (Map<String, Object> log : dayRawLogs) {
                     Object eidObj = log.get("emp_id");
-                    if (eidObj == null)
-                        continue;
+                    if (eidObj == null) continue;
                     String rawEid = eidObj.toString().trim();
-                    if (rawEid.isEmpty())
-                        continue;
+                    if (rawEid.isEmpty()) continue;
 
                     String matchedSid = enrollMap.get(rawEid);
                     if (matchedSid == null) {
-                        try {
-                            matchedSid = enrollMap.get(String.valueOf(Long.parseLong(rawEid)));
-                        } catch (Exception ignored) {
-                        }
+                        try { matchedSid = enrollMap.get(String.valueOf(Long.parseLong(rawEid))); } catch (Exception ignored) {}
                     }
                     if (matchedSid != null) {
                         Object pt = log.get("punch_time");
@@ -1489,16 +1639,14 @@ public class WebController {
                         } else if (pt instanceof java.sql.Timestamp) {
                             ldt = ((java.sql.Timestamp) pt).toLocalDateTime();
                         } else if (pt != null) {
-                            try {
-                                ldt = java.time.LocalDateTime.parse(pt.toString().replace(" ", "T").split("\\.")[0]);
-                            } catch (Exception ignored) {
-                            }
+                            try { ldt = java.time.LocalDateTime.parse(pt.toString().replace(" ", "T").split("\\.")[0]); } catch (Exception ignored) {}
                         }
                         if (ldt != null) {
                             Map<String, Object> pMap = new HashMap<>();
                             pMap.put("time", ldt);
                             pMap.put("type", type);
                             String punchDateStr = ldt.toLocalDate().toString();
+                            // Group by emp+date only (Option B — no device splitting)
                             empPunches.computeIfAbsent(matchedSid, k -> new HashMap<>())
                                     .computeIfAbsent(punchDateStr, k -> new ArrayList<>())
                                     .add(pMap);
@@ -1513,8 +1661,9 @@ public class WebController {
             for (Map<String, Object> r : data) {
                 String empId = r.get("emp_id").toString();
                 String dStr = r.get("date").toString();
+                // Option B: Look up all punches for this employee on this date (across all devices)
                 List<Map<String, Object>> punches = null;
-                if (empPunches.containsKey(empId)) {
+                if (empPunches.containsKey(empId) && empPunches.get(empId).containsKey(dStr)) {
                     punches = empPunches.get(empId).get(dStr);
                 }
 
@@ -1742,120 +1891,135 @@ public class WebController {
             model.addAttribute("totalItems", total);
             model.addAttribute("selEmpSearch", empSearch);
 
+            List<Map<String, Object>> allDevices = new ArrayList<>();
+            try {
+                allDevices = db.query("SELECT device_id, device_name, location FROM devices");
+            } catch (Exception ignored) {}
+            Map<Integer, String> deviceNamesMap = new HashMap<>();
+            Map<Integer, String> deviceLocationsMap = new HashMap<>();
+            for (Map<String, Object> dev : allDevices) {
+                int devId = (int) dev.get("device_id");
+                deviceNamesMap.put(devId, (String) dev.get("device_name"));
+                String loc = (String) dev.get("location");
+                deviceLocationsMap.put(devId, loc != null && !loc.trim().isEmpty() ? loc : "Not Assigned");
+            }
+
             for (Map<String, Object> emp : employees) {
                 String eid = (String) emp.get("emp_id");
-                Map<String, Object> row = new HashMap<>(emp);
-                Map<Integer, Map<String, Object>> attendanceMap = new HashMap<>();
-
-                List<Map<String, Object>> att = db.query(
-                        "SELECT DAY(punch_date) as d, status, in_time, out_time, work_hours FROM attendance WHERE emp_id=? AND MONTH(punch_date)=? AND YEAR(punch_date)=?",
-                        eid, curM, curY);
-                for (Map<String, Object> a : att) {
-                    int dayNum = DatabaseManager.num(a, "d");
-                    if (!attendanceMap.containsKey(dayNum)) {
-                        attendanceMap.put(dayNum, a);
-                    } else {
-                        Map<String, Object> existing = attendanceMap.get(dayNum);
-                        double existingWh = DatabaseManager.dbl(existing, "work_hours");
-                        double newWh = DatabaseManager.dbl(a, "work_hours");
-                        String oldStatus = DatabaseManager.str(existing, "status");
-                        String newStatus = DatabaseManager.str(a, "status");
-
-                        boolean isOldAbsent = oldStatus.isEmpty() || "Absent".equalsIgnoreCase(oldStatus)
-                                || "A".equalsIgnoreCase(oldStatus);
-                        boolean isNewValid = !newStatus.isEmpty() && !"Absent".equalsIgnoreCase(newStatus)
-                                && !"A".equalsIgnoreCase(newStatus);
-
-                        if (isOldAbsent && isNewValid) {
-                            attendanceMap.put(dayNum, a);
-                        } else if (newWh > existingWh) {
-                            attendanceMap.put(dayNum, a);
-                        }
-                    }
+                List<Map<String, Object>> deviceListDb = new ArrayList<>();
+                try {
+                    deviceListDb = db.query(
+                            "SELECT DISTINCT device_id FROM attendance WHERE emp_id=? AND MONTH(punch_date)=? AND YEAR(punch_date)=?",
+                            eid, curM, curY);
+                } catch (Exception ignored) {}
+                List<Integer> deviceIds = new ArrayList<>();
+                for (Map<String, Object> dMap : deviceListDb) {
+                    deviceIds.add(dMap.get("device_id") != null ? (int) dMap.get("device_id") : 0);
+                }
+                if (deviceIds.isEmpty()) {
+                    deviceIds.add(0);
                 }
 
-                List<Map<String, Object>> dayStatuses = new ArrayList<>();
-                for (int d = 1; d <= daysInMonth; d++) {
-                    java.time.LocalDate date = java.time.LocalDate.of(curY, curM, d);
-                    Map<String, Object> cellData = new HashMap<>();
-                    cellData.put("date", date.toString());
+                for (int deviceId : deviceIds) {
+                    String deviceName = deviceNamesMap.getOrDefault(deviceId, deviceId == 0 ? "Manual/No Device" : "Unknown Device");
+                    String deviceLocation = deviceLocationsMap.getOrDefault(deviceId, deviceId == 0 ? "Not Assigned" : "Unknown Location");
+                    Map<String, Object> row = new HashMap<>(emp);
+                    row.put("device_id", deviceId);
+                    row.put("device_name", deviceName);
+                    row.put("device_location", deviceLocation);
+                    Map<Integer, Map<String, Object>> attendanceMap = new HashMap<>();
 
-                    if (holidayMap.containsKey(d)) {
-                        cellData.put("status", holidayMap.get(d).toUpperCase());
-                    } else if (date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) {
-                        cellData.put("status", "SUN");
-                    } else {
-                        Map<String, Object> data = attendanceMap.get(d);
-                        if (data == null) {
-                            cellData.put("status", "A");
+                    List<Map<String, Object>> att = db.query(
+                            "SELECT DAY(punch_date) as d, status, in_time, out_time, work_hours FROM attendance WHERE emp_id=? AND device_id=? AND MONTH(punch_date)=? AND YEAR(punch_date)=?",
+                            eid, deviceId, curM, curY);
+                    for (Map<String, Object> a : att) {
+                        int dayNum = DatabaseManager.num(a, "d");
+                        attendanceMap.put(dayNum, a);
+                    }
+
+                    List<Map<String, Object>> dayStatuses = new ArrayList<>();
+                    for (int d = 1; d <= daysInMonth; d++) {
+                        java.time.LocalDate date = java.time.LocalDate.of(curY, curM, d);
+                        Map<String, Object> cellData = new HashMap<>();
+                        cellData.put("date", date.toString());
+
+                        if (holidayMap.containsKey(d)) {
+                            cellData.put("status", holidayMap.get(d).toUpperCase());
+                        } else if (date.getDayOfWeek() == java.time.DayOfWeek.SUNDAY) {
+                            cellData.put("status", "SUN");
                         } else {
-                            if ("WH".equals(reportType)) {
-                                String inStr = DatabaseManager.str(data, "in_time");
-                                String outStr = DatabaseManager.str(data, "out_time");
-                                double wh = DatabaseManager.dbl(data, "work_hours");
-
-                                String in = "";
-                                java.time.LocalDateTime inDateTime = null;
-                                if (!inStr.isEmpty()) {
-                                    try {
-                                        inDateTime = java.time.LocalDateTime
-                                                .parse(inStr.replace(" ", "T").split("\\.")[0]);
-                                        in = String.format("%02d:%02d", inDateTime.getHour(), inDateTime.getMinute());
-                                    } catch (Exception e) {
-                                    }
-                                }
-
-                                String out = "";
-                                java.time.LocalDateTime outDateTime = null;
-                                if (!outStr.isEmpty()) {
-                                    try {
-                                        outDateTime = java.time.LocalDateTime
-                                                .parse(outStr.replace(" ", "T").split("\\.")[0]);
-                                        out = String.format("%02d:%02d", outDateTime.getHour(),
-                                                outDateTime.getMinute());
-                                    } catch (Exception e) {
-                                    }
-                                }
-
-                                if (in.isEmpty()) {
-                                    cellData.put("status", "P");
-                                } else {
-                                    double totalHours = 0;
-                                    if (inDateTime != null && outDateTime != null) {
-                                        totalHours = java.time.Duration.between(inDateTime, outDateTime).toMinutes()
-                                                / 60.0;
-                                    }
-                                    double breakHours = totalHours - wh;
-                                    if (breakHours < 0)
-                                        breakHours = 0;
-
-                                    cellData.put("status", "WH");
-                                    cellData.put("inTime", in);
-                                    cellData.put("outTime", out.isEmpty() ? "--:--" : out);
-                                    cellData.put("netHours", com.bhspl.util.AttendanceCalculator.formatDuration(wh));
-                                    cellData.put("totalHours",
-                                            com.bhspl.util.AttendanceCalculator.formatDuration(totalHours));
-                                    cellData.put("breakHours",
-                                            com.bhspl.util.AttendanceCalculator.formatDuration(breakHours));
-                                }
+                            Map<String, Object> data = attendanceMap.get(d);
+                            if (data == null) {
+                                cellData.put("status", "A");
                             } else {
-                                String s = DatabaseManager.str(data, "status");
-                                String inTime = DatabaseManager.str(data, "in_time");
+                                if ("WH".equals(reportType)) {
+                                    String inStr = DatabaseManager.str(data, "in_time");
+                                    String outStr = DatabaseManager.str(data, "out_time");
+                                    double wh = DatabaseManager.dbl(data, "work_hours");
 
-                                if ("Present".equals(s) || "Late".equals(s) || "Early".equals(s) || !inTime.isEmpty()) {
-                                    cellData.put("status", "P");
-                                } else if (s.isEmpty()) {
-                                    cellData.put("status", "A");
+                                    String in = "";
+                                    java.time.LocalDateTime inDateTime = null;
+                                    if (!inStr.isEmpty()) {
+                                        try {
+                                            inDateTime = java.time.LocalDateTime
+                                                    .parse(inStr.replace(" ", "T").split("\\.")[0]);
+                                            in = String.format("%02d:%02d", inDateTime.getHour(), inDateTime.getMinute());
+                                        } catch (Exception e) {
+                                        }
+                                    }
+
+                                    String out = "";
+                                    java.time.LocalDateTime outDateTime = null;
+                                    if (!outStr.isEmpty()) {
+                                        try {
+                                            outDateTime = java.time.LocalDateTime
+                                                    .parse(outStr.replace(" ", "T").split("\\.")[0]);
+                                            out = String.format("%02d:%02d", outDateTime.getHour(),
+                                                    outDateTime.getMinute());
+                                        } catch (Exception e) {
+                                        }
+                                    }
+
+                                    if (in.isEmpty()) {
+                                        cellData.put("status", "P");
+                                    } else {
+                                        double totalHours = 0;
+                                        if (inDateTime != null && outDateTime != null) {
+                                            totalHours = java.time.Duration.between(inDateTime, outDateTime).toMinutes()
+                                                    / 60.0;
+                                        }
+                                        double breakHours = totalHours - wh;
+                                        if (breakHours < 0)
+                                            breakHours = 0;
+
+                                        cellData.put("status", "WH");
+                                        cellData.put("inTime", in);
+                                        cellData.put("outTime", out.isEmpty() ? "--:--" : out);
+                                        cellData.put("netHours", com.bhspl.util.AttendanceCalculator.formatDuration(wh));
+                                        cellData.put("totalHours",
+                                                com.bhspl.util.AttendanceCalculator.formatDuration(totalHours));
+                                        cellData.put("breakHours",
+                                                com.bhspl.util.AttendanceCalculator.formatDuration(breakHours));
+                                    }
                                 } else {
-                                    cellData.put("status", s.substring(0, 1));
+                                    String s = DatabaseManager.str(data, "status");
+                                    String inTime = DatabaseManager.str(data, "in_time");
+
+                                    if ("Present".equals(s) || "Late".equals(s) || "Early".equals(s) || !inTime.isEmpty()) {
+                                        cellData.put("status", "P");
+                                    } else if (s.isEmpty()) {
+                                        cellData.put("status", "A");
+                                    } else {
+                                        cellData.put("status", s.substring(0, 1));
+                                    }
                                 }
                             }
                         }
+                        dayStatuses.add(cellData);
                     }
-                    dayStatuses.add(cellData);
+                    row.put("days", dayStatuses);
+                    matrix.add(row);
                 }
-                row.put("days", dayStatuses);
-                matrix.add(row);
             }
 
             model.addAttribute("days", daysList);
@@ -1882,6 +2046,7 @@ public class WebController {
     public ResponseEntity<Map<String, Object>> getDailyPunches(
             @RequestParam("empId") String empId,
             @RequestParam("date") String date,
+            @RequestParam(name = "deviceId", required = false) Integer deviceId,
             HttpSession session) {
         Map<String, Object> response = new HashMap<>();
         if (session.getAttribute("user") == null) {
@@ -1916,16 +2081,24 @@ public class WebController {
 
             // Fetch raw logs
             String startRange = date + " 00:00:00";
-            String endRange = java.time.LocalDate.parse(date).plusDays(1).toString() + " 10:00:00"; // include next
-                                                                                                    // morning for night
-                                                                                                    // shifts
+            String endRange = java.time.LocalDate.parse(date).plusDays(1).toString() + " 10:00:00"; // include next morning for night shifts
 
-            List<Map<String, Object>> rawLogs = db.query(
-                    "SELECT r.punch_time, r.punch_type, d.device_name " +
-                            "FROM raw_logs r LEFT JOIN devices d ON r.device_id = d.device_id " +
-                            "WHERE r.emp_id=? AND r.punch_time >= ? AND r.punch_time < ? " +
-                            "ORDER BY r.punch_time ASC",
-                    empId, startRange, endRange);
+            List<Map<String, Object>> rawLogs;
+            if (deviceId != null) {
+                rawLogs = db.query(
+                        "SELECT r.punch_time, r.punch_type, d.device_name " +
+                                "FROM raw_logs r LEFT JOIN devices d ON r.device_id = d.device_id " +
+                                "WHERE r.emp_id=? AND r.device_id=? AND r.punch_time >= ? AND r.punch_time < ? " +
+                                "ORDER BY r.punch_time ASC",
+                        empId, deviceId, startRange, endRange);
+            } else {
+                rawLogs = db.query(
+                        "SELECT r.punch_time, r.punch_type, d.device_name " +
+                                "FROM raw_logs r LEFT JOIN devices d ON r.device_id = d.device_id " +
+                                "WHERE r.emp_id=? AND r.punch_time >= ? AND r.punch_time < ? " +
+                                "ORDER BY r.punch_time ASC",
+                        empId, startRange, endRange);
+            }
 
             List<Map<String, Object>> calcInput = new ArrayList<>();
 
@@ -2104,6 +2277,7 @@ public class WebController {
             @RequestParam(name = "to", required = false) String to,
             @RequestParam(name = "dept", required = false) String dept,
             @RequestParam(name = "emp", required = false) String emp,
+            @RequestParam(name = "device", required = false) String device,
             @RequestParam(name = "search", required = false) String search,
             @RequestParam(name = "page", defaultValue = "1") int page,
             @RequestParam(name = "size", defaultValue = "10") int pageSize,
@@ -2112,7 +2286,7 @@ public class WebController {
             pageSize = 50000;
             page = 1;
         }
-        return handleRawLogs(model, from, to, dept, emp, search, "raw-logs", page, pageSize);
+        return handleRawLogs(model, from, to, dept, emp, device, search, "raw-logs", page, pageSize);
     }
 
     @GetMapping("/raw-logs/report")
@@ -2121,6 +2295,7 @@ public class WebController {
             @RequestParam(name = "to", required = false) String to,
             @RequestParam(name = "dept", required = false) String dept,
             @RequestParam(name = "emp", required = false) String emp,
+            @RequestParam(name = "device", required = false) String device,
             @RequestParam(name = "search", required = false) String search,
             @RequestParam(name = "page", defaultValue = "1") int page,
             @RequestParam(name = "size", defaultValue = "10") int pageSize,
@@ -2129,10 +2304,10 @@ public class WebController {
             pageSize = 50000;
             page = 1;
         }
-        return handleRawLogs(model, from, to, dept, emp, search, "report-raw-logs", page, pageSize);
+        return handleRawLogs(model, from, to, dept, emp, device, search, "report-raw-logs", page, pageSize);
     }
 
-    private String handleRawLogs(Model model, String from, String to, String dept, String emp, String search,
+    private String handleRawLogs(Model model, String from, String to, String dept, String emp, String device, String search,
             String viewName,
             int page, int pageSize) {
         try {
@@ -2160,17 +2335,34 @@ public class WebController {
                 empBaseSql += " AND emp_id = ?";
                 params.add(eId);
             }
-            if (!s.isEmpty()) {
-                empBaseSql += " AND (emp_name LIKE ? OR emp_id LIKE ?)";
-                params.add("%" + s + "%");
-                params.add("%" + s + "%");
-            }
             empBaseSql += " ORDER BY emp_name ASC";
 
             List<Map<String, Object>> activeEmps = db.query(empBaseSql, params.toArray());
 
             if (!"All".equals(eId) && !activeEmps.isEmpty()) {
                 model.addAttribute("selEmpName", activeEmps.get(0).get("emp_name"));
+            }
+
+            // Load device name + location map once (performance: single query)
+            List<Map<String, Object>> deviceRows = db.query("SELECT device_id, device_name, COALESCE(location, 'Not Assigned') as location FROM devices");
+            model.addAttribute("devices", deviceRows);
+
+            Map<Integer, String> deviceNameMap = new HashMap<>();
+            Map<Integer, String> deviceLocationMap = new HashMap<>();
+            for (Map<String, Object> dRow : deviceRows) {
+                Object didObj = dRow.get("device_id");
+                if (didObj == null) continue;
+                int did = (didObj instanceof Number) ? ((Number) didObj).intValue() : Integer.parseInt(didObj.toString());
+                String name = (String) dRow.get("device_name");
+                String loc = (String) dRow.get("location");
+                deviceNameMap.put(did, name);
+                deviceLocationMap.put(did, loc);
+
+                String displayName = name;
+                if (loc != null && !loc.trim().isEmpty() && !"Not Assigned".equalsIgnoreCase(loc.trim())) {
+                    displayName += " (" + loc + ")";
+                }
+                dRow.put("display_name", displayName);
             }
 
             List<Map<String, Object>> rawLogs = db.query(
@@ -2225,6 +2417,10 @@ public class WebController {
                         row.put("out_time", "—");
                         row.put("punch_count", 0);
                         row.put("status", "Absent");
+                        row.put("device_name", "—");
+                        row.put("device_location", "—");
+                        row.put("out_device_name", null);
+                        row.put("out_device_location", null);
                         allSessions.add(row);
                     } else {
                         int totalPunches = dayLogs.size();
@@ -2233,13 +2429,38 @@ public class WebController {
                             session.put("date", dateStr);
                             session.put("punch_count", totalPunches);
                             session.put("status", "Present");
+                            session.put("out_device_name", null);
+                            session.put("out_device_location", null);
+
+                            // IN punch — device details
+                            Map<String, Object> inLog = dayLogs.get(i);
                             java.time.LocalDateTime inDt = java.time.LocalDateTime
-                                    .parse(dayLogs.get(i).get("punch_time").toString().replace(" ", "T"));
+                                    .parse(inLog.get("punch_time").toString().replace(" ", "T"));
                             session.put("in_time", inDt.format(timeFmt));
+
+                            Object inDevIdObj = inLog.get("device_id");
+                            int inDevId = (inDevIdObj instanceof Integer) ? (int) inDevIdObj
+                                         : (inDevIdObj != null ? Integer.parseInt(inDevIdObj.toString()) : 0);
+                            session.put("device_name", deviceNameMap.getOrDefault(inDevId, "Manual/No Device"));
+                            session.put("device_location", deviceLocationMap.getOrDefault(inDevId, "Not Assigned"));
+
+                            // OUT punch — note the device if different from IN device
                             if (i + 1 < dayLogs.size()) {
+                                Map<String, Object> outLog = dayLogs.get(i + 1);
                                 java.time.LocalDateTime outDt = java.time.LocalDateTime
-                                        .parse(dayLogs.get(i + 1).get("punch_time").toString().replace(" ", "T"));
+                                        .parse(outLog.get("punch_time").toString().replace(" ", "T"));
                                 session.put("out_time", outDt.format(timeFmt));
+
+                                Object outDevIdObj = outLog.get("device_id");
+                                int outDevId = (outDevIdObj instanceof Integer) ? (int) outDevIdObj
+                                              : (outDevIdObj != null ? Integer.parseInt(outDevIdObj.toString()) : 0);
+                                if (outDevId != inDevId) {
+                                    String outDevName = deviceNameMap.getOrDefault(outDevId, "Manual/No Device");
+                                    String outDevLoc  = deviceLocationMap.getOrDefault(outDevId, "Not Assigned");
+                                    // Append OUT device info for audit visibility
+                                    session.put("out_device_name", outDevName);
+                                    session.put("out_device_location", outDevLoc);
+                                }
                             } else {
                                 session.put("out_time", "Wait...");
                             }
@@ -2249,7 +2470,57 @@ public class WebController {
                 }
             }
 
-            int total = allSessions.size();
+            // In-Memory Search and Filtering
+            List<Map<String, Object>> filteredSessions = new ArrayList<>();
+            String searchLower = s.toLowerCase();
+            String deviceFilter = (device != null && !device.trim().isEmpty()) ? device.trim() : "All";
+
+            for (Map<String, Object> session : allSessions) {
+                // Apply device filter
+                if (!"All".equals(deviceFilter)) {
+                    String devName = (String) session.get("device_name");
+                    String devLoc = (String) session.get("device_location");
+                    String outDevName = (String) session.get("out_device_name");
+                    String outDevLoc = (String) session.get("out_device_location");
+
+                    boolean matchesIn = (devName != null && devName.equalsIgnoreCase(deviceFilter)) ||
+                                        (devLoc != null && devLoc.equalsIgnoreCase(deviceFilter));
+                    boolean matchesOut = (outDevName != null && outDevName.equalsIgnoreCase(deviceFilter)) ||
+                                         (outDevLoc != null && outDevLoc.equalsIgnoreCase(deviceFilter));
+
+                    if (!matchesIn && !matchesOut) {
+                        continue;
+                    }
+                }
+
+                // Apply search text filter
+                if (!searchLower.isEmpty()) {
+                    String empId = String.valueOf(session.get("emp_id")).toLowerCase();
+                    String empName = String.valueOf(session.get("emp_name")).toLowerCase();
+                    String department = String.valueOf(session.get("department")).toLowerCase();
+                    String devName = String.valueOf(session.get("device_name")).toLowerCase();
+                    String devLoc = String.valueOf(session.get("device_location")).toLowerCase();
+                    String outDevName = session.containsKey("out_device_name") ? String.valueOf(session.get("out_device_name")).toLowerCase() : "";
+                    String outDevLoc = session.containsKey("out_device_location") ? String.valueOf(session.get("out_device_location")).toLowerCase() : "";
+                    String status = String.valueOf(session.get("status")).toLowerCase();
+
+                    boolean matches = empId.contains(searchLower) ||
+                                      empName.contains(searchLower) ||
+                                      department.contains(searchLower) ||
+                                      devName.contains(searchLower) ||
+                                      devLoc.contains(searchLower) ||
+                                      outDevName.contains(searchLower) ||
+                                      outDevLoc.contains(searchLower) ||
+                                      status.contains(searchLower);
+                    if (!matches) {
+                        continue;
+                    }
+                }
+
+                filteredSessions.add(session);
+            }
+
+            int total = filteredSessions.size();
             int totalPages = (int) Math.ceil((double) total / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
@@ -2257,7 +2528,7 @@ public class WebController {
             int startIdx = (page - 1) * pageSize;
             int endIdx = Math.min(startIdx + pageSize, total);
 
-            List<Map<String, Object>> pagedSessions = (startIdx < total) ? allSessions.subList(startIdx, endIdx)
+            List<Map<String, Object>> pagedSessions = (startIdx < total) ? filteredSessions.subList(startIdx, endIdx)
                     : new ArrayList<>();
 
             model.addAttribute("sessions", pagedSessions);
@@ -2269,6 +2540,7 @@ public class WebController {
             model.addAttribute("selTo", t);
             model.addAttribute("selDept", d);
             model.addAttribute("selEmp", eId);
+            model.addAttribute("selDevice", deviceFilter);
             model.addAttribute("selSearch", s);
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -2276,6 +2548,7 @@ public class WebController {
         }
         return viewName;
     }
+
 
     @GetMapping("/devices")
     public String devices(Model model, HttpSession session,
@@ -2306,7 +2579,7 @@ public class WebController {
     }
 
     @PostMapping("/devices/save")
-    public String saveDevice(@RequestParam Map<String, String> params) {
+    public String saveDevice(@RequestParam Map<String, String> params, org.springframework.web.servlet.mvc.support.RedirectAttributes redirectAttributes) {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             String id = params.get("device_id");
@@ -2316,6 +2589,23 @@ public class WebController {
             String sn = params.get("serial_number");
             String loc = params.get("location");
             String status = params.get("status");
+
+            if (name == null || name.trim().isEmpty()) {
+                redirectAttributes.addFlashAttribute("error", "Device Name is a mandatory field.");
+                return "redirect:/devices";
+            }
+            if (loc == null || loc.trim().isEmpty()) {
+                redirectAttributes.addFlashAttribute("error", "Device Location is a mandatory field.");
+                return "redirect:/devices";
+            }
+            if (ip == null || ip.trim().isEmpty()) {
+                redirectAttributes.addFlashAttribute("error", "IP Address is a mandatory field.");
+                return "redirect:/devices";
+            }
+            if (!isValidIPv4(ip)) {
+                redirectAttributes.addFlashAttribute("error", "IP Address must be a valid IPv4 address (e.g. 192.168.1.201).");
+                return "redirect:/devices";
+            }
 
             if (id == null || id.isEmpty() || "0".equals(id)) {
                 db.execute(
@@ -2328,6 +2618,7 @@ public class WebController {
             }
         } catch (Exception e) {
             e.printStackTrace();
+            redirectAttributes.addFlashAttribute("error", "Error saving device: " + e.getMessage());
         }
         return "redirect:/devices";
     }
@@ -3674,7 +3965,7 @@ public class WebController {
         java.io.PrintWriter writer = response.getWriter();
 
         // Header
-        writer.print("ID,Name,Designation");
+        writer.print("ID,Name,Device,Device Location,Designation");
         for (int i = 1; i <= daysCount; i++) {
             writer.print("," + i + "/" + month + "/" + year);
         }
@@ -3686,33 +3977,59 @@ public class WebController {
             sql += " AND department = '" + dept + "'";
         sql += " ORDER BY emp_name";
 
+        List<Map<String, Object>> allDevices = db.query("SELECT device_id, device_name, location FROM devices");
+        Map<Integer, String> deviceNamesMap = new HashMap<>();
+        Map<Integer, String> deviceLocationsMap = new HashMap<>();
+        for (Map<String, Object> dev : allDevices) {
+            int devId = (int) dev.get("device_id");
+            deviceNamesMap.put(devId, (String) dev.get("device_name"));
+            String loc = (String) dev.get("location");
+            deviceLocationsMap.put(devId, loc != null && !loc.trim().isEmpty() ? loc : "Not Assigned");
+        }
+
         List<Map<String, Object>> emps = db.query(sql);
         for (Map<String, Object> e : emps) {
             String eid = DatabaseManager.str(e, "emp_id");
-            writer.print(eid + "," + DatabaseManager.str(e, "emp_name") + "," + DatabaseManager.str(e, "designation"));
-
-            Map<Integer, String> attMap = new HashMap<>();
-            List<Map<String, Object>> att = db.query(
-                    "SELECT DAY(punch_date) as d, status, in_time, out_time, work_hours FROM attendance WHERE emp_id=? AND MONTH(punch_date)=? AND YEAR(punch_date)=?",
+            
+            List<Map<String, Object>> deviceListDb = db.query(
+                    "SELECT DISTINCT device_id FROM attendance WHERE emp_id=? AND MONTH(punch_date)=? AND YEAR(punch_date)=?",
                     eid, month, year);
-            for (Map<String, Object> a : att) {
-                if (type.equals("WH")) {
-                    String inStr = DatabaseManager.str(a, "in_time");
-                    String in = inStr.contains(" ") ? inStr.split(" ")[1]
-                            : (inStr.contains("T") ? inStr.split("T")[1] : "");
-                    if (in.length() > 5)
-                        in = in.substring(0, 5);
-                    double wh = DatabaseManager.dbl(a, "work_hours");
-                    attMap.put(DatabaseManager.num(a, "d"), in.isEmpty() ? "P" : in + " (" + wh + ")");
-                } else {
-                    attMap.put(DatabaseManager.num(a, "d"), DatabaseManager.str(a, "status"));
-                }
+            List<Integer> deviceIds = new ArrayList<>();
+            for (Map<String, Object> dMap : deviceListDb) {
+                deviceIds.add(dMap.get("device_id") != null ? (int) dMap.get("device_id") : 0);
+            }
+            if (deviceIds.isEmpty()) {
+                deviceIds.add(0);
             }
 
-            for (int i = 1; i <= daysCount; i++) {
-                writer.print("," + attMap.getOrDefault(i, "A"));
+            for (int deviceId : deviceIds) {
+                String deviceName = deviceNamesMap.getOrDefault(deviceId, deviceId == 0 ? "Manual/No Device" : "Unknown Device");
+                String deviceLocation = deviceLocationsMap.getOrDefault(deviceId, deviceId == 0 ? "Not Assigned" : "Unknown Location");
+                writer.print(eid + "," + DatabaseManager.str(e, "emp_name") + "," + deviceName + "," + deviceLocation + "," + DatabaseManager.str(e, "designation"));
+
+                Map<Integer, String> attMap = new HashMap<>();
+                List<Map<String, Object>> att = db.query(
+                        "SELECT DAY(punch_date) as d, status, in_time, out_time, work_hours FROM attendance WHERE emp_id=? AND device_id=? AND MONTH(punch_date)=? AND YEAR(punch_date)=?",
+                        eid, deviceId, month, year);
+                for (Map<String, Object> a : att) {
+                    if (type.equals("WH")) {
+                        String inStr = DatabaseManager.str(a, "in_time");
+                        String in = inStr.contains(" ") ? inStr.split(" ")[1]
+                                : (inStr.contains("T") ? inStr.split("T")[1] : "");
+                        if (in.length() > 5)
+                            in = in.substring(0, 5);
+                        double wh = DatabaseManager.dbl(a, "work_hours");
+                        attMap.put(DatabaseManager.num(a, "d"), in.isEmpty() ? "P" : in + " (" + wh + ")");
+                    } else {
+                        attMap.put(DatabaseManager.num(a, "d"), DatabaseManager.str(a, "status"));
+                    }
+                }
+
+                for (int i = 1; i <= daysCount; i++) {
+                    writer.print("," + attMap.getOrDefault(i, "A"));
+                }
+                writer.println();
             }
-            writer.println();
         }
         writer.flush();
         writer.close();
@@ -3732,5 +4049,20 @@ public class WebController {
     @GetMapping("/logo-reveal")
     public String logoReveal() {
         return "logo-reveal";
+    }
+
+    private boolean isValidIPv4(String ip) {
+        if (ip == null || ip.trim().isEmpty()) return false;
+        String[] parts = ip.trim().split("\\.");
+        if (parts.length != 4) return false;
+        for (String part : parts) {
+            try {
+                int num = Integer.parseInt(part);
+                if (num < 0 || num > 255) return false;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+        return true;
     }
 }

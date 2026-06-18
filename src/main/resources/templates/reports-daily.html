@@ -71,6 +71,8 @@
                         <th>Emp ID</th>
                         <th>Employee Name</th>
                         <th>Department</th>
+                        <th>Device Name</th>
+                        <th>Device Location</th>
                         <th>Date</th>
                         <th>In Time</th>
                         <th>Out Time</th>
@@ -85,6 +87,8 @@
                         <td th:text="${r['emp_id']}" style="font-weight: 500; color: var(--text-muted);">101</td>
                         <td th:text="${r['emp_name']}" style="font-weight: 600; color: var(--text-main);">John Doe</td>
                         <td th:text="${r['department']}" style="color: var(--text-muted);">Development</td>
+                        <td th:text="${r['device_name'] ?: '-'}" style="color: var(--text-muted);">Device A</td>
+                        <td th:text="${r['device_location'] ?: 'Not Assigned'}" style="color: var(--text-muted);">Vijayawada</td>
                         <td th:text="${r['date']}" style="color: var(--text-muted);">2026-05-11</td>
                         <td th:text="${r['punch_in'] ?: '--'}" style="color: #10B981; font-weight: 600;">09:00 AM</td>
                         <td th:text="${r['punch_out'] ?: '--'}" style="color: #3b82f6; font-weight: 600;">06:00 PM</td>
@@ -105,7 +109,7 @@
                         </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(data)}">
-                        <td colspan="10">
+                        <td colspan="11">
                             <div class="empty-state">
                                 <i class="fas fa-folder-open"></i>
                                 <p>No attendance records found for this criteria.</p>

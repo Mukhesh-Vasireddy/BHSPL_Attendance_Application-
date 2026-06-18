@@ -220,14 +220,14 @@ public class SyncService {
                         if (minTime != null && maxTime != null) {
                             String startRange = minTime.minusMinutes(1).toString().replace("T", " ");
                             String endRange = maxTime.plusMinutes(1).toString().replace("T", " ");
-
                             List<Map<String, Object>> existingList = dbInstance.query(
-                                    "SELECT emp_id, punch_time, punch_type FROM raw_logs WHERE punch_time >= ? AND punch_time <= ?",
+                                    "SELECT emp_id, device_id, punch_time, punch_type FROM raw_logs WHERE punch_time >= ? AND punch_time <= ?",
                                     startRange, endRange);
 
                             Map<String, List<Map<String, Object>>> existingPunches = new HashMap<>();
                             for (Map<String, Object> ex : existingList) {
                                 String empId = DatabaseManager.str(ex, "emp_id");
+                                int exDevId = ex.get("device_id") != null ? (int) ex.get("device_id") : 0;
                                 Object pt = ex.get("punch_time");
                                 int exType = ex.get("punch_type") != null ? (int) ex.get("punch_type") : 0;
                                 LocalDateTime exTime = null;
@@ -245,6 +245,7 @@ public class SyncService {
                                     Map<String, Object> punchInfo = new HashMap<>();
                                     punchInfo.put("time", exTime);
                                     punchInfo.put("type", exType);
+                                    punchInfo.put("device_id", exDevId);
                                     existingPunches.computeIfAbsent(empId, k -> new ArrayList<>()).add(punchInfo);
                                 }
                             }
@@ -260,8 +261,9 @@ public class SyncService {
                                     for (Map<String, Object> dbPunch : dbPunches) {
                                         LocalDateTime dbTime = (LocalDateTime) dbPunch.get("time");
                                         int dbType = (int) dbPunch.get("type");
+                                        int dbDevId = (int) dbPunch.get("device_id");
                                         long diffSeconds = java.time.Duration.between(dbTime, time).abs().getSeconds();
-                                        if (diffSeconds < 60 && dbType == pType) {
+                                        if (diffSeconds < 60 && dbType == pType && dbDevId == id) {
                                             isDbDuplicate = true;
                                             break;
                                         }
@@ -394,15 +396,16 @@ public class SyncService {
                                 pw.println("Date parse failed for " + p);
                                 continue;
                             }
-                            if (d != null)
+                            if (d != null) {
                                 affectedDays.add(eid + "|" + d);
+                            }
                         } else {
                             pw.println("UNMATCHED UID from log entry: '" + uid + "'");
                             if (!unknownUids.contains(uid))
                                 unknownUids.add(uid);
                         }
                     }
-                    pw.println("Identified " + affectedDays.size() + " distinct day combos to process.");
+                    pw.println("Identified " + affectedDays.size() + " distinct employee-day combos to process.");
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -428,18 +431,12 @@ public class SyncService {
                         if (logConsumer != null)
                             logConsumer.accept("Processing " + empId + " for " + date);
 
-                        List<Object> sqlParams = new ArrayList<>();
-                        if (params.size() > 1) {
-                            sqlParams.add(params.get(0));
-                            sqlParams.add(params.get(1));
-                        } else {
-                            sqlParams.add(params.get(0));
-                        }
+                        List<Object> sqlParams = new ArrayList<>(params);
                         sqlParams.add(startRange);
                         sqlParams.add(endRange);
 
                         List<Map<String, Object>> matched = db.fetchAll(
-                                "SELECT punch_time, punch_type FROM raw_logs WHERE " + filter
+                                "SELECT punch_time, punch_type, device_id FROM raw_logs WHERE " + filter
                                         + " AND (punch_time >= ? AND punch_time < ?) ORDER BY punch_time ASC",
                                 sqlParams.toArray());
                         if (matched.isEmpty())
@@ -452,18 +449,8 @@ public class SyncService {
                                 Object st = shift.get("start_time");
                                 Object et = shift.get("end_time");
                                 if (st != null && et != null) {
-                                    LocalTime sTime;
-                                    if (st instanceof java.sql.Time)
-                                        sTime = ((java.sql.Time) st).toLocalTime();
-                                    else
-                                        sTime = LocalTime.parse(st.toString().substring(0, 5));
-
-                                    LocalTime eTime;
-                                    if (et instanceof java.sql.Time)
-                                        eTime = ((java.sql.Time) et).toLocalTime();
-                                    else
-                                        eTime = LocalTime.parse(et.toString().substring(0, 5));
-
+                                    LocalTime sTime = com.bhspl.util.AttendanceCalculator.parseLocalTime(st, LocalTime.of(9, 0));
+                                    LocalTime eTime = com.bhspl.util.AttendanceCalculator.parseLocalTime(et, LocalTime.of(18, 0));
                                     if (eTime.isBefore(sTime))
                                         overnightFlag = true;
                                 }
@@ -476,7 +463,9 @@ public class SyncService {
                         List<Map<String, Object>> list = matched.stream().map(m -> {
                             Object o = m.get("punch_time");
                             Object ptObj = m.get("punch_type");
+                            Object devIdObj = m.get("device_id");
                             int type = ptObj != null ? (int) ptObj : 0;
+                            int devId = devIdObj != null ? (int) devIdObj : 0;
                             try {
                                 LocalDateTime ldt;
                                 if (o instanceof LocalDateTime)
@@ -492,6 +481,7 @@ public class SyncService {
                                 Map<String, Object> pMap = new HashMap<>();
                                 pMap.put("time", ldt);
                                 pMap.put("type", type);
+                                pMap.put("device_id", devId);
                                 return pMap;
                             } catch (Exception e) {
                                 return null;
@@ -503,19 +493,94 @@ public class SyncService {
                         if (list.isEmpty())
                             continue;
 
+                        // ── OPTION B: Single consolidated attendance record per Employee per Date ──
+                        // All punches (across ALL devices) are already in chronological order in `list`.
+                        // De-duplicate within 60 seconds on the same device only.
+                        List<Map<String, Object>> filtered = new ArrayList<>();
+                        LocalDateTime lastTime = null;
+                        int lastType = -1;
+                        int lastDevId = -1;
+                        for (Map<String, Object> p : list) {
+                            LocalDateTime t = (LocalDateTime) p.get("time");
+                            int type = (int) p.get("type");
+                            int devId = (int) p.get("device_id");
+                            if (lastTime != null) {
+                                long diff = Math.abs(java.time.Duration.between(lastTime, t).getSeconds());
+                                // Only skip if same device + same type + within 60s (genuine duplicate swipe)
+                                if (diff < 60 && type == lastType && devId == lastDevId) {
+                                    continue;
+                                }
+                            }
+                            filtered.add(p);
+                            lastTime = t;
+                            lastType = type;
+                            lastDevId = devId;
+                        }
+
+                        if (filtered.isEmpty())
+                            continue;
+
+                        // Load device name map for audit remarks
+                        List<Map<String, Object>> allDevs = db.fetchAll("SELECT device_id, device_name FROM devices");
+                        Map<Integer, String> deviceNamesMap = new HashMap<>();
+                        for (Map<String, Object> d : allDevs) {
+                            deviceNamesMap.put((int) d.get("device_id"), (String) d.get("device_name"));
+                        }
+
+                        // Calculate metrics using ALL punches across all devices
                         com.bhspl.util.AttendanceCalculator.Metrics met = new com.bhspl.util.AttendanceCalculator.Metrics();
-                        com.bhspl.util.AttendanceCalculator.calculateFromPunches(list, shift, met);
+                        com.bhspl.util.AttendanceCalculator.calculateFromPunches(filtered, shift, met);
 
                         if (met.firstIn == null)
                             continue;
 
+                        // The device_id stored is that of the FIRST IN punch (for FK integrity only)
+                        int firstInDeviceId = (int) filtered.get(0).get("device_id");
+                        int lastOutDeviceId = (int) filtered.get(filtered.size() - 1).get("device_id");
+
+                        // Build a compact audit remark if cross-device movement occurred
+                        Set<Integer> devicesSeen = new java.util.LinkedHashSet<>();
+                        for (Map<String, Object> p : filtered) {
+                            devicesSeen.add((int) p.get("device_id"));
+                        }
+                        String remarks = "";
+                        if (devicesSeen.size() > 1) {
+                            StringBuilder sb = new StringBuilder("Devices: ");
+                            boolean first = true;
+                            for (int did : devicesSeen) {
+                                if (!first) sb.append(", ");
+                                sb.append(deviceNamesMap.getOrDefault(did, "Dev#" + did));
+                                first = false;
+                            }
+                            // Also note OUT device if different from IN device
+                            if (lastOutDeviceId != firstInDeviceId) {
+                                sb.append(" | OUT on ").append(deviceNamesMap.getOrDefault(lastOutDeviceId, "Dev#" + lastOutDeviceId));
+                            }
+                            remarks = sb.toString();
+                            if (remarks.length() > 255) remarks = remarks.substring(0, 255);
+                        }
+
+                        // Single INSERT / ON DUPLICATE KEY UPDATE — key is now (emp_id, punch_date)
                         db.execute(
-                                "INSERT INTO attendance (emp_id, punch_date, in_time, out_time, status, work_hours, overtime, late_mins, early_mins, punch_type, exceptions) "
-                                        + "VALUES (?,?,?,?,?,?,?,?,?, 'Device', ?) ON DUPLICATE KEY UPDATE in_time=VALUES(in_time), out_time=VALUES(out_time), "
-                                        + "work_hours=VALUES(work_hours), overtime=VALUES(overtime), late_mins=VALUES(late_mins), early_mins=VALUES(early_mins), status=VALUES(status), exceptions=VALUES(exceptions)",
-                                empId, date, java.sql.Timestamp.valueOf(met.firstIn),
+                                "INSERT INTO attendance (emp_id, device_id, punch_date, in_time, out_time, status, work_hours, overtime, late_mins, early_mins, punch_type, exceptions, remarks) "
+                                + "VALUES (?,?,?,?,?,?,?,?,?,?,'Device',?,?) "
+                                + "ON DUPLICATE KEY UPDATE "
+                                + "  device_id=VALUES(device_id), "
+                                + "  in_time=VALUES(in_time), "
+                                + "  out_time=VALUES(out_time), "
+                                + "  work_hours=VALUES(work_hours), "
+                                + "  overtime=VALUES(overtime), "
+                                + "  late_mins=VALUES(late_mins), "
+                                + "  early_mins=VALUES(early_mins), "
+                                + "  status=VALUES(status), "
+                                + "  exceptions=VALUES(exceptions), "
+                                + "  remarks=VALUES(remarks)",
+                                empId, firstInDeviceId, date,
+                                java.sql.Timestamp.valueOf(met.firstIn),
                                 (met.lastOut != null ? java.sql.Timestamp.valueOf(met.lastOut) : null),
-                                met.status, met.workHours, met.overtime, met.lateMins, met.earlyMins, met.exceptions);
+                                met.status, met.workHours, met.overtime,
+                                met.lateMins, met.earlyMins,
+                                met.exceptions, remarks);
                     } catch (Exception e) {
                         if (logConsumer != null)
                             logConsumer.accept("Error: " + e.getMessage());

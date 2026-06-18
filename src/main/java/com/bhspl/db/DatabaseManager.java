@@ -147,6 +147,7 @@ public class DatabaseManager {
                 "CREATE TABLE IF NOT EXISTS attendance (" +
                         "  id            INT AUTO_INCREMENT PRIMARY KEY," +
                         "  emp_id        VARCHAR(20)," +
+                        "  device_id     INT          DEFAULT 0," +
                         "  punch_date    DATE," +
                         "  in_time       DATETIME," +
                         "  out_time      DATETIME," +
@@ -446,6 +447,7 @@ public class DatabaseManager {
                 { "leave_policy", "pro_rata", "TINYINT DEFAULT 1" },
                 { "leave_policy", "applicable_gender", "VARCHAR(15) DEFAULT 'All'" },
                 { "attendance", "exceptions", "VARCHAR(255) DEFAULT ''" },
+                { "attendance", "device_id", "INT DEFAULT 0 AFTER emp_id" },
                 { "raw_logs", "cloud_synced", "TINYINT DEFAULT 0" },
         };
 
@@ -548,32 +550,47 @@ public class DatabaseManager {
         } catch (Exception ignored) {
         }
 
-        // Self-healing migration for attendance table: deduplicate and add UNIQUE key
-        // on (emp_id, punch_date)
+
+        // Self-healing migration for attendance table (Option B):
+        // Unique key is now (emp_id, punch_date) — one record per employee per day.
+        // On startup, drop any old device-level unique key and create the employee+date key.
         try {
-            boolean hasUniqueIndex = false;
-            try (java.sql.ResultSet rs = conn.getMetaData().getIndexInfo(null, null, "attendance", true, false)) {
+            boolean hasDeviceUniqueIndex   = false;  // uq_emp_device_punch_date  (old Option A key)
+            boolean hasEmpDateUniqueIndex  = false;  // uq_emp_punch_date          (new Option B key)
+            try (java.sql.ResultSet rs = conn.getMetaData().getIndexInfo(null, null, "attendance", false, false)) {
                 while (rs.next()) {
                     String indexName = rs.getString("INDEX_NAME");
+                    if ("uq_emp_device_punch_date".equalsIgnoreCase(indexName)) {
+                        hasDeviceUniqueIndex = true;
+                    }
                     if ("uq_emp_punch_date".equalsIgnoreCase(indexName)) {
-                        hasUniqueIndex = true;
-                        break;
+                        hasEmpDateUniqueIndex = true;
                     }
                 }
             }
-            if (!hasUniqueIndex) {
-                System.out.println("Database: Running migration to deduplicate and add uq_emp_punch_date index...");
-                // 1. Delete rows where work_hours is smaller than another row on the same date
-                // for the same employee
-                execute("DELETE t1 FROM attendance t1 INNER JOIN attendance t2 ON t1.emp_id = t2.emp_id AND t1.punch_date = t2.punch_date AND t1.work_hours < t2.work_hours");
-                // 2. In case of identical work hours, keep the lower ID record and delete the
-                // others
-                execute("DELETE t1 FROM attendance t1 INNER JOIN attendance t2 ON t1.emp_id = t2.emp_id AND t1.punch_date = t2.punch_date AND t1.id > t2.id");
-                // 3. Add the unique key uq_emp_punch_date on (emp_id, punch_date)
+
+            // Step 1: Drop the old device-level unique key if it exists
+            if (hasDeviceUniqueIndex) {
+                System.out.println("Database: Dropping legacy uq_emp_device_punch_date index (Option A → Option B migration)...");
+                execute("ALTER TABLE attendance DROP INDEX uq_emp_device_punch_date");
+                conn.commit();
+            }
+
+            // Step 2: Ensure the new emp+date unique key exists
+            if (!hasEmpDateUniqueIndex) {
+                System.out.println("Database: Running Option B migration — consolidating attendance to one row per employee per day...");
+                // 2a. For duplicate emp+date rows, keep the one with the highest work_hours
+                execute("DELETE t1 FROM attendance t1 INNER JOIN attendance t2 " +
+                        "ON t1.emp_id = t2.emp_id AND t1.punch_date = t2.punch_date " +
+                        "AND t1.work_hours < t2.work_hours");
+                // 2b. For identical work_hours, keep the lower id
+                execute("DELETE t1 FROM attendance t1 INNER JOIN attendance t2 " +
+                        "ON t1.emp_id = t2.emp_id AND t1.punch_date = t2.punch_date " +
+                        "AND t1.id > t2.id");
+                // 2c. Add the new unique key (emp_id, punch_date)
                 execute("ALTER TABLE attendance ADD UNIQUE KEY uq_emp_punch_date (emp_id, punch_date)");
                 conn.commit();
-                System.out.println(
-                        "Database: Successfully de-duplicated attendance and created UNIQUE KEY uq_emp_punch_date.");
+                System.out.println("Database: Successfully created UNIQUE KEY uq_emp_punch_date (Option B).");
             }
         } catch (Exception e) {
             System.err.println("Database Migration Warning for attendance table: " + e.getMessage());
@@ -582,6 +599,7 @@ public class DatabaseManager {
             } catch (Exception ignored) {
             }
         }
+
 
         // Self-healing migration for leave_transactions table
         try {
@@ -628,15 +646,17 @@ public class DatabaseManager {
         // minutes (respecting punch_type)
         try {
             List<Map<String, Object>> allLogs = query(
-                    "SELECT id, emp_id, punch_time, punch_type FROM raw_logs ORDER BY emp_id, punch_time ASC");
+                    "SELECT id, emp_id, device_id, punch_time, punch_type FROM raw_logs ORDER BY emp_id, device_id, punch_time ASC");
             List<Integer> idsToDelete = new ArrayList<>();
             Map<String, Set<String>> affectedDates = new HashMap<>(); // empId -> Set of dates
             Map<String, java.time.LocalDateTime> lastTimes = new HashMap<>();
             Map<String, Integer> lastTypes = new HashMap<>();
+            Map<String, Integer> lastDevices = new HashMap<>();
 
             for (Map<String, Object> log : allLogs) {
                 int id = (int) log.get("id");
                 String empId = (String) log.get("emp_id");
+                int deviceId = log.get("device_id") != null ? (int) log.get("device_id") : 0;
                 Object pt = log.get("punch_time");
                 int pType = log.get("punch_type") != null ? (int) log.get("punch_type") : 0;
                 java.time.LocalDateTime time = null;
@@ -656,9 +676,10 @@ public class DatabaseManager {
 
                 if (lastTimes.containsKey(empId)) {
                     java.time.LocalDateTime lastTime = lastTimes.get(empId);
-                    int lastType = lastTypes.containsKey(empId) ? lastTypes.get(empId) : 0;
+                    int lastType = lastTypes.getOrDefault(empId, 0);
+                    int lastDevice = lastDevices.getOrDefault(empId, 0);
                     long diffSeconds = java.time.Duration.between(lastTime, time).abs().getSeconds();
-                    if (diffSeconds < 60 && lastType == pType) { // 1 minute rolling window, identical type
+                    if (diffSeconds < 60 && lastType == pType && lastDevice == deviceId) { // 1 minute rolling window, identical type and device
                         idsToDelete.add(id);
                         String dateStr = time.toLocalDate().toString();
                         affectedDates.computeIfAbsent(empId, k -> new HashSet<>()).add(dateStr);
@@ -667,6 +688,7 @@ public class DatabaseManager {
                 }
                 lastTimes.put(empId, time);
                 lastTypes.put(empId, pType);
+                lastDevices.put(empId, deviceId);
             }
 
             if (!idsToDelete.isEmpty()) {

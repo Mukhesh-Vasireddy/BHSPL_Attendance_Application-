@@ -223,10 +223,10 @@ public class DashboardPanel extends JPanel {
 
         panel.add(header, "growx");
 
-        String[] cols = { "Emp ID", "Name", "In Time", "Punches", "Status" };
+        String[] cols = { "Emp ID", "Name", "Device", "Location", "In Time", "Punches", "Status" };
         tablePanel = new UIHelper.StyledTablePanel(cols);
-        // Emp ID, Name, In Time, Punches, Status
-        int[] widths = { 80, 200, 90, 80, 110 };
+        // Emp ID, Name, Device, Location, In Time, Punches, Status
+        int[] widths = { 80, 180, 130, 130, 90, 80, 110 };
         for (int i = 0; i < widths.length; i++) {
             tablePanel.getTable().getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
         }
@@ -246,37 +246,30 @@ public class DashboardPanel extends JPanel {
                 DatabaseManager db = DatabaseManager.getInstance();
                 String today = LocalDate.now().toString();
                 return db.fetchAll(
-                        "SELECT e.emp_id, e.emp_name, DATE_FORMAT(MIN(a.in_time),'%H:%i') AS in_time, " +
+                        "SELECT e.emp_id, e.emp_name, a.device_id, " +
+                                "COALESCE(d.device_name, CASE WHEN a.in_time IS NOT NULL THEN 'Manual/No Device' ELSE '-' END) AS device_name, " +
+                                "COALESCE(d.location, CASE WHEN a.in_time IS NOT NULL THEN 'Not Assigned' ELSE '-' END) AS device_location, " +
+                                "DATE_FORMAT(a.in_time, '%H:%i') AS in_time, " +
                                 "COALESCE(p1.cnt, p2.cnt, 0) as punches, " +
                                 "COALESCE(" +
-                                "  (CASE " +
-                                "    WHEN SUM(CASE WHEN a.status='Half Day' THEN 1 ELSE 0 END) > 0 THEN 'Half Day' " +
-                                "    WHEN SUM(CASE WHEN a.status='Late' THEN 1 ELSE 0 END) > 0 THEN 'Late' " +
-                                "    WHEN SUM(CASE WHEN a.status='OD' OR a.status='On Duty' THEN 1 ELSE 0 END) > 0 THEN 'On Duty' "
-                                +
-                                "    WHEN SUM(CASE WHEN a.status='Present' THEN 1 ELSE 0 END) > 0 THEN 'Present' " +
-                                "    WHEN MAX(a.status) IS NOT NULL THEN MAX(a.status) " +
-                                "  END), " +
-                                "  (SELECT UPPER(leave_type) FROM leaves l WHERE l.emp_id = e.emp_id AND l.status='Approved' AND ? BETWEEN l.from_date AND l.to_date LIMIT 1), "
-                                +
+                                "  a.status, " +
+                                "  (SELECT UPPER(leave_type) FROM leaves l WHERE l.emp_id = e.emp_id AND l.status='Approved' AND ? BETWEEN l.from_date AND l.to_date LIMIT 1), " +
                                 "  (SELECT UPPER(holiday_name) FROM holidays h WHERE h.holiday_date = ? LIMIT 1), " +
-                                "  (SELECT UPPER(CASE WHEN DAYNAME(?) = off_day1 THEN off_day1 ELSE off_day2 END) FROM weekly_offs w "
-                                +
-                                "   WHERE w.emp_id = e.emp_id AND (? >= w.effective_from) AND (w.effective_to IS NULL OR ? <= w.effective_to) "
-                                +
+                                "  (SELECT UPPER(CASE WHEN DAYNAME(?) = off_day1 THEN off_day1 ELSE off_day2 END) FROM weekly_offs w " +
+                                "   WHERE w.emp_id = e.emp_id AND (? >= w.effective_from) AND (w.effective_to IS NULL OR ? <= w.effective_to) " +
                                 "   AND (DAYNAME(?) = w.off_day1 OR DAYNAME(?) = w.off_day2) LIMIT 1), " +
-                                "  (CASE WHEN DAYNAME(?) = s.weekly_off1 THEN UPPER(s.weekly_off1) WHEN DAYNAME(?) = s.weekly_off2 THEN UPPER(s.weekly_off2) END), "
-                                +
+                                "  (CASE WHEN DAYNAME(?) = s.weekly_off1 THEN UPPER(s.weekly_off1) WHEN DAYNAME(?) = s.weekly_off2 THEN UPPER(s.weekly_off2) END), " +
                                 "  'Absent' " +
                                 ") as status " +
                                 "FROM employees e " +
                                 "LEFT JOIN shifts s ON e.shift = s.shift_name " +
                                 "LEFT JOIN attendance a ON e.emp_id = a.emp_id AND a.punch_date = ? " +
-                                "LEFT JOIN (SELECT emp_id, COUNT(*) as cnt FROM raw_logs WHERE punch_time >= CURDATE() GROUP BY emp_id) p1 ON e.emp_id = p1.emp_id " +
-                                "LEFT JOIN (SELECT emp_id, COUNT(*) as cnt FROM raw_logs WHERE punch_time >= CURDATE() GROUP BY emp_id) p2 ON e.device_enroll_id = p2.emp_id " +
+                                "LEFT JOIN devices d ON a.device_id = d.device_id " +
+                                "LEFT JOIN (SELECT emp_id, device_id, COUNT(*) as cnt FROM raw_logs WHERE punch_time >= CURDATE() GROUP BY emp_id, device_id) p1 ON e.emp_id = p1.emp_id AND (a.device_id = p1.device_id OR (a.device_id IS NULL AND p1.device_id = 0)) " +
+                                "LEFT JOIN (SELECT emp_id, device_id, COUNT(*) as cnt FROM raw_logs WHERE punch_time >= CURDATE() GROUP BY emp_id, device_id) p2 ON e.device_enroll_id = p2.emp_id AND (a.device_id = p2.device_id OR (a.device_id IS NULL AND p2.device_id = 0)) " +
                                 "WHERE e.status = 'Active' " +
-                                "GROUP BY e.emp_id, e.emp_name, p1.cnt, p2.cnt " +
-                                "ORDER BY (MIN(a.in_time) IS NULL) ASC, MIN(a.in_time) DESC, e.emp_name ASC LIMIT 100",
+                                "GROUP BY e.emp_id, e.emp_name, a.device_id, d.device_name, d.location, a.in_time, a.status, p1.cnt, p2.cnt " +
+                                "ORDER BY (a.in_time IS NULL) ASC, a.in_time DESC, e.emp_name ASC LIMIT 100",
                         today, today, today, today, today, today, today, today, today, today);
             }
 
@@ -286,6 +279,8 @@ public class DashboardPanel extends JPanel {
                     for (Map<String, Object> r : get()) {
                         tablePanel.addRow(new Object[] {
                                 r.get("emp_id"), r.get("emp_name"),
+                                r.get("device_name"),
+                                r.get("device_location"),
                                 (r.get("in_time") != null ? r.get("in_time") : "—"),
                                 r.get("punches"),
                                 r.get("status")

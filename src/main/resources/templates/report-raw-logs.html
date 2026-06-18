@@ -12,7 +12,7 @@
             --border: #f0f4f8;
         }
         
-        * { box-spacing: border-box; font-family: 'Outfit', sans-serif; }
+        * { box-sizing: border-box; font-family: 'Outfit', sans-serif; }
         body { background: white; color: var(--text); padding: 40px; margin: 0; }
         
         .header {
@@ -33,7 +33,7 @@
         
         .meta-info {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 20px;
             background: #f8fafc;
             padding: 15px 20px;
@@ -94,7 +94,7 @@
             border-top: 1px solid #f1f5f9;
             padding-top: 20px;
         }
- 
+        
         @media print {
             body { padding: 0; }
             .no-print { display: none; }
@@ -120,7 +120,7 @@
         </div>
     </div>
 
-    <div class="meta-info" th:style="${selSearch != null and !selSearch.isEmpty()} ? 'grid-template-columns: repeat(4, 1fr);' : 'grid-template-columns: repeat(3, 1fr);'">
+    <div class="meta-info">
         <div class="meta-item">
             <span>Filter Department</span>
             <b th:text="${selDept}">All Departments</b>
@@ -129,9 +129,9 @@
             <span>Filter Employee</span>
             <b th:text="${selEmpName ?: 'All Employees'}">All Employees</b>
         </div>
-        <div class="meta-item" th:if="${selSearch != null and !selSearch.isEmpty()}">
-            <span>Search Keyword</span>
-            <b th:text="${selSearch}"></b>
+        <div class="meta-item">
+            <span>Filter Device / Location</span>
+            <b th:text="${selDevice != 'All' ? selDevice : 'All Devices / Locations'}">All</b>
         </div>
         <div class="meta-item">
             <span>Total Records</span>
@@ -148,6 +148,8 @@
                 <th>Date</th>
                 <th>IN Time</th>
                 <th>OUT Time</th>
+                <th>Device Name</th>
+                <th>Device Location</th>
                 <th>Punches</th>
                 <th>Status</th>
             </tr>
@@ -160,6 +162,14 @@
                 <td th:text="${row.date}">2026-05-11</td>
                 <td th:text="${row.in_time}">09:00 AM</td>
                 <td th:text="${row.out_time}">06:00 PM</td>
+                <td>
+                    <div th:text="${row.device_name}">Main Gate</div>
+                    <div th:if="${row.out_device_name != null}" th:text="'/ ' + ${row.out_device_name}" style="font-size: 11px; color: #64748b;">/ HO Device</div>
+                </td>
+                <td>
+                    <div th:text="${row.device_location}">P4 Office</div>
+                    <div th:if="${row.out_device_location != null}" th:text="'/ ' + ${row.out_device_location}" style="font-size: 11px; color: #64748b;">/ Head Office</div>
+                </td>
                 <td th:text="${row.punch_count}" style="text-align: center;">2</td>
                 <td>
                     <span th:text="${row.status}" 

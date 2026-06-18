@@ -59,8 +59,14 @@
                             <th>Employee ID</th>
                             <th>Employee Name</th>
                             <th>Shift</th>
+                            <th>Device Name</th>
+                            <th>Location</th>
+                            <th>Shift Start</th>
+                            <th>Grace Time</th>
                             <th>In Time</th>
                             <th>Out Time</th>
+                            <th>Late By</th>
+                            <th>Punches</th>
                             <th>Total Hours</th>
                             <th style="text-align: center;">Status</th>
                         </tr>
@@ -70,23 +76,32 @@
                             <td th:text="${a['emp_id']}" style="font-weight: 500; color: var(--text-muted);">101</td>
                             <td th:text="${a['emp_name']}" style="font-weight: 700; color: var(--text-main);">John Doe</td>
                             <td th:text="${a['shift'] ?: '--'}">Day</td>
+                            <td th:text="${a['device_name'] ?: '-'}">Device A</td>
+                            <td th:text="${a['device_location'] ?: 'Not Assigned'}" style="color: var(--text-muted);">Vijayawada</td>
+                            <td th:text="${a['shift_start'] != null ? a['shift_start'] : '--'}">09:00 AM</td>
+                            <td th:text="${a['grace_mins'] != null ? a['grace_mins'] + ' mins' : '--'}">5 mins</td>
                             <td class="format-time" th:text="${a['in_time_formatted'] != null ? a['in_time_formatted'] : (a['in_time'] != null ? a['in_time'] : '--:--')}" style="font-weight: 600;">09:00 AM</td>
                             <td class="format-time" th:text="${(a['out_time'] != null && a['in_time'] != null && !a['out_time'].toString().equals(a['in_time'].toString())) ? (a['out_time_formatted'] != null ? a['out_time_formatted'] : a['out_time']) : '--:--'}" style="font-weight: 600;">06:00 PM</td>
+                            <td th:text="${a['late_by'] ?: '—'}">—</td>
+                            <td th:text="${a['punches_count'] ?: '0'}" style="text-align: center;">2</td>
                             <td th:text="${a['work_hours'] != null ? #numbers.formatDecimal(a['work_hours'], 1, 2) : '0.00'}" style="font-weight: 700;">8.00</td>
                             <td style="text-align: center;">
-                                <span th:if="${a['status'] == 'P' or a['status'] == 'Present'}" class="badge badge-success">
-                                    <i class="fas fa-check-circle"></i> PRESENT
+                                <span th:if="${a['status'] == 'P' or a['status'] == 'Present' or a['status'] == 'On Time'}" class="badge badge-success">
+                                    <i class="fas fa-check-circle"></i> ON TIME
                                 </span>
                                 <span th:if="${a['status'] == 'Late'}" class="badge badge-warning">
                                     <i class="far fa-clock"></i> LATE
                                 </span>
-                                <span th:if="${a['status'] == 'A' or a['status'] == null}" class="badge badge-danger">
+                                <span th:if="${a['status'] == 'A' or a['status'] == 'Absent'}" class="badge badge-danger">
                                     <i class="fas fa-times-circle"></i> ABSENT
+                                </span>
+                                <span th:if="${a['status'] != 'P' and a['status'] != 'Present' and a['status'] != 'On Time' and a['status'] != 'Late' and a['status'] != 'A' and a['status'] != 'Absent' and a['status'] != null}" class="badge badge-info" th:text="${a['status']}">
+                                    <i class="fas fa-info-circle"></i> LEAVE
                                 </span>
                             </td>
                         </tr>
                         <tr th:if="${#lists.isEmpty(attendance)}">
-                            <td colspan="7">
+                            <td colspan="12">
                                 <div class="empty-state">
                                     <i class="fas fa-user-clock"></i>
                                     <p>No attendance records found for this date.</p>
@@ -105,10 +120,10 @@
                     const rows = document.querySelectorAll('tbody tr');
                     rows.forEach(row => {
                         const cells = row.querySelectorAll('td');
-                        if (cells.length < 5) return;
+                        if (cells.length < 8) return;
                         
-                        const inCell = cells[3];
-                        const outCell = cells[4];
+                        const inCell = cells[6];
+                        const outCell = cells[7];
                         if (!inCell || !outCell) return;
                         
                         let inText = inCell.textContent.trim();

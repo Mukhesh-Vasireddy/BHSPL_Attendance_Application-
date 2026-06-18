@@ -3,21 +3,20 @@
       th:replace="~{layout :: main-layout(~{::section}, 'Activity Logs', 'raw-logs')}">
 <body>
     <section>
-        <!-- Filters Row -->
         <!-- Modern Page Header -->
         <div class="module-header">
             <div>
                 <h1 class="module-title">Activity Logs</h1>
-                <div class="module-sub">Detailed session logs, sign-ins, punches, and day statuses</div>
+                <div class="module-sub">Detailed session logs with device and location audit trail</div>
             </div>
         </div>
 
         <!-- Modern Filter Bar -->
         <div class="filter-bar">
-            <form action="/raw-logs" method="get" autocomplete="off" style="margin: 0;">
+            <form action="/raw-logs" method="get" autocomplete="off" id="rawLogsForm" style="margin: 0;">
                 <input type="hidden" name="size" th:value="${pageSize != null ? pageSize : 10}">
                 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 20px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px;">
                     <div class="form-group" style="margin: 0;">
                         <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">From Date</label>
                         <input type="date" name="from" th:value="${selFrom}" autocomplete="off" class="form-control" style="color-scheme: light; width: 100%;">
@@ -41,15 +40,22 @@
                         </select>
                     </div>
                     <div class="form-group" style="margin: 0;">
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Device / Location</label>
+                        <select name="device" class="form-control" style="width: 100%;">
+                            <option value="All">All Devices / Locations</option>
+                            <option th:each="d : ${devices}" th:value="${d.device_name}" th:text="${d.display_name}" th:selected="${d.device_name == selDevice}"></option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin: 0;">
                         <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Search Name / ID</label>
-                        <input type="text" name="search" th:value="${selSearch}" autocomplete="off" class="form-control" style="width: 100%;" placeholder="Emp ID or Name...">
+                        <input type="text" name="search" th:value="${selSearch}" autocomplete="off" class="form-control" style="width: 100%;" placeholder="Emp ID, name, status...">
                     </div>
                 </div>
 
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding: 10px 15px; background: rgba(2, 132, 199, 0.05); border-radius: 12px; border: 1px solid rgba(2, 132, 199, 0.15);">
-                    <i class="fas fa-info-circle" style="color: var(--accent-primary);"></i>
+                    <i class="fas fa-map-marker-alt" style="color: var(--accent-primary);"></i>
                     <p style="margin: 0; color: var(--text-muted); font-size: 12px; font-weight: 500;">
-                        Each row represents one punch session (IN/OUT pair) grouped per day.
+                        Each row shows the IN/OUT session with separate Device Name and Device Location columns. Different IN/OUT devices are listed chronologically.
                     </p>
                 </div>
 
@@ -58,8 +64,8 @@
                     <button type="submit" class="btn-primary" style="background: var(--accent-primary); border-radius: 12px; padding: 10px 20px; font-weight: 600;">
                         <i class="fas fa-sync-alt"></i> Refresh Data
                     </button>
-                    <button type="submit" class="btn-primary" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.15); border-radius: 12px; padding: 10px 20px; font-weight: 600;">
-                        <i class="fas fa-file-invoice"></i> Generate Report
+                    <button type="button" onclick="printTable()" class="btn-primary" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 12px; padding: 10px 20px; font-weight: 600;">
+                        <i class="fas fa-print"></i> Print
                     </button>
                     <a href="/system/sync?redirect=/raw-logs" class="btn-primary btn-outline" style="text-decoration: none; border-radius: 12px; padding: 10px 20px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
                         <i class="fas fa-calculator"></i> Recalculate
@@ -93,31 +99,66 @@
                             <th>Date</th>
                             <th>IN Time</th>
                             <th>OUT Time</th>
+                            <th>Device Name</th>
+                            <th>Device Location</th>
                             <th style="text-align: center;">Punches</th>
                             <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr th:each="row : ${sessions}" style="border-bottom: 1px solid var(--glass-border); transition: background 0.2s;">
-                            <td th:text="${row.emp_id}" style="font-weight: 500; color: var(--text-muted);">123</td>
+                            <td th:text="${row.emp_id}" style="font-weight: 500; color: var(--text-muted);"></td>
                             <td>
                                 <div style="display: flex; align-items: center; gap: 10px;">
                                     <div class="tbl-avatar" th:text="${row.emp_name != null && !row.emp_name.isEmpty() ? #strings.substring(row.emp_name, 0, 1) : 'E'}">E</div>
-                                    <span th:text="${row.emp_name}" style="font-weight: 700; color: var(--text-main);">Anand</span>
+                                    <span th:text="${row.emp_name}" style="font-weight: 700; color: var(--text-main);"></span>
                                 </div>
                             </td>
-                            <td th:text="${row.department}">IT</td>
-                            <td th:text="${row.shift}">General</td>
-                            <td th:text="${row.date}" style="color: var(--text-muted);">2026-05-11</td>
-                            <td th:text="${row.in_time}" style="color: var(--text-main); font-weight: 600;">09:21 am</td>
-                            <td th:text="${row.out_time}" style="color: var(--text-main); font-weight: 600;">09:51 am</td>
-                            <td th:text="${row.punch_count}" style="text-align: center; font-weight: 700;">7</td>
+                            <td th:text="${row.department}"></td>
+                            <td th:text="${row.shift}"></td>
+                            <td th:text="${row.date}" style="color: var(--text-muted);"></td>
+                            <td th:text="${row.in_time}" style="color: var(--text-main); font-weight: 600;"></td>
+                            <td th:text="${row.out_time}" style="color: var(--text-main); font-weight: 600;"></td>
+                            
+                            <!-- Device Name column -->
                             <td>
-                                <span class="badge" th:classappend="${row.status == 'Present' ? 'badge-success' : 'badge-danger'}" th:text="${row.status}">Present</span>
+                                <div th:if="${row.device_name != null and row.device_name != '—'}" style="display: flex; flex-direction: column; gap: 4px;">
+                                    <div style="display: inline-flex; align-items: center; gap: 6px; background: rgba(2,132,199,0.08); border: 1px solid rgba(2,132,199,0.2); border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 700; color: var(--text-main); width: fit-content;">
+                                        <i class="fas fa-fingerprint" style="color: #0284c7; font-size: 10px;"></i>
+                                        <span th:text="${row.device_name}">Main Gate</span>
+                                    </div>
+                                    <div th:if="${row.out_device_name != null}" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 700; color: #f59e0b; width: fit-content;">
+                                        <i class="fas fa-sign-out-alt" style="color: #f59e0b; font-size: 10px;"></i>
+                                        <span th:text="${row.out_device_name}">HO Device</span>
+                                    </div>
+                                </div>
+                                <span th:if="${row.device_name == null or row.device_name == '—'}" style="color: var(--text-muted); font-size: 12px;">—</span>
+                            </td>
+
+                            <!-- Device Location column -->
+                            <td>
+                                <div th:if="${row.device_location != null and row.device_location != '—'}" style="display: flex; flex-direction: column; gap: 4px;">
+                                    <div style="display: inline-flex; align-items: center; gap: 6px; background: rgba(13,148,136,0.08); border: 1px solid rgba(13,148,136,0.2); border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 600; color: var(--accent-secondary); width: fit-content;">
+                                        <i class="fas fa-map-marker-alt" style="color: var(--accent-secondary); font-size: 10px;"></i>
+                                        <span th:text="${row.device_location}">P4 Office</span>
+                                    </div>
+                                    <div th:if="${row.out_device_location != null}" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 600; color: #ef4444; width: fit-content;">
+                                        <i class="fas fa-map-marker-alt" style="color: #ef4444; font-size: 10px;"></i>
+                                        <span th:text="${row.out_device_location}">Head Office</span>
+                                    </div>
+                                </div>
+                                <span th:if="${row.device_location == null or row.device_location == '—'}" style="color: var(--text-muted); font-size: 12px;">—</span>
+                            </td>
+
+                            <td th:text="${row.punch_count}" style="text-align: center; font-weight: 700;"></td>
+                            <td>
+                                <span class="badge" 
+                                      th:classappend="${row.status == 'Present' ? 'badge-success' : (row.status == 'Absent' ? 'badge-danger' : 'badge-warning')}" 
+                                      th:text="${row.status}">Present</span>
                             </td>
                         </tr>
                         <tr th:if="${sessions == null or sessions.empty}">
-                            <td colspan="9">
+                            <td colspan="11">
                                 <div class="empty-state">
                                     <i class="fas fa-fingerprint"></i>
                                     <p>No session data found for the selected criteria.</p>
@@ -130,10 +171,112 @@
             <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/raw-logs')}"></div>
         </div>
 
-
-
         <script th:inline="javascript">
-            // Simple helper for excel/csv export if needed
+            // ── Export Helpers ────────────────────────────────────────────────────────
+
+            function getExportRows() {
+                const table = document.getElementById('mainDataTable');
+                const rows = [];
+                // Headers
+                const headers = ['Emp ID','Name','Dept','Shift','Date','IN Time','OUT Time','Device Name','Device Location','Punches','Status'];
+                rows.push(headers);
+
+                const tbody = table.querySelector('tbody');
+                const trs = tbody.querySelectorAll('tr');
+                trs.forEach(tr => {
+                    const tds = tr.querySelectorAll('td');
+                    if (tds.length < 10) return; // skip empty-state row
+                    const empId     = tds[0].innerText.trim();
+                    const name      = tds[1].innerText.trim();
+                    const dept      = tds[2].innerText.trim();
+                    const shift     = tds[3].innerText.trim();
+                    const date      = tds[4].innerText.trim();
+                    const inTime    = tds[5].innerText.trim();
+                    const outTime   = tds[6].innerText.trim();
+                    const devName   = tds[7].innerText.trim().replace(/\n/g, " / ");
+                    const devLoc    = tds[8].innerText.trim().replace(/\n/g, " / ");
+                    const punches   = tds[9].innerText.trim();
+                    const status    = tds[10].innerText.trim();
+                    rows.push([empId, name, dept, shift, date, inTime, outTime, devName, devLoc, punches, status]);
+                });
+                return rows;
+            }
+
+            function exportCurrentPage(filename) {
+                const rows = getExportRows();
+                let html = '<table border="1"><thead><tr>';
+                rows[0].forEach(h => { html += `<th>${h}</th>`; });
+                html += '</tr></thead><tbody>';
+                for (let i = 1; i < rows.length; i++) {
+                    html += '<tr>';
+                    rows[i].forEach(c => { html += `<td>${c}</td>`; });
+                    html += '</tr>';
+                }
+                html += '</tbody></table>';
+                const blob = new Blob([html], {type: 'application/vnd.ms-excel'});
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = filename;
+                a.click();
+            }
+
+            function performFullExport(filename) {
+                const form = document.getElementById('rawLogsForm');
+                const params = new URLSearchParams(new FormData(form));
+                params.set('export', 'true');
+                params.set('size', '50000');
+                params.set('page', '1');
+                window.location.href = '/raw-logs?' + params.toString();
+            }
+
+            function exportTableToCSV(filename) {
+                const rows = getExportRows();
+                const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',')).join('\n');
+                const blob = new Blob([csv], {type: 'text/csv'});
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = filename;
+                a.click();
+            }
+
+            function printTable() {
+                const rows = getExportRows();
+                let html = `
+                    <html><head><title>Activity Logs</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; font-size: 11px; }
+                        h2 { text-align: center; margin-bottom: 10px; }
+                        table { width: 100%; border-collapse: collapse; }
+                        th { background: #1e3a5f; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; }
+                        td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; }
+                        tr:nth-child(even) { background: #f9fafb; }
+                        .badge-present { background: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 6px; }
+                        .badge-absent  { background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 6px; }
+                    </style></head><body>
+                    <h2>Activity Logs — Punch Sessions with Device &amp; Location</h2>
+                    <p style="text-align:center;color:#6b7280;font-size:10px;">Printed on: ${new Date().toLocaleString()}</p>
+                    <table><thead><tr>`;
+                rows[0].forEach(h => { html += `<th>${h}</th>`; });
+                html += '</tr></thead><tbody>';
+                for (let i = 1; i < rows.length; i++) {
+                    html += '<tr>';
+                    rows[i].forEach((c, ci) => {
+                        if (ci === 10) { // Status column
+                            const cls = c === 'Present' ? 'badge-present' : 'badge-absent';
+                            html += `<td><span class="${cls}">${c}</span></td>`;
+                        } else {
+                            html += `<td>${c}</td>`;
+                        }
+                    });
+                    html += '</tr>';
+                }
+                html += '</tbody></table></body></html>';
+                const w = window.open('', '_blank');
+                w.document.write(html);
+                w.document.close();
+                w.focus();
+                setTimeout(() => { w.print(); w.close(); }, 500);
+            }
         </script>
     </section>
 </body>

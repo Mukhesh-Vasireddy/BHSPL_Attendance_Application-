@@ -308,10 +308,10 @@ public class PushService {
                     // Clean time string (sometimes they have extra info)
                     if (timeStr.length() > 19) timeStr = timeStr.substring(0, 19);
                     
-                    // Check if duplicate swipe exists in raw_logs within 1 minute (respecting punch_type)
+                    // Check if duplicate swipe exists in raw_logs within 1 minute (respecting punch_type and device_id)
                     List<Map<String, Object>> nearbyList = db.query(
-                        "SELECT punch_time, punch_type FROM raw_logs WHERE emp_id = ? AND punch_time >= DATE_SUB(?, INTERVAL 1 MINUTE) AND punch_time <= DATE_ADD(?, INTERVAL 1 MINUTE)",
-                        uid, timeStr, timeStr
+                        "SELECT punch_time, punch_type FROM raw_logs WHERE emp_id = ? AND device_id = ? AND punch_time >= DATE_SUB(?, INTERVAL 1 MINUTE) AND punch_time <= DATE_ADD(?, INTERVAL 1 MINUTE)",
+                        uid, deviceId, timeStr, timeStr
                     );
                     
                     boolean isDuplicate = false;

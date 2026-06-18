@@ -621,6 +621,8 @@
                         <thead>
                             <tr>
                                 <th>Employee</th>
+                                <th>Device Name</th>
+                                <th>Location</th>
                                 <th>In Time</th>
                                 <th>Out Time</th>
                                 <th>Punches</th>
@@ -639,6 +641,14 @@
                                     </div>
                                 </td>
                                 <td>
+                                    <span style="font-size: 13px; font-weight: 500; color: var(--text-muted);"
+                                          th:text="${log.device_name}">Device Name</span>
+                                </td>
+                                <td>
+                                    <span style="font-size: 13px; font-weight: 500; color: var(--text-muted);"
+                                          th:text="${log.device_location}">Location</span>
+                                </td>
+                                <td>
                                     <span style="font-size: 13px; font-weight: 600; color: var(--text-main);"
                                           th:text="${#temporals.format(log.in_time, 'hh:mm a')}">09:00 AM</span>
                                 </td>
@@ -650,16 +660,16 @@
                                     <span class="punch-badge" th:text="${log.punches}">2</span>
                                 </td>
                                 <td>
-                                    <span th:if="${#temporals.hour(log.in_time) < 10}" class="status-pill pill-green">
+                                     <span th:if="${log.status == 'On Time'}" class="status-pill pill-green">
                                         <i class="fas fa-check-circle"></i> On Time
-                                    </span>
-                                    <span th:if="${#temporals.hour(log.in_time) >= 10}" class="status-pill pill-orange">
+                                     </span>
+                                     <span th:if="${log.status == 'Late'}" class="status-pill pill-orange">
                                         <i class="far fa-clock"></i> Late Entry
-                                    </span>
+                                     </span>
                                 </td>
                             </tr>
                             <tr th:if="${recentLogs == null or recentLogs.empty}">
-                                <td colspan="5" style="text-align: center; padding: 55px 20px; color: #94a3b8;">
+                                <td colspan="7" style="text-align: center; padding: 55px 20px; color: #94a3b8;">
                                     <i class="fas fa-user-clock" style="font-size: 34px; color: #e2e8f0; display: block; margin-bottom: 12px;"></i>
                                     <span style="font-size: 13px; font-weight: 500;">No attendance records found for today.</span>
                                 </td>
@@ -689,7 +699,7 @@
                             <div class="lp-avatar" th:text="${#strings.substring(lp.emp_name,0,1)}">A</div>
                             <div style="flex: 1; min-width: 0;">
                                 <div style="font-size: 12px; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" th:text="${lp.emp_name}">Name</div>
-                                <div style="font-size: 10px; color: #94a3b8; margin-top: 1px;" th:text="${lp.emp_id}">ID</div>
+                                <div style="font-size: 10px; color: #94a3b8; margin-top: 1px;" th:text="${lp.emp_id + ' | ' + lp.device_name + ' (' + lp.device_location + ')'}">ID | Device A (Vijayawada)</div>
                             </div>
                             <div style="text-align: right; flex-shrink: 0;">
                                 <div style="font-size: 12px; font-weight: 700; color: var(--text-main);"

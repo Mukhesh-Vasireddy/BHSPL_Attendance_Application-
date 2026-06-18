@@ -89,7 +89,9 @@
                         <tr>
                             <th class="sticky-col" style="width: 70px; min-width: 70px; max-width: 70px;">ID</th>
                             <th class="sticky-col" style="left: 70px; min-width: 180px; max-width: 180px;">Employee Name</th>
-                            <th class="sticky-col" style="left: 250px; min-width: 140px; max-width: 140px;">Designation</th>
+                            <th class="sticky-col" style="left: 250px; min-width: 140px; max-width: 140px;">Device</th>
+                            <th class="sticky-col" style="left: 390px; min-width: 140px; max-width: 140px;">Location</th>
+                            <th class="sticky-col" style="left: 530px; min-width: 140px; max-width: 140px;">Designation</th>
                             <th th:each="d : ${days}" th:text="${d + '/' + (selMonth.startsWith('0') ? selMonth.substring(1) : selMonth) + '/' + selYear}" 
                                 style="min-width: 90px; background: #f8fafc;">1/5/2026</th>
                         </tr>
@@ -98,11 +100,13 @@
                         <tr th:each="r : ${data}">
                             <td class="sticky-col" th:text="${r['emp_id']}" style="width: 70px; min-width: 70px; max-width: 70px;">101</td>
                             <td class="sticky-col" th:text="${r['emp_name']}" style="left: 70px; min-width: 180px; max-width: 180px; font-weight: 600; color: var(--text-main);">John Doe</td>
-                            <td class="sticky-col" th:text="${r['designation'] ?: '--'}" style="left: 250px; min-width: 140px; max-width: 140px;">Developer</td>
+                            <td class="sticky-col" th:text="${r['device_name'] ?: '-'}" style="left: 250px; min-width: 140px; max-width: 140px;">Device A</td>
+                            <td class="sticky-col" th:text="${r['device_location'] ?: 'Not Assigned'}" style="left: 390px; min-width: 140px; max-width: 140px;">Vijayawada</td>
+                            <td class="sticky-col" th:text="${r['designation'] ?: '--'}" style="left: 530px; min-width: 140px; max-width: 140px;">Developer</td>
                             
                             <td th:each="cell : ${r['days']}" 
                                 th:class="${cell.status == 'P' ? 'cell-p' : (cell.status == 'A' ? 'cell-a' : (cell.status == 'SUN' ? 'cell-sun' : (cell.status == 'WH' ? 'cell-wh' : 'cell-holiday')))}"
-                                th:attr="onclick=${cell.status == 'WH' ? 'showPunchLogs(''' + r.emp_id + ''', ''' + cell.date + ''', ''' + r.emp_name + ''')' : null}"
+                                th:attr="onclick=${cell.status == 'WH' ? 'showPunchLogs(''' + r.emp_id + ''', ''' + cell.date + ''', ''' + r.emp_name + ''', ''' + r.device_id + ''')' : null}"
                                 th:style="${cell.status == 'WH' ? 'cursor:pointer; padding: 6px !important;' : ''}">
                                 
                                 <th:block th:if="${cell.status != 'WH'}">
@@ -227,15 +231,19 @@
         </div>
 
         <script>
-            function showPunchLogs(empId, date, empName) {
+            function showPunchLogs(empId, date, empName, deviceId) {
                 document.getElementById('punchLogModal').style.display = 'flex';
                 document.getElementById('modalEmpName').textContent = empName;
                 document.getElementById('modalDate').textContent = date;
                 
                 document.getElementById('punchLogLoading').style.display = 'block';
                 document.getElementById('punchLogContent').style.display = 'none';
-
-                fetch('/api/reports/daily-punches?empId=' + encodeURIComponent(empId) + '&date=' + encodeURIComponent(date))
+ 
+                let url = '/api/reports/daily-punches?empId=' + encodeURIComponent(empId) + '&date=' + encodeURIComponent(date);
+                if (deviceId) {
+                    url += '&deviceId=' + encodeURIComponent(deviceId);
+                }
+                fetch(url)
                     .then(res => res.json())
                     .then(data => {
                         document.getElementById('punchLogLoading').style.display = 'none';

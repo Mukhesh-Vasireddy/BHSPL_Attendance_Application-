@@ -50,7 +50,7 @@ public class DeviceForm extends JDialog {
         gbc.insets = new Insets(6, 6, 6, 6);
         gbc.anchor = GridBagConstraints.EAST;
 
-        String[] labels = { "Device Name *", "IP Address *", "Port *", "Serial Number", "Location", "Status" };
+        String[] labels = { "Device Name *", "IP Address *", "Port *", "Serial Number", "Location *", "Status" };
         for (int i = 0; i < labels.length; i++) {
             gbc.gridx = 0;
             gbc.gridy = i;
@@ -117,8 +117,13 @@ public class DeviceForm extends JDialog {
     private void save() {
         String name = nameField.getText().trim();
         String ip = ipField.getText().trim();
-        if (name.isEmpty() || ip.isEmpty()) {
-            UIHelper.showWarning(this, "Name and IP are required.");
+        String loc = locField.getText().trim();
+        if (name.isEmpty() || ip.isEmpty() || loc.isEmpty()) {
+            UIHelper.showWarning(this, "Device Name, IP Address, and Location are required.");
+            return;
+        }
+        if (!isValidIPv4(ip)) {
+            UIHelper.showWarning(this, "Please enter a valid IP address.");
             return;
         }
         try {
@@ -126,12 +131,12 @@ public class DeviceForm extends JDialog {
             if (deviceId == null) {
                 db.execute(
                         "INSERT INTO devices (device_name, ip_address, port, serial_number, location, status) VALUES (?,?,?,?,?,?)",
-                        name, ip, port, snField.getText().trim(), locField.getText().trim(),
+                        name, ip, port, snField.getText().trim(), loc,
                         statusCombo.getSelectedItem().toString());
             } else {
                 db.execute(
                         "UPDATE devices SET device_name=?, ip_address=?, port=?, serial_number=?, location=?, status=? WHERE device_id=?",
-                        name, ip, port, snField.getText().trim(), locField.getText().trim(),
+                        name, ip, port, snField.getText().trim(), loc,
                         statusCombo.getSelectedItem().toString(), deviceId);
             }
             if (callback != null)
@@ -140,5 +145,20 @@ public class DeviceForm extends JDialog {
         } catch (Exception e) {
             UIHelper.showError(this, "Error: " + e.getMessage());
         }
+    }
+
+    private boolean isValidIPv4(String ip) {
+        if (ip == null || ip.isEmpty()) return false;
+        String[] parts = ip.split("\\.");
+        if (parts.length != 4) return false;
+        for (String part : parts) {
+            try {
+                int num = Integer.parseInt(part);
+                if (num < 0 || num > 255) return false;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+        return true;
     }
 }

@@ -106,8 +106,10 @@ public class ImportUsersDialog extends JDialog {
         JLabel titleLbl = new JLabel("Import Biometric Users");
         titleLbl.setFont(FNT_TITLE);
         titleLbl.setForeground(C_HEADER_FG);
+        String loc = DatabaseManager.str(device, "location");
+        String displayLoc = (loc != null && !loc.trim().isEmpty()) ? "  ·  " + loc : "";
         JLabel subLbl = new JLabel(
-            DatabaseManager.str(device, "device_name") + "  ·  " +
+            DatabaseManager.str(device, "device_name") + displayLoc + "  ·  " +
             DatabaseManager.str(device, "ip_address") + ":" +
             DatabaseManager.num(device, "port"));
         subLbl.setFont(FNT_SUB);
