@@ -786,7 +786,7 @@
                                         <div style="font-size: 10px; color: #94a3b8; margin-top: 1px;">Success accuracy</div>
                                     </div>
                                 </div>
-                                <span th:text="|${syncSuccessRate}%|" style="font-size: 20px; font-weight: 900; color: #6366F1; line-height: 1;">100%</span>
+                                <span th:text="${syncSuccessRate + '%'}" style="font-size: 20px; font-weight: 900; color: #6366F1; line-height: 1;">100%</span>
                             </div>
                             <div style="background: rgba(99,102,241,0.1); border-radius: 100px; height: 5px; overflow: hidden;">
                                 <div th:style="|width:${syncSuccessRate}%;background:linear-gradient(90deg,#6366F1,#818CF8);height:100%;border-radius:100px;|" style="width:100%;"></div>
