@@ -32,12 +32,25 @@
                             <option th:each="d : ${depts}" th:value="${d.dept_name}" th:text="${d.dept_name}" th:selected="${d.dept_name == selDept}"></option>
                         </select>
                     </div>
-                    <div class="form-group" style="margin: 0;">
-                        <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Employee</label>
-                        <select name="emp" class="form-control" style="width: 100%;">
-                            <option value="All">All Employees</option>
-                            <option th:each="e : ${employees}" th:value="${e.emp_id}" th:text="${e.emp_name}" th:selected="${e.emp_id == selEmp}"></option>
-                        </select>
+                    <div class="form-group" style="margin: 0; position: relative;">
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Search Employee</label>
+                        <div style="position: relative;">
+                            <input type="text" id="employeeSearchTrigger" class="form-control" autocomplete="off" placeholder="Search name or ID..." style="width: 100%; padding-right: 35px;" th:value="${selEmp != 'All' && selEmp != null ? selEmpName : selSearch}">
+                            <i class="fas fa-chevron-down" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; font-size: 12px;"></i>
+                        </div>
+                        <input type="hidden" name="search" id="employeeSearchVal" th:value="${selSearch}">
+                        <input type="hidden" name="emp" id="employeeSearchEmpId" th:value="${selEmp != null ? selEmp : 'All'}">
+                        
+                        <!-- Dropdown list -->
+                        <div id="employeeSearchDropdown" style="position: absolute; left: 0; right: 0; top: 100%; background: #ffffff; border: 1px solid var(--glass-border); border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); max-height: 250px; overflow-y: auto; z-index: 1000; display: none; margin-top: 4px;">
+                            <div class="emp-search-item" data-id="All" data-name="All Employees" style="padding: 10px 15px; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-weight: 600; color: var(--accent-primary);">
+                                All Employees
+                            </div>
+                            <div class="emp-search-item" th:each="e : ${employees}" th:attr="data-id=${e.emp_id}, data-name=${e.emp_name}" style="padding: 10px 15px; cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: background 0.15s;">
+                                <div style="font-weight: 700; color: var(--text-main);" th:text="${e.emp_name}">Employee Name</div>
+                                <div style="font-size: 11px; color: var(--text-muted);" th:text="${'ID: ' + e.emp_id}">ID: 101</div>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group" style="margin: 0;">
                         <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Device / Location</label>
@@ -45,10 +58,6 @@
                             <option value="All">All Devices / Locations</option>
                             <option th:each="d : ${devices}" th:value="${d.device_name}" th:text="${d.display_name}" th:selected="${d.device_name == selDevice}"></option>
                         </select>
-                    </div>
-                    <div class="form-group" style="margin: 0;">
-                        <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Search Name / ID</label>
-                        <input type="text" name="search" th:value="${selSearch}" autocomplete="off" class="form-control" style="width: 100%;" placeholder="Emp ID, name, status...">
                     </div>
                 </div>
 
@@ -64,9 +73,10 @@
                     <button type="submit" class="btn-primary" style="background: var(--accent-primary); border-radius: 12px; padding: 10px 20px; font-weight: 600;">
                         <i class="fas fa-sync-alt"></i> Refresh Data
                     </button>
-                    <button type="button" onclick="printTable()" class="btn-primary" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 12px; padding: 10px 20px; font-weight: 600;">
-                        <i class="fas fa-print"></i> Print
+                    <button type="button" onclick="generateLogs()" class="btn-primary" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 12px; padding: 10px 20px; font-weight: 600;">
+                        <i class="fas fa-magic"></i> Generate
                     </button>
+
                     <a href="/system/sync?redirect=/raw-logs" class="btn-primary btn-outline" style="text-decoration: none; border-radius: 12px; padding: 10px 20px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
                         <i class="fas fa-calculator"></i> Recalculate
                     </a>
@@ -239,45 +249,109 @@
                 a.click();
             }
 
-            function printTable() {
-                const rows = getExportRows();
-                let html = `
-                    <html><head><title>Activity Logs</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; font-size: 11px; }
-                        h2 { text-align: center; margin-bottom: 10px; }
-                        table { width: 100%; border-collapse: collapse; }
-                        th { background: #1e3a5f; color: #fff; padding: 6px 8px; text-align: left; font-size: 10px; }
-                        td { padding: 5px 8px; border-bottom: 1px solid #e5e7eb; }
-                        tr:nth-child(even) { background: #f9fafb; }
-                        .badge-present { background: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 6px; }
-                        .badge-absent  { background: #fee2e2; color: #991b1b; padding: 2px 8px; border-radius: 6px; }
-                    </style></head><body>
-                    <h2>Activity Logs — Punch Sessions with Device &amp; Location</h2>
-                    <p style="text-align:center;color:#6b7280;font-size:10px;">Printed on: ${new Date().toLocaleString()}</p>
-                    <table><thead><tr>`;
-                rows[0].forEach(h => { html += `<th>${h}</th>`; });
-                html += '</tr></thead><tbody>';
-                for (let i = 1; i < rows.length; i++) {
-                    html += '<tr>';
-                    rows[i].forEach((c, ci) => {
-                        if (ci === 10) { // Status column
-                            const cls = c === 'Present' ? 'badge-present' : 'badge-absent';
-                            html += `<td><span class="${cls}">${c}</span></td>`;
+            // Searchable Dropdown Logic
+            (function() {
+                const trigger = document.getElementById('employeeSearchTrigger');
+                const dropdown = document.getElementById('employeeSearchDropdown');
+                const hiddenSearch = document.getElementById('employeeSearchVal');
+                const hiddenEmpId = document.getElementById('employeeSearchEmpId');
+
+                if (!trigger || !dropdown) return;
+
+                trigger.addEventListener('focus', () => {
+                    dropdown.style.display = 'block';
+                    filterItems(trigger.value);
+                });
+
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('#employeeSearchTrigger') && !e.target.closest('#employeeSearchDropdown')) {
+                        dropdown.style.display = 'none';
+                    }
+                });
+
+                trigger.addEventListener('input', () => {
+                    const val = trigger.value;
+                    hiddenSearch.value = val;
+                    hiddenEmpId.value = 'All';
+                    filterItems(val);
+                });
+
+                function filterItems(text) {
+                    const query = text.toLowerCase().trim();
+                    const items = dropdown.querySelectorAll('.emp-search-item');
+                    items.forEach(item => {
+                        const name = item.getAttribute('data-name').toLowerCase();
+                        const id = item.getAttribute('data-id').toLowerCase();
+                        if (id === 'all' || name.includes(query) || id.includes(query)) {
+                            item.style.display = 'block';
                         } else {
-                            html += `<td>${c}</td>`;
+                            item.style.display = 'none';
                         }
                     });
-                    html += '</tr>';
                 }
-                html += '</tbody></table></body></html>';
-                const w = window.open('', '_blank');
-                w.document.write(html);
-                w.document.close();
-                w.focus();
-                setTimeout(() => { w.print(); w.close(); }, 500);
+
+                dropdown.addEventListener('click', (e) => {
+                    const item = e.target.closest('.emp-search-item');
+                    if (item) {
+                        const id = item.getAttribute('data-id');
+                        const name = item.getAttribute('data-name');
+
+                        trigger.value = id === 'All' ? '' : name;
+                        hiddenEmpId.value = id;
+                        hiddenSearch.value = ''; 
+                        dropdown.style.display = 'none';
+                    }
+                });
+            })();
+
+
+
+            function generateLogs() {
+                const fromDate = document.querySelector('input[name="from"]').value;
+                const toDate = document.querySelector('input[name="to"]').value;
+                const empId = document.getElementById('employeeSearchEmpId').value;
+                const searchVal = document.getElementById('employeeSearchVal').value;
+                const empTriggerText = document.getElementById('employeeSearchTrigger').value;
+
+                let confirmMsg = `Do you want to generate mock punch logs for all active employees from ${fromDate} to ${toDate}? This will populate raw_logs and update attendance records.`;
+                if (empId !== 'All' && empId.trim() !== '') {
+                    confirmMsg = `Do you want to generate mock punch logs for ${empTriggerText} (ID: ${empId}) from ${fromDate} to ${toDate}? This will populate raw_logs and update attendance records.`;
+                } else if (searchVal.trim() !== '') {
+                    confirmMsg = `Do you want to generate mock punch logs for employees matching "${searchVal}" from ${fromDate} to ${toDate}? This will populate raw_logs and update attendance records.`;
+                }
+                
+                showConfirm("Generate Logs", confirmMsg, async () => {
+                    document.body.style.cursor = 'wait';
+                    try {
+                        const response = await fetch(`/api/raw-logs/generate?from=${fromDate}&to=${toDate}&emp=${encodeURIComponent(empId)}&search=${encodeURIComponent(searchVal)}`, {
+                            method: 'POST'
+                        });
+                        const res = await response.json();
+                        if (res.success) {
+                            showAlert("Success", `Successfully generated ${res.count} raw logs.`, () => {
+                                const form = document.getElementById('rawLogsForm');
+                                const params = new URLSearchParams(new FormData(form));
+                                window.location.href = '/raw-logs?' + params.toString();
+                            });
+                        } else {
+                            showAlert("Error", res.message || "Failed to generate logs.");
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        showAlert("Error", "An error occurred while generating logs.");
+                    } finally {
+                        document.body.style.cursor = 'default';
+                    }
+                });
             }
         </script>
+
+
+        <style>
+            .emp-search-item:hover {
+                background: #f1f5f9;
+            }
+        </style>
     </section>
 </body>
 </html>

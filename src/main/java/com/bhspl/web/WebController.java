@@ -110,20 +110,20 @@ public class WebController {
             if (isExport)
                 pageSize = 50000;
             int offset = (page - 1) * pageSize;
+            String todayStr = java.time.LocalDate.now().toString();
 
             // Stats & Analytics Caching
             @SuppressWarnings("unchecked")
             java.util.Map<String, Object> stats = (java.util.Map<String, Object>) CacheManager.getInstance()
                     .get("dashboard_stats");
             if (stats == null || !stats.containsKey("weeklyPresentCounts")) {
-                String todayStr = java.time.LocalDate.now().toString();
                 String dayName = java.time.LocalDate.now().getDayOfWeek()
                         .getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH);
 
                 stats = new java.util.HashMap<>();
                 long totalEmpsVal = db.queryLong("SELECT COUNT(*) FROM employees WHERE status='Active'");
                 long presentCountVal = db.queryLong(
-                        "SELECT COUNT(DISTINCT r.emp_id) FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE r.punch_time >= ? AND r.punch_time <= NOW() AND e.status = 'Active'",
+                        "SELECT COUNT(DISTINCT r.emp_id) FROM raw_logs r JOIN employees e ON r.emp_id = e.emp_id WHERE r.punch_time >= ? AND e.status = 'Active'",
                         todayStr);
                 long leaveCountVal = db.queryLong(
                         "SELECT COUNT(DISTINCT emp_id) FROM leaves WHERE status='Approved' AND ? BETWEEN from_date AND to_date",
@@ -226,6 +226,11 @@ public class WebController {
             List<Object> allParams = new ArrayList<>(params);
             allParams.addAll(orderParams);
 
+            List<Object> recentLogsParams = new ArrayList<>();
+            recentLogsParams.add(todayStr);
+            recentLogsParams.add(todayStr);
+            recentLogsParams.addAll(allParams);
+
             List<Map<String, Object>> recentLogs = db.query(
                     "SELECT r.emp_id, " +
                             "CASE WHEN e.emp_name IS NOT NULL THEN e.emp_name " +
@@ -237,13 +242,13 @@ public class WebController {
                             "s.start_time AS shift_start, s.grace_mins " +
                             "FROM raw_logs r " +
                             "LEFT JOIN employees e ON r.emp_id = e.emp_id " +
-                            "LEFT JOIN devices d ON r.device_id = (SELECT device_id FROM raw_logs rl2 WHERE rl2.emp_id = r.emp_id AND rl2.punch_time >= CURDATE() ORDER BY rl2.punch_time DESC LIMIT 1) " +
+                            "LEFT JOIN devices d ON r.device_id = (SELECT device_id FROM raw_logs rl2 WHERE rl2.emp_id = r.emp_id AND rl2.punch_time >= ? ORDER BY rl2.punch_time DESC LIMIT 1) " +
                             "LEFT JOIN shifts s ON e.shift = s.shift_name " +
-                            "WHERE r.punch_time >= CURDATE() AND r.punch_time <= NOW() AND e.status = 'Active' "
+                            "WHERE r.punch_time >= ? AND e.status = 'Active' "
                             + searchFilter +
                             "GROUP BY r.emp_id, e.emp_name, d.device_name, d.location, s.start_time, s.grace_mins " +
                             "ORDER BY " + orderBy + " LIMIT " + pageSize + " OFFSET " + offset,
-                    allParams.toArray());
+                    recentLogsParams.toArray());
 
             // Weekly Data mapping
             Map<String, Map<String, String>> weeklyData = new java.util.HashMap<>();
@@ -263,15 +268,15 @@ public class WebController {
 
             // Today's punch count (total raw logs received today)
             long todayPunches = db.queryLong(
-                    "SELECT COUNT(*) FROM raw_logs WHERE punch_time >= CURDATE() AND punch_time <= NOW()");
+                    "SELECT COUNT(*) FROM raw_logs WHERE punch_time >= ?", todayStr);
             model.addAttribute("todayPunches", todayPunches);
 
             // Today's synced logs (processed into attendance_logs or daily_attendance)
             long todaySyncedLogs = db.queryLong(
                     "SELECT COUNT(*) FROM raw_logs r " +
                             "JOIN employees e ON r.emp_id = e.emp_id " +
-                            "WHERE r.punch_time >= CURDATE() AND r.punch_time <= NOW() " +
-                            "AND e.status = 'Active'");
+                            "WHERE r.punch_time >= ? " +
+                            "AND e.status = 'Active'", todayStr);
             model.addAttribute("todaySyncedLogs", todaySyncedLogs);
 
             // Sync success rate
@@ -330,9 +335,9 @@ public class WebController {
                 List<Map<String, Object>> weeklyLogs = db.query(
                         "SELECT emp_id, DATE(punch_time) as pdate, COUNT(*) as punches " +
                                 "FROM raw_logs WHERE emp_id IN (" + empIds.toString() + ") " +
-                                "AND punch_time >= CURDATE() - INTERVAL 6 DAY AND punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) "
+                                "AND punch_time >= DATE_SUB(?, INTERVAL 6 DAY) AND punch_time < DATE_ADD(?, INTERVAL 1 DAY) "
                                 +
-                                "GROUP BY emp_id, DATE(punch_time)");
+                                "GROUP BY emp_id, DATE(punch_time)", todayStr, todayStr);
 
                 for (Map<String, Object> wl : weeklyLogs) {
                     String eId = (String) wl.get("emp_id");
@@ -370,10 +375,10 @@ public class WebController {
                     "SELECT COUNT(*) FROM (" +
                             "  SELECT r.emp_id FROM raw_logs r " +
                             "  JOIN employees e ON r.emp_id = e.emp_id " +
-                            "  WHERE r.punch_time >= CURDATE() AND r.punch_time <= NOW() " +
+                            "  WHERE r.punch_time >= ? " +
                             "  AND e.status = 'Active' " +
                             "  GROUP BY r.emp_id HAVING COUNT(*) % 2 = 1" +
-                            ") t");
+                            ") t", todayStr);
             model.addAttribute("missingPunches", missingPunches);
 
             // Recent Live Punches Activity (last 10 punches today) - Optimized to run point
@@ -384,15 +389,15 @@ public class WebController {
                             "COALESCE(d.location, 'Not Assigned') as device_location " +
                             "FROM raw_logs r LEFT JOIN employees e ON r.emp_id = e.emp_id " +
                             "LEFT JOIN devices d ON r.device_id = d.device_id " +
-                            "WHERE r.punch_time >= CURDATE() AND r.punch_time <= NOW() AND e.status = 'Active' "
+                            "WHERE r.punch_time >= ? AND e.status = 'Active' "
                             +
-                            "ORDER BY r.punch_time DESC LIMIT 10");
+                            "ORDER BY r.punch_time DESC LIMIT 10", todayStr);
             for (Map<String, Object> punch : livePunches) {
                 String empId = (String) punch.get("emp_id");
                 Object punchTime = punch.get("punch_time");
                 long count = db.queryLong(
-                        "SELECT COUNT(*) FROM raw_logs WHERE emp_id = ? AND punch_time >= CURDATE() AND punch_time < DATE_ADD(CURDATE(), INTERVAL 1 DAY) AND punch_time <= ?",
-                        empId, punchTime);
+                        "SELECT COUNT(*) FROM raw_logs WHERE emp_id = ? AND punch_time >= ? AND punch_time < DATE_ADD(?, INTERVAL 1 DAY) AND punch_time <= ?",
+                        empId, todayStr, todayStr, punchTime);
                 punch.put("punch_num", count);
             }
             model.addAttribute("livePunches", livePunches);
@@ -1189,6 +1194,7 @@ public class WebController {
     public String attendance(Model model,
             @RequestParam(name = "date", required = false) String date,
             @RequestParam(name = "status", required = false) String status,
+            @RequestParam(name = "search", required = false) String search,
             @RequestParam(name = "page", defaultValue = "1") int page,
             @RequestParam(name = "size", defaultValue = "10") int pageSize,
             HttpSession session) {
@@ -1231,14 +1237,23 @@ public class WebController {
 
             String filterWhere = "";
             List<Object> filterParams = new ArrayList<>();
+            List<String> conditions = new ArrayList<>();
             if (status != null && !status.isEmpty() && !"All".equals(status)) {
                 if ("Absent".equalsIgnoreCase(status)) {
-                    filterWhere = " WHERE status IN ('Absent', 'A')";
+                    conditions.add("status IN ('Absent', 'A')");
                 } else if ("Late".equalsIgnoreCase(status)) {
-                    filterWhere = " WHERE status = 'Late'";
+                    conditions.add("status = 'Late'");
                 } else if ("Present".equalsIgnoreCase(status)) {
-                    filterWhere = " WHERE status IN ('Present', 'On Time', 'P', 'Late', 'Early')";
+                    conditions.add("status IN ('Present', 'On Time', 'P', 'Late', 'Early')");
                 }
+            }
+            if (search != null && !search.isEmpty()) {
+                conditions.add("(emp_name LIKE ? OR emp_id LIKE ?)");
+                filterParams.add("%" + search + "%");
+                filterParams.add("%" + search + "%");
+            }
+            if (!conditions.isEmpty()) {
+                filterWhere = " WHERE " + String.join(" AND ", conditions);
             }
 
             List<Object> countParams = new ArrayList<>();
@@ -1333,6 +1348,7 @@ public class WebController {
             model.addAttribute("attendance", data);
             model.addAttribute("selDate", filterDate);
             model.addAttribute("selStatus", (status != null) ? status : "All");
+            model.addAttribute("selSearch", (search != null) ? search : "");
             model.addAttribute("currentPage", page);
             model.addAttribute("totalPages", totalPages);
             model.addAttribute("pageSize", pageSize);
@@ -2307,6 +2323,228 @@ public class WebController {
         return handleRawLogs(model, from, to, dept, emp, device, search, "report-raw-logs", page, pageSize);
     }
 
+    @PostMapping("/api/raw-logs/generate")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> generateRawLogs(
+            @RequestParam("from") String fromDateStr,
+            @RequestParam("to") String toDateStr,
+            @RequestParam(name = "emp", required = false) String emp,
+            @RequestParam(name = "search", required = false) String search,
+            HttpSession session) {
+        
+        Map<String, Object> response = new HashMap<>();
+        if (session.getAttribute("user") == null) {
+            response.put("success", false);
+            response.put("message", "Unauthorized");
+            return ResponseEntity.status(401).body(response);
+        }
+
+        try {
+            System.out.println("[API] generateRawLogs: from=" + fromDateStr + ", to=" + toDateStr + ", emp=" + emp + ", search=" + search);
+            DatabaseManager db = DatabaseManager.getInstance();
+            java.time.LocalDate start = java.time.LocalDate.parse(fromDateStr);
+            java.time.LocalDate end = java.time.LocalDate.parse(toDateStr);
+
+            if (start.isAfter(end)) {
+                response.put("success", false);
+                response.put("message", "From date cannot be after To date");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            // Get active employees with optional filter
+            String empSql = "SELECT emp_id, emp_name FROM employees WHERE status='Active'";
+            List<Object> queryParams = new ArrayList<>();
+            if (emp != null && !emp.trim().isEmpty() && !"All".equalsIgnoreCase(emp.trim())) {
+                empSql += " AND emp_id = ?";
+                queryParams.add(emp.trim());
+            } else if (search != null && !search.trim().isEmpty()) {
+                empSql += " AND (emp_name LIKE ? OR emp_id = ?)";
+                queryParams.add("%" + search.trim() + "%");
+                queryParams.add(search.trim());
+            }
+            List<Map<String, Object>> employees = db.query(empSql, queryParams.toArray());
+            
+            // Get active devices
+            List<Map<String, Object>> devices = db.query("SELECT device_id FROM devices WHERE status='Active'");
+            int defaultDevId = devices.isEmpty() ? 0 : ((Number) devices.get(0).get("device_id")).intValue();
+
+            int count = 0;
+            db.setAutoCommit(false);
+            try {
+                java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                java.util.Random rand = new java.util.Random();
+
+                for (java.time.LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
+                    String dayName = date.getDayOfWeek().toString();
+                    if ("SUNDAY".equalsIgnoreCase(dayName)) {
+                        continue; 
+                    }
+
+                    for (Map<String, Object> employee : employees) {
+                        String empId = (String) employee.get("emp_id");
+
+                        // 10% chance employee is absent on this day
+                        if (rand.nextInt(100) < 10) {
+                            continue;
+                        }
+
+                        // Generate IN punch: ~08:45 to ~09:30
+                        int inMinOffset = rand.nextInt(45) - 15; // -15 to +30 mins from 9:00 AM
+                        java.time.LocalDateTime inTime = date.atTime(9, 0).plusMinutes(inMinOffset).plusSeconds(rand.nextInt(60));
+                        
+                        db.execute("INSERT INTO raw_logs (device_id, emp_id, punch_time, punch_type, synced) VALUES (?,?,?,?,0)",
+                                defaultDevId, empId, inTime.format(dtf), 0);
+                        count++;
+
+                        // 5% chance employee forgets to check out (missing OUT punch)
+                        if (rand.nextInt(100) < 5) {
+                            continue;
+                        }
+
+                        // Generate OUT punch: ~17:30 to ~18:30 (5:30 PM to 6:30 PM)
+                        int outMinOffset = rand.nextInt(60) - 30; // -30 to +30 mins from 6:00 PM
+                        java.time.LocalDateTime outTime = date.atTime(18, 0).plusMinutes(outMinOffset).plusSeconds(rand.nextInt(60));
+
+                        db.execute("INSERT INTO raw_logs (device_id, emp_id, punch_time, punch_type, synced) VALUES (?,?,?,?,0)",
+                                defaultDevId, empId, outTime.format(dtf), 1);
+                        count++;
+                    }
+                }
+                db.commit();
+            } catch (Exception e) {
+                db.rollback();
+                throw e;
+            } finally {
+                db.setAutoCommit(true);
+            }
+
+            // Trigger sync to process the newly generated raw logs
+            try {
+                com.bhspl.service.SyncService.processRawLogs(msg -> {});
+            } catch (Exception ignored) {}
+
+            CacheManager.getInstance().clear();
+
+            response.put("success", true);
+            response.put("count", count);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.put("success", false);
+            response.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
+    }
+
+    @PostMapping("/api/raw-logs/add")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> addRawLog(
+            @RequestBody Map<String, String> payload,
+            HttpSession session) {
+        
+        Map<String, Object> response = new HashMap<>();
+        if (session.getAttribute("user") == null) {
+            response.put("success", false);
+            response.put("message", "Unauthorized");
+            return ResponseEntity.status(401).body(response);
+        }
+
+        try {
+            String empId = payload.get("empId");
+            String deviceIdStr = payload.get("deviceId");
+            String punchTimeStr = payload.get("punchTime");
+            String punchTypeStr = payload.get("punchType");
+
+            if (empId == null || punchTimeStr == null || empId.trim().isEmpty() || punchTimeStr.trim().isEmpty()) {
+                response.put("success", false);
+                response.put("message", "Required fields are missing.");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            int deviceId = deviceIdStr != null ? Integer.parseInt(deviceIdStr) : 0;
+            int punchType = punchTypeStr != null ? Integer.parseInt(punchTypeStr) : 0;
+            
+            String formattedTime = punchTimeStr.replace("T", " ");
+            if (formattedTime.length() == 16) {
+                formattedTime += ":00";
+            }
+
+            DatabaseManager db = DatabaseManager.getInstance();
+            db.execute("INSERT INTO raw_logs (device_id, emp_id, punch_time, punch_type, synced) VALUES (?,?,?,?,0)",
+                    deviceId, empId.trim(), formattedTime, punchType);
+
+            try {
+                com.bhspl.service.SyncService.processRawLogs(msg -> {});
+            } catch (Exception ignored) {}
+
+            CacheManager.getInstance().clear();
+
+            response.put("success", true);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.put("success", false);
+            response.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
+    }
+
+    @PostMapping("/api/raw-logs/clear")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> clearRawLogs(
+            @RequestParam("from") String fromDateStr,
+            @RequestParam("to") String toDateStr,
+            HttpSession session) {
+        
+        Map<String, Object> response = new HashMap<>();
+        if (session.getAttribute("user") == null) {
+            response.put("success", false);
+            response.put("message", "Unauthorized");
+            return ResponseEntity.status(401).body(response);
+        }
+
+        try {
+            DatabaseManager db = DatabaseManager.getInstance();
+            java.time.LocalDate start = java.time.LocalDate.parse(fromDateStr);
+            java.time.LocalDate end = java.time.LocalDate.parse(toDateStr);
+
+            if (start.isAfter(end)) {
+                response.put("success", false);
+                response.put("message", "From date cannot be after To date");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            db.setAutoCommit(false);
+            try {
+                // Delete from raw_logs
+                db.execute("DELETE FROM raw_logs WHERE DATE(punch_time) BETWEEN ? AND ?", fromDateStr, toDateStr);
+                
+                // Delete from attendance
+                db.execute("DELETE FROM attendance WHERE punch_date BETWEEN ? AND ?", fromDateStr, toDateStr);
+                
+                db.commit();
+            } catch (Exception e) {
+                db.rollback();
+                throw e;
+            } finally {
+                db.setAutoCommit(true);
+            }
+
+            CacheManager.getInstance().clear();
+
+            response.put("success", true);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            response.put("success", false);
+            response.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
+    }
+
     private String handleRawLogs(Model model, String from, String to, String dept, String emp, String device, String search,
             String viewName,
             int page, int pageSize) {
@@ -2411,17 +2649,19 @@ public class WebController {
                     List<Map<String, Object>> dayLogs = logMap.get(key);
 
                     if (dayLogs == null || dayLogs.isEmpty()) {
-                        Map<String, Object> row = new HashMap<>(employee);
-                        row.put("date", dateStr);
-                        row.put("in_time", "—");
-                        row.put("out_time", "—");
-                        row.put("punch_count", 0);
-                        row.put("status", "Absent");
-                        row.put("device_name", "—");
-                        row.put("device_location", "—");
-                        row.put("out_device_name", null);
-                        row.put("out_device_location", null);
-                        allSessions.add(row);
+                        if (!"All".equals(eId)) {
+                            Map<String, Object> row = new HashMap<>(employee);
+                            row.put("date", dateStr);
+                            row.put("in_time", "—");
+                            row.put("out_time", "—");
+                            row.put("punch_count", 0);
+                            row.put("status", "Absent");
+                            row.put("device_name", "—");
+                            row.put("device_location", "—");
+                            row.put("out_device_name", null);
+                            row.put("out_device_location", null);
+                            allSessions.add(row);
+                        }
                     } else {
                         int totalPunches = dayLogs.size();
                         for (int i = 0; i < dayLogs.size(); i += 2) {

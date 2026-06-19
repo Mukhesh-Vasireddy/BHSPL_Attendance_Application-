@@ -31,22 +31,29 @@
 
         <!-- Filter Bar -->
         <div class="filter-bar">
-            <form action="/attendance" method="get" autocomplete="off" style="display: flex; gap: 15px; align-items: flex-end; justify-content: flex-end; flex-wrap: wrap; margin: 0;">
+            <form action="/attendance" method="get" autocomplete="off" style="display: flex; gap: 15px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; margin: 0; width: 100%;">
                 <input type="hidden" name="size" th:value="${pageSize != null ? pageSize : 10}">
-                <div class="form-group" style="margin: 0;">
-                    <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Attendance Date</label>
-                    <input type="date" name="date" autocomplete="off" class="form-control" th:value="${selDate}" style="width: 180px; padding: 10px 15px;">
+                <div class="form-group" style="margin: 0; position: relative;">
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Search Employee</label>
+                    <input type="text" name="search" autocomplete="off" class="form-control" th:value="${selSearch}" placeholder="Search name or ID..." style="width: 260px; padding: 10px 15px 10px 38px;">
+                    <i class="fas fa-search" style="position: absolute; left: 15px; bottom: 14px; color: #cbd5e1; font-size: 13px; pointer-events: none;"></i>
                 </div>
-                <div class="form-group" style="margin: 0;">
-                    <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Filter Status</label>
-                    <select name="status" class="form-control" style="width: 180px; padding: 10px 15px;">
-                        <option value="All" th:selected="${selStatus == 'All'}">All Records</option>
-                        <option value="Present" th:selected="${selStatus == 'Present'}">Present Only</option>
-                        <option value="Late" th:selected="${selStatus == 'Late'}">Late Only</option>
-                        <option value="Absent" th:selected="${selStatus == 'Absent'}">Absent Only</option>
-                    </select>
+                <div style="display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
+                    <div class="form-group" style="margin: 0;">
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Attendance Date</label>
+                        <input type="date" name="date" autocomplete="off" class="form-control" th:value="${selDate}" style="width: 180px; padding: 10px 15px;">
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Filter Status</label>
+                        <select name="status" class="form-control" style="width: 180px; padding: 10px 15px;">
+                            <option value="All" th:selected="${selStatus == 'All'}">All Records</option>
+                            <option value="Present" th:selected="${selStatus == 'Present'}">Present Only</option>
+                            <option value="Late" th:selected="${selStatus == 'Late'}">Late Only</option>
+                            <option value="Absent" th:selected="${selStatus == 'Absent'}">Absent Only</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-primary" style="height: 45px; padding: 0 25px; background: var(--accent-primary); border-radius: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;"><i class="fas fa-filter"></i> Apply Filter</button>
                 </div>
-                <button type="submit" class="btn-primary" style="height: 45px; padding: 0 25px; background: var(--accent-primary); border-radius: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;"><i class="fas fa-filter"></i> Apply Filter</button>
             </form>
         </div>
 
