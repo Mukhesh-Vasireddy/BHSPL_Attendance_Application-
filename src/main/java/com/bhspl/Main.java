@@ -48,7 +48,6 @@ public class Main {
                         if (get()) {
                             com.bhspl.service.SyncService.start();
                             com.bhspl.service.PushService.start();
-                            com.bhspl.service.CloudSyncService.start();
                             
                             // Start Java Web Portal (Spring Boot) on port 8080
                             com.bhspl.web.WebApplication.start(args);

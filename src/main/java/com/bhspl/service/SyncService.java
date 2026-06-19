@@ -595,9 +595,6 @@ public class SyncService {
                     }
                 }
                 db.commit(); // CRITICAL: Save everything to DB
-                try {
-                    com.bhspl.service.CloudSyncService.triggerSync();
-                } catch (Exception ignored) {}
                 if (logConsumer != null)
                     logConsumer.accept("Sync complete. " + affectedDays.size() + " days processed.");
             } catch (Exception e) {

@@ -41,9 +41,6 @@ public class SyncWorker {
                 // Start ADMS listener (Push Mode)
                 com.bhspl.service.PushService.start();
                 
-                // Start Cloud Sync service
-                com.bhspl.service.CloudSyncService.start();
-                
                 System.out.println("SyncWorker is now running in the background. Press Ctrl+C to stop.");
                 writeStatus("Active. Syncing devices...");
 

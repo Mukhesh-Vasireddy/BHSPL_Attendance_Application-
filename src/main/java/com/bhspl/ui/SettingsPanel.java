@@ -1,6 +1,5 @@
 package com.bhspl.ui;
 
-import com.bhspl.db.ConfigManager;
 import com.bhspl.util.UIHelper;
 import net.miginfocom.swing.MigLayout;
 
@@ -9,8 +8,9 @@ import java.awt.*;
 
 /**
  * System Settings Panel.
- * Focuses strictly on Application Infrastructure and Environment details,
- * and handles Cloud Synchronization setup.
+ * Focuses strictly on Application Infrastructure and Environment details.
+ * Cloud Synchronization has been retired — biometric device now pushes
+ * directly to the server via ADMS/Push mode.
  */
 public class SettingsPanel extends JPanel {
 
@@ -28,11 +28,10 @@ public class SettingsPanel extends JPanel {
         title.setForeground(UIHelper.PRIMARY);
         add(title, "growx, gapbottom 15");
 
-        // Container panel to hold both cards stacked
         JPanel container = new JPanel(new MigLayout("ins 0, wrap, gapy 20, fillx", "[grow]"));
         container.setOpaque(false);
 
-        // 1. Infrastructure Card
+        // Infrastructure Card
         JPanel card = new JPanel(new MigLayout("ins 30, wrap 2, gap 20 12", "[right] 25 [left]", "[] 15 []"));
         card.setBackground(Color.WHITE);
         card.setBorder(UIHelper.createCardBorder());
@@ -58,11 +57,11 @@ public class SettingsPanel extends JPanel {
             JLabel lbl = new JLabel(row[0] + ":");
             lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
             lbl.setForeground(UIHelper.TEXT_LIGHT);
-            
+
             JLabel val = new JLabel(row[1]);
             val.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 14));
             val.setForeground(UIHelper.TEXT_DARK);
-            
+
             if (row[1].contains("Running") || row[1].contains("Active")) {
                 val.setForeground(UIHelper.SUCCESS);
             }
@@ -71,65 +70,6 @@ public class SettingsPanel extends JPanel {
             card.add(val);
         }
         container.add(card, "center, width 650!");
-
-        // 2. Cloud Sync Card
-        JPanel cloudCard = new JPanel(new MigLayout("ins 30, wrap 2, gap 20 12", "[right] 25 [left]", "[] 15 []"));
-        cloudCard.setBackground(Color.WHITE);
-        cloudCard.setBorder(UIHelper.createCardBorder());
-
-        JLabel cloudHeader = new JLabel("Cloud Synchronization Profile");
-        cloudHeader.setFont(UIHelper.FNT_BOLD);
-        cloudHeader.setForeground(UIHelper.PRIMARY);
-        cloudCard.add(cloudHeader, "span 2, center, gapbottom 10");
-
-        boolean cloudEnabled = "true".equalsIgnoreCase(ConfigManager.getProperty("cloud_sync_enabled", "false"));
-        String cloudUrl = ConfigManager.getProperty("cloud_sync_api_url", "http://103.174.161.68:9002/api/sync/cloud/sync-logs");
-        String cloudApiKey = ConfigManager.getProperty("cloud_sync_api_key", "");
-
-        String statusStr = cloudEnabled ? "Enabled (Real-time Active)" : "Disabled";
-        String urlStr = cloudUrl.isEmpty() ? "Not Configured" : cloudUrl;
-        String authStr = cloudApiKey.isEmpty() ? "Not Configured" : "Configured (Bearer Token)";
-
-        String retryStr = ConfigManager.getProperty("cloud_sync_retry_interval", "30") + " seconds";
-        String batchStr = ConfigManager.getProperty("cloud_sync_batch_size", "100") + " logs";
-
-        String[][] cloudInfo = {
-            {"Sync Status", statusStr},
-            {"Cloud Endpoint", urlStr},
-            {"API Authorization", authStr},
-            {"Retry Interval", retryStr},
-            {"Batch Size", batchStr}
-        };
-
-        for (String[] row : cloudInfo) {
-            JLabel lbl = new JLabel(row[0] + ":");
-            lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
-            lbl.setForeground(UIHelper.TEXT_LIGHT);
-            
-            JLabel val = new JLabel(row[1]);
-            val.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 14));
-            val.setForeground(UIHelper.TEXT_DARK);
-            
-            if (row[0].equals("Sync Status")) {
-                if (cloudEnabled) {
-                    val.setForeground(UIHelper.SUCCESS);
-                } else {
-                    val.setForeground(UIHelper.TEXT_LIGHT);
-                }
-            }
-
-            cloudCard.add(lbl);
-            cloudCard.add(val);
-        }
-
-        JButton configBtn = UIHelper.makeButton("Configure Cloud Sync", UIHelper.PRIMARY);
-        configBtn.addActionListener(e -> {
-            JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(SettingsPanel.this);
-            new CloudSettingsForm(frame, this::buildUI);
-        });
-        cloudCard.add(configBtn, "span 2, center, gaptop 10");
-
-        container.add(cloudCard, "center, width 650!");
 
         add(container, "center, grow");
 
