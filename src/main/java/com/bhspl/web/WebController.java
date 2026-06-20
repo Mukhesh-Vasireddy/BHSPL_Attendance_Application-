@@ -429,6 +429,27 @@ public class WebController {
         return res;
     }
 
+    @GetMapping("/api/devices/{deviceId}/sync")
+    @ResponseBody
+    public Map<String, Object> syncDeviceApi(@PathVariable("deviceId") int deviceId, HttpSession session) {
+        Map<String, Object> res = new HashMap<>();
+        if (session.getAttribute("user") == null) {
+            res.put("success", false);
+            res.put("message", "Unauthorized access. Please login.");
+            return res;
+        }
+        try {
+            com.bhspl.service.SyncService.syncDeviceById(deviceId);
+            com.bhspl.util.CacheManager.getInstance().clear(); // Invalidate all cache (including dashboard statistics)
+            res.put("success", true);
+            res.put("message", "Device synced successfully.");
+        } catch (Exception e) {
+            res.put("success", false);
+            res.put("message", e.getMessage());
+        }
+        return res;
+    }
+
     @GetMapping("/api/system/status")
     @ResponseBody
     public Map<String, Object> systemStatus(HttpSession session) {
@@ -4224,7 +4245,7 @@ public class WebController {
     @GetMapping("/system/sync")
     public String systemSync(@RequestParam(name = "redirect", required = false) String redirect) {
         try {
-            SyncService.performSync();
+            SyncService.performSync(true);
             CacheManager.getInstance().clear();
         } catch (Exception e) {
             e.printStackTrace();

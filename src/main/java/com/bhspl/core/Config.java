@@ -39,16 +39,20 @@ public class Config {
         }
     }
 
+
+
     public static Map<String, String> loadDbConfig() {
-        if (System.getenv("DB_HOST") != null) {
-            Map<String, String> config = new HashMap<>();
-            config.put("host", System.getenv("DB_HOST"));
-            config.put("port", System.getenv("DB_PORT") != null ? System.getenv("DB_PORT") : "3306");
-            config.put("database", System.getenv("DB_NAME") != null ? System.getenv("DB_NAME") : "bhspl_attendance");
-            config.put("user", System.getenv("DB_USER") != null ? System.getenv("DB_USER") : "root");
-            config.put("password", System.getenv("DB_PASSWORD") != null ? System.getenv("DB_PASSWORD") : "");
-            config.put("configured", "1");
-            return config;
+
+	String envHost = System.getenv("DB_HOST");
+        if (envHost != null && !envHost.trim().isEmpty()) {
+            Map<String, String> envConfig = new HashMap<>();
+            envConfig.put("host", envHost);
+            envConfig.put("port", System.getenv().getOrDefault("DB_PORT", "3306"));
+            envConfig.put("database", System.getenv().getOrDefault("DB_DATABASE", "bhspl_attendance"));
+            envConfig.put("user", System.getenv().getOrDefault("DB_USER", "root"));
+            envConfig.put("password", System.getenv().getOrDefault("DB_PASSWORD", "root_123"));
+            envConfig.put("configured", "1");
+            return envConfig;
         }
 
         File file = new File(getConfigPath());
