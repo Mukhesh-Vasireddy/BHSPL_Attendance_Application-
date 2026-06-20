@@ -378,13 +378,26 @@
                 </div>
             </div>
             <div style="display: flex; gap: 10px; align-items: center;">
-                <div style="display: flex; align-items: center; gap: 7px; background: #fff; border: 1px solid #f0f4f8; border-radius: 12px; padding: 8px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                <!-- Device Selection Dropdown -->
+                <div style="position: relative; display: flex; align-items: center;">
+                    <i class="fas fa-microchip" style="position: absolute; left: 12px; color: #94a3b8; font-size: 12px; pointer-events: none;"></i>
+                    <select id="deviceSelector" onchange="filterByDevice(this.value)" style="appearance: none; -webkit-appearance: none; background: #fff; border: 1px solid #f0f4f8; border-radius: 12px; padding: 8px 32px 8px 30px; font-size: 12px; font-weight: 700; color: #64748b; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.04); outline: none; transition: border-color 0.2s, box-shadow 0.2s; height: 36px; line-height: 1.5;" onmouseover="this.style.borderColor='#cbd5e1'" onmouseout="this.style.borderColor='#f0f4f8'">
+                        <option value="">All Devices</option>
+                        <option th:each="dev : ${devicesList}" 
+                                th:value="${dev.device_id}" 
+                                th:text="${dev.device_name}"
+                                th:selected="${selectedDeviceId != null && dev.device_id == selectedDeviceId}">Device Name</option>
+                    </select>
+                    <i class="fas fa-chevron-down" style="position: absolute; right: 12px; color: #94a3b8; font-size: 10px; pointer-events: none;"></i>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 7px; background: #fff; border: 1px solid #f0f4f8; border-radius: 12px; padding: 8px 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); height: 36px;">
                     <span th:style="${autoSyncActive} ? 'display:inline-block;width:8px;height:8px;background:#10B981;border-radius:50%;box-shadow:0 0 8px rgba(16,185,129,0.6);' : 'display:inline-block;width:8px;height:8px;background:#EF4444;border-radius:50%;'"></span>
                     <span style="font-size: 12px; font-weight: 700; color: #64748b;">
                         Sync <span th:text="${autoSyncActive} ? 'Active' : 'Inactive'" th:style="${autoSyncActive} ? 'color:#10B981;' : 'color:#EF4444;'">Active</span>
                     </span>
                 </div>
-                <button onclick="refreshAndSync()" style="background: #0284C7; color: #fff; border: none; padding: 9px 18px; border-radius: 12px; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 7px; cursor: pointer; transition: opacity 0.2s; box-shadow: 0 2px 10px rgba(2,132,199,0.3);" onmouseover="this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">
+                <button onclick="refreshAndSync()" style="background: #0284C7; color: #fff; border: none; padding: 9px 18px; border-radius: 12px; font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 7px; cursor: pointer; transition: opacity 0.2s; box-shadow: 0 2px 10px rgba(2,132,199,0.3); height: 36px;" onmouseover="this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">
                     <i class="fas fa-sync-alt"></i> Sync Now
                 </button>
             </div>
@@ -603,6 +616,7 @@
                         <div style="font-size: 11px; color: #94a3b8; margin-top: 2px; margin-left: 10px;">Today's employee check-in / check-out summary</div>
                     </div>
                     <form action="/dashboard" method="get" style="display: flex; gap: 8px; align-items: center;">
+                        <input type="hidden" name="deviceId" th:if="${selectedDeviceId != null}" th:value="${selectedDeviceId}">
                         <div style="position: relative;">
                             <i class="fas fa-search" style="position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: #cbd5e1; font-size: 11px; pointer-events:none;"></i>
                             <input type="text" id="attendanceSearchInput" name="search" th:value="${selSearch}"
@@ -866,6 +880,18 @@
         ═══════════════════════════════════════════════════════ -->
         <script th:inline="javascript">
             (function () {
+
+                // ── Device filter helper ──────────────────────────────────
+                window.filterByDevice = function(deviceId) {
+                    var url = new URL(window.location.href);
+                    if (deviceId) {
+                        url.searchParams.set('deviceId', deviceId);
+                    } else {
+                        url.searchParams.delete('deviceId');
+                    }
+                    url.searchParams.set('page', '1'); // reset page to 1
+                    window.location.href = url.toString();
+                }
 
                 // ── Relative time helper ──────────────────────────────────
                 function timeAgo(dateStr) {

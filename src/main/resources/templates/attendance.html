@@ -52,6 +52,13 @@
                             <option value="Absent" th:selected="${selStatus == 'Absent'}">Absent Only</option>
                         </select>
                     </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Filter Device</label>
+                        <select name="deviceId" class="form-control" style="width: 180px; padding: 10px 15px;">
+                            <option value="">All Devices</option>
+                            <option th:each="dev : ${devicesList}" th:value="${dev.device_id}" th:text="${dev.device_name}" th:selected="${selectedDeviceId != null && dev.device_id == selectedDeviceId}"></option>
+                        </select>
+                    </div>
                     <button type="submit" class="btn-primary" style="height: 45px; padding: 0 25px; background: var(--accent-primary); border-radius: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;"><i class="fas fa-filter"></i> Apply Filter</button>
                 </div>
             </form>

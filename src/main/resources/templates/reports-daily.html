@@ -30,6 +30,13 @@
                     </select>
                 </div>
                 <div>
+                    <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Device</label>
+                    <select name="deviceId" class="form-control" style="width: 180px;">
+                        <option value="">All</option>
+                        <option th:each="dev : ${devicesList}" th:value="${dev.device_id}" th:text="${dev.device_name}" th:selected="${selectedDeviceId != null && dev.device_id == selectedDeviceId}"></option>
+                    </select>
+                </div>
+                <div>
                     <label style="display: block; font-size: 11px; font-weight: 700; color: #64748B; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Search</label>
                     <input type="text" name="search" th:value="${selSearch}" autocomplete="off" class="form-control" style="width: 180px;" placeholder="Emp ID or Name...">
                 </div>

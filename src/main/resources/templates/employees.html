@@ -31,6 +31,20 @@
         <div class="filter-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
             <form action="/employees" method="get" autocomplete="off" style="display: flex; gap: 10px; margin: 0; align-items: center;">
                 <input type="hidden" name="size" th:value="${pageSize != null ? pageSize : 10}">
+                
+                <!-- Device Selector Dropdown -->
+                <div style="position: relative; display: flex; align-items: center;">
+                    <i class="fas fa-microchip" style="position: absolute; left: 12px; color: #94a3b8; font-size: 12px; pointer-events: none;"></i>
+                    <select name="deviceId" onchange="this.form.submit()" style="appearance: none; -webkit-appearance: none; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px 32px 8px 30px; font-size: 12px; font-weight: 700; color: #64748b; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.04); outline: none; transition: border-color 0.2s, box-shadow 0.2s; height: 38px; line-height: 1.5;" onmouseover="this.style.borderColor='#cbd5e1'" onmouseout="this.style.borderColor='#e2e8f0'">
+                        <option value="">All Devices</option>
+                        <option th:each="dev : ${devicesList}" 
+                                th:value="${dev.device_id}" 
+                                th:text="${dev.device_name}"
+                                th:selected="${selectedDeviceId != null && dev.device_id == selectedDeviceId}">Device Name</option>
+                    </select>
+                    <i class="fas fa-chevron-down" style="position: absolute; right: 12px; color: #94a3b8; font-size: 10px; pointer-events: none;"></i>
+                </div>
+
                 <div style="position: relative;">
                     <input type="text" name="search" th:value="${selSearch}" autocomplete="off" placeholder="Search employees..." class="form-control" style="width: 280px; padding: 10px 15px 10px 40px; border-radius: 12px;">
                     <i class="fas fa-search" style="position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 14px;"></i>

@@ -560,10 +560,11 @@ public class DatabaseManager {
             try (java.sql.ResultSet rs = conn.getMetaData().getIndexInfo(null, null, "attendance", false, false)) {
                 while (rs.next()) {
                     String indexName = rs.getString("INDEX_NAME");
+                    boolean nonUnique = rs.getBoolean("NON_UNIQUE");
                     if ("uq_emp_device_punch_date".equalsIgnoreCase(indexName)) {
                         hasDeviceUniqueIndex = true;
                     }
-                    if ("uq_emp_punch_date".equalsIgnoreCase(indexName)) {
+                    if ("uq_emp_punch_date".equalsIgnoreCase(indexName) && !nonUnique) {
                         hasEmpDateUniqueIndex = true;
                     }
                 }
@@ -579,6 +580,12 @@ public class DatabaseManager {
             // Step 2: Ensure the new emp+date unique key exists
             if (!hasEmpDateUniqueIndex) {
                 System.out.println("Database: Running Option B migration — consolidating attendance to one row per employee per day...");
+                try {
+                    execute("ALTER TABLE attendance DROP INDEX uq_emp_punch_date");
+                    conn.commit();
+                } catch (Exception ignored) {
+                }
+                
                 // 2a. For duplicate emp+date rows, keep the one with the highest work_hours
                 execute("DELETE t1 FROM attendance t1 INNER JOIN attendance t2 " +
                         "ON t1.emp_id = t2.emp_id AND t1.punch_date = t2.punch_date " +
