@@ -1,3 +1,4 @@
+still
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:fragment="main-layout(content, title, activeLink)">
 
@@ -5,7 +6,7 @@
     <title th:text="${title}">BHSPL Attendance</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script th:inline="javascript">
-        (function() {
+        (function () {
             // Exclude public paths from tab validation check
             const path = window.location.pathname;
             if (path === "/login" || path === "/logout" || path.startsWith("/css/") || path.startsWith("/js/") || path.startsWith("/img/")) {
@@ -16,9 +17,9 @@
             const urlParams = new URLSearchParams(window.location.search);
             const loginTokenFromUrl = urlParams.get('loginToken');
             const tabTokenFromUrl = urlParams.get('tabToken');
-            
+
             let currentTabToken = sessionStorage.getItem('tabToken');
-            
+
             if (loginTokenFromUrl) {
                 // Fresh login redirection: store token and strip from URL
                 currentTabToken = loginTokenFromUrl;
@@ -56,7 +57,7 @@
             }
 
             // Intercept all form submissions to append tabToken
-            document.addEventListener("submit", function(e) {
+            document.addEventListener("submit", function (e) {
                 const form = e.target;
                 const token = sessionStorage.getItem('tabToken');
                 if (token) {
@@ -73,7 +74,7 @@
 
             // Override HTMLFormElement.prototype.submit to handle programmatic form submissions
             const originalSubmit = HTMLFormElement.prototype.submit;
-            HTMLFormElement.prototype.submit = function() {
+            HTMLFormElement.prototype.submit = function () {
                 const token = sessionStorage.getItem('tabToken');
                 if (token) {
                     let hiddenInput = this.querySelector('input[name="tabToken"]');
@@ -90,7 +91,7 @@
 
             // Override window.fetch globally to append X-Tab-Token header
             const originalFetch = window.fetch;
-            window.fetch = function(input, init) {
+            window.fetch = function (input, init) {
                 const token = sessionStorage.getItem('tabToken');
                 if (token) {
                     let url = (typeof input === 'string') ? input : input.url;
@@ -110,7 +111,7 @@
                                 init.headers['X-Requested-With'] = 'XMLHttpRequest';
                             }
                         }
-                    } catch (e) {}
+                    } catch (e) { }
                 }
                 return originalFetch.call(this, input, init);
             };
@@ -143,7 +144,7 @@
         body {
             font-family: 'Outfit', sans-serif;
             background-color: var(--primary-bg);
-            background-image: 
+            background-image:
                 radial-gradient(at 0% 0%, rgba(2, 132, 199, 0.05) 0px, transparent 50%),
                 radial-gradient(at 100% 100%, rgba(13, 148, 136, 0.05) 0px, transparent 50%);
             color: var(--text-main);
@@ -153,11 +154,15 @@
             overflow: hidden;
         }
 
-        *, *:before, *:after {
+        *,
+        *:before,
+        *:after {
             box-sizing: border-box;
         }
 
-        input:focus, select:focus, textarea:focus {
+        input:focus,
+        select:focus,
+        textarea:focus {
             border-color: var(--accent-primary) !important;
             box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
             outline: none;
@@ -185,7 +190,7 @@
             background-size: 12px auto;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
         }
-        
+
         select:hover {
             border-color: var(--accent-primary);
             background-color: rgba(255, 255, 255, 0.08);
@@ -211,6 +216,7 @@
             -webkit-appearance: none;
             margin: 0;
         }
+
         input[type=number] {
             -moz-appearance: textfield;
         }
@@ -336,13 +342,24 @@
 
         .logo-box {
             border-radius: 6px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
         }
 
-        .logo-box.orange { background: linear-gradient(135deg, #f59e0b, #d97706); }
-        .logo-box.yellow { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
-        .logo-box.pink { background: linear-gradient(135deg, #ec4899, #be123c); }
-        .logo-box.purple { background: linear-gradient(135deg, #a855f7, #7c3aed); }
+        .logo-box.orange {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .logo-box.yellow {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+        }
+
+        .logo-box.pink {
+            background: linear-gradient(135deg, #ec4899, #be123c);
+        }
+
+        .logo-box.purple {
+            background: linear-gradient(135deg, #a855f7, #7c3aed);
+        }
 
         .logo-text {
             color: #ffffff;
@@ -357,6 +374,37 @@
             color: #00f0ff !important;
             text-shadow: 0 0 15px rgba(0, 240, 255, 0.6), 0 0 5px rgba(0, 240, 255, 0.3);
             font-weight: 900;
+        }
+
+        .logo-wrapper {
+            width: 100%;
+            height: 95px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .logo-image {
+            height: 100%;
+            width: 100%;
+            object-fit: contain;
+            object-position: center;
+            transform: scale(1.4);
+            transition: all 0.3s ease;
+        }
+
+        .sidebar.collapsed .logo-wrapper {
+            width: 36px !important;
+            height: 36px !important;
+            border-radius: 8px !important;
+        }
+
+        .sidebar.collapsed .logo-image {
+            object-fit: cover !important;
+            object-position: left center !important;
+            transform: scale(1.0) !important;
         }
 
         .nav-menu {
@@ -482,7 +530,8 @@
         }
 
         /* Cards & Containers */
-        .card, .table-container {
+        .card,
+        .table-container {
             background: #ffffff;
             border: 1px solid var(--glass-border);
             border-radius: 24px;
@@ -537,7 +586,7 @@
         .stat-card:hover {
             transform: translateY(-10px);
             border-color: var(--accent-primary);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
         }
 
         .stat-card::after {
@@ -547,7 +596,7 @@
             left: -50%;
             width: 200%;
             height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
             opacity: 0;
             transition: opacity 0.3s;
         }
@@ -599,76 +648,164 @@
 
         /* Specific Stat Card Colors - High-Contrast 8-Color Palette */
         /* 1. Today Present (Emerald Green/Success) */
-        .stat-card.present { 
+        .stat-card.present {
             background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(16, 185, 129, 0.1));
             border: 1px solid rgba(16, 185, 129, 0.2);
         }
-        .stat-card.present .stat-icon { color: #10b981; background: rgba(16, 185, 129, 0.1); }
-        .stat-card.present:hover { background: linear-gradient(135deg, #34d399, #10b981); }
-        .stat-card.present:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
+
+        .stat-card.present .stat-icon {
+            color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .stat-card.present:hover {
+            background: linear-gradient(135deg, #34d399, #10b981);
+        }
+
+        .stat-card.present:hover .stat-icon {
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+        }
 
         /* 2. Today Absents (Rose Red/Danger) */
-        .stat-card.absent { 
+        .stat-card.absent {
             background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.1));
             border: 1px solid rgba(239, 68, 68, 0.2);
         }
-        .stat-card.absent .stat-icon { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
-        .stat-card.absent:hover { background: linear-gradient(135deg, #f87171, #ef4444); }
-        .stat-card.absent:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
+
+        .stat-card.absent .stat-icon {
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .stat-card.absent:hover {
+            background: linear-gradient(135deg, #f87171, #ef4444);
+        }
+
+        .stat-card.absent:hover .stat-icon {
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+        }
 
         /* 3. Total Employees (Indigo/Deep Purple) */
-        .stat-card.total { 
+        .stat-card.total {
             background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(99, 102, 241, 0.1));
             border: 1px solid rgba(99, 102, 241, 0.2);
         }
-        .stat-card.total .stat-icon { color: #6366f1; background: rgba(99, 102, 241, 0.1); }
-        .stat-card.total:hover { background: linear-gradient(135deg, #818cf8, #6366f1); }
-        .stat-card.total:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
+
+        .stat-card.total .stat-icon {
+            color: #6366f1;
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .stat-card.total:hover {
+            background: linear-gradient(135deg, #818cf8, #6366f1);
+        }
+
+        .stat-card.total:hover .stat-icon {
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+        }
 
         /* 4. On Leave Today (Vibrant Fuchsia/Magenta) */
-        .stat-card.leave { 
+        .stat-card.leave {
             background: linear-gradient(135deg, rgba(217, 70, 239, 0.05), rgba(217, 70, 239, 0.1));
             border: 1px solid rgba(217, 70, 239, 0.2);
         }
-        .stat-card.leave .stat-icon { color: #d946ef; background: rgba(217, 70, 239, 0.1); }
-        .stat-card.leave:hover { background: linear-gradient(135deg, #e879f9, #d946ef); }
-        .stat-card.leave:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
+
+        .stat-card.leave .stat-icon {
+            color: #d946ef;
+            background: rgba(217, 70, 239, 0.1);
+        }
+
+        .stat-card.leave:hover {
+            background: linear-gradient(135deg, #e879f9, #d946ef);
+        }
+
+        .stat-card.leave:hover .stat-icon {
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+        }
 
         /* 5. Late Comers (Amber/Gold/Warning) */
-        .stat-card.late { 
+        .stat-card.late {
             background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(245, 158, 11, 0.1));
             border: 1px solid rgba(245, 158, 11, 0.2);
         }
-        .stat-card.late .stat-icon { color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
-        .stat-card.late:hover { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
-        .stat-card.late:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
+
+        .stat-card.late .stat-icon {
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .stat-card.late:hover {
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+        }
+
+        .stat-card.late:hover .stat-icon {
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+        }
 
         /* 6. Devices Online (Cyan/Bright Turquoise) */
-        .stat-card.devices { 
+        .stat-card.devices {
             background: linear-gradient(135deg, rgba(6, 182, 212, 0.05), rgba(6, 182, 212, 0.1));
             border: 1px solid rgba(6, 182, 212, 0.2);
         }
-        .stat-card.devices .stat-icon { color: #06b6d4; background: rgba(6, 182, 212, 0.1); }
-        .stat-card.devices:hover { background: linear-gradient(135deg, #22d3ee, #06b6d4); }
-        .stat-card.devices:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
+
+        .stat-card.devices .stat-icon {
+            color: #06b6d4;
+            background: rgba(6, 182, 212, 0.1);
+        }
+
+        .stat-card.devices:hover {
+            background: linear-gradient(135deg, #22d3ee, #06b6d4);
+        }
+
+        .stat-card.devices:hover .stat-icon {
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+        }
 
         /* 7. Pending Leaves (Vibrant Orange/Coral) */
-        .stat-card.pending { 
+        .stat-card.pending {
             background: linear-gradient(135deg, rgba(249, 115, 22, 0.05), rgba(249, 115, 22, 0.1));
             border: 1px solid rgba(249, 115, 22, 0.2);
         }
-        .stat-card.pending .stat-icon { color: #f97316; background: rgba(249, 115, 22, 0.1); }
-        .stat-card.pending:hover { background: linear-gradient(135deg, #fb923c, #f97316); }
-        .stat-card.pending:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
+
+        .stat-card.pending .stat-icon {
+            color: #f97316;
+            background: rgba(249, 115, 22, 0.1);
+        }
+
+        .stat-card.pending:hover {
+            background: linear-gradient(135deg, #fb923c, #f97316);
+        }
+
+        .stat-card.pending:hover .stat-icon {
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+        }
 
         /* 8. Weekly Off (Royal Blue/Cobalt) */
-        .stat-card.weekly { 
+        .stat-card.weekly {
             background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(37, 99, 235, 0.1));
             border: 1px solid rgba(37, 99, 235, 0.2);
         }
-        .stat-card.weekly .stat-icon { color: #2563eb; background: rgba(37, 99, 235, 0.1); }
-        .stat-card.weekly:hover { background: linear-gradient(135deg, #3b82f6, #2563eb); }
-        .stat-card.weekly:hover .stat-icon { color: white; background: rgba(255, 255, 255, 0.2); }
+
+        .stat-card.weekly .stat-icon {
+            color: #2563eb;
+            background: rgba(37, 99, 235, 0.1);
+        }
+
+        .stat-card.weekly:hover {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+        }
+
+        .stat-card.weekly:hover .stat-icon {
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+        }
 
         /* Table Styling */
         table {
@@ -700,7 +837,8 @@
         }
 
         /* Buttons */
-        .btn-primary, .refresh-btn {
+        .btn-primary,
+        .refresh-btn {
             background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
             color: white;
             border: none;
@@ -715,7 +853,8 @@
             box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
         }
 
-        .btn-primary:hover, .refresh-btn:hover {
+        .btn-primary:hover,
+        .refresh-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
             filter: brightness(1.1);
@@ -732,9 +871,23 @@
             gap: 6px;
         }
 
-        .pill-green { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
-        .pill-orange { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); }
-        .pill-red { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+        .pill-green {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .pill-orange {
+            background: rgba(245, 158, 11, 0.1);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .pill-red {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
 
         /* Badges */
         .badge {
@@ -775,13 +928,16 @@
         ::-webkit-scrollbar {
             width: 8px;
         }
+
         ::-webkit-scrollbar-track {
             background: transparent;
         }
+
         ::-webkit-scrollbar-thumb {
             background: var(--glass-border);
             border-radius: 10px;
         }
+
         ::-webkit-scrollbar-thumb:hover {
             background: var(--text-muted);
         }
@@ -976,13 +1132,25 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
 
         @keyframes slideUp {
-            from { transform: translateY(30px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
         }
 
         /* Profile Dropdown Styling */
@@ -1007,7 +1175,7 @@
         .profile-trigger:hover {
             transform: translateY(-2px);
             border-color: var(--accent-primary);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05);
         }
 
         .profile-trigger .avatar-circle {
@@ -1062,7 +1230,7 @@
             background: #ffffff;
             border: 1px solid var(--glass-border);
             border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.15), 0 10px 15px rgba(0,0,0,0.05);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15), 0 10px 15px rgba(0, 0, 0, 0.05);
             padding: 10px;
             display: none;
             flex-direction: column;
@@ -1107,8 +1275,15 @@
         }
 
         @keyframes dropdownFade {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         @media (max-width: 1024px) {
@@ -1116,14 +1291,44 @@
                 width: 80px;
                 padding: 20px 0;
             }
-            .logo-text, .nav-item span {
+
+            .logo-text,
+            .nav-item span {
                 display: none;
             }
-            .logo-container { margin: 0 10px 30px; padding: 10px; }
-            .nav-item { justify-content: center; padding: 15px; margin: 0 10px 10px; }
-            .nav-item i { margin-right: 0; }
-            .sub-menu { display: none; }
+
+            .logo-container {
+                margin: 0 10px 30px;
+                padding: 10px;
+            }
+
+            .logo-wrapper {
+                width: 36px !important;
+                height: 36px !important;
+                border-radius: 8px !important;
+            }
+
+            .logo-image {
+                object-fit: cover !important;
+                object-position: left center !important;
+                transform: scale(1.0) !important;
+            }
+
+            .nav-item {
+                justify-content: center;
+                padding: 15px;
+                margin: 0 10px 10px;
+            }
+
+            .nav-item i {
+                margin-right: 0;
+            }
+
+            .sub-menu {
+                display: none;
+            }
         }
+
         .pagination {
             display: flex;
             justify-content: center;
@@ -1176,53 +1381,137 @@
         }
 
         /* Modern Badge System Additions */
-        .badge-info    { background: rgba(2, 132, 199, 0.1); color: #0284c7; border: 1px solid rgba(2, 132, 199, 0.2); }
-        .badge-purple  { background: rgba(99, 102, 241, 0.1); color: #6366f1; border: 1px solid rgba(99, 102, 241, 0.2); }
-        .badge-muted   { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+        .badge-info {
+            background: rgba(2, 132, 199, 0.1);
+            color: #0284c7;
+            border: 1px solid rgba(2, 132, 199, 0.2);
+        }
+
+        .badge-purple {
+            background: rgba(99, 102, 241, 0.1);
+            color: #6366f1;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+
+        .badge-muted {
+            background: #f1f5f9;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+        }
 
         /* Page Headers */
-        .module-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
-        .module-title  { font-size: 22px; font-weight: 800; color: var(--text-main); margin: 0; }
-        .module-sub    { font-size: 12px; color: #94a3b8; margin-top: 3px; }
+        .module-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .module-title {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--text-main);
+            margin: 0;
+        }
+
+        .module-sub {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 3px;
+        }
 
         /* Filter Bar */
-        .filter-bar { background: #ffffff; border: 1px solid #f0f4f8; border-radius: 16px; padding: 16px 20px; margin-bottom: 16px; }
+        .filter-bar {
+            background: #ffffff;
+            border: 1px solid #f0f4f8;
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin-bottom: 16px;
+        }
 
         /* Button variants */
-        .btn-sm      { padding: 8px 14px; font-size: 12px; border-radius: 10px; }
-        .btn-success { background: #10B981; color: #fff; border: none; }
-        .btn-danger  { background: #EF4444; color: #fff; border: none; }
-        .btn-outline { background: transparent; border: 1px solid var(--glass-border); color: var(--text-main); }
+        .btn-sm {
+            padding: 8px 14px;
+            font-size: 12px;
+            border-radius: 10px;
+        }
+
+        .btn-success {
+            background: #10B981;
+            color: #fff;
+            border: none;
+        }
+
+        .btn-danger {
+            background: #EF4444;
+            color: #fff;
+            border: none;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+        }
 
         /* Empty State */
-        .empty-state   { text-align: center; padding: 60px 20px; color: #94a3b8; }
-        .empty-state i { font-size: 40px; color: #e2e8f0; display: block; margin-bottom: 14px; }
-        .empty-state p { font-size: 14px; font-weight: 500; margin: 0; }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #94a3b8;
+        }
+
+        .empty-state i {
+            font-size: 40px;
+            color: #e2e8f0;
+            display: block;
+            margin-bottom: 14px;
+        }
+
+        .empty-state p {
+            font-size: 14px;
+            font-weight: 500;
+            margin: 0;
+        }
 
         /* Table Avatar */
-        .tbl-avatar { width: 32px; height: 32px; border-radius: 9px; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.14); display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 12px; color: #6366F1; flex-shrink: 0; }
+        .tbl-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 9px;
+            background: rgba(99, 102, 241, 0.08);
+            border: 1px solid rgba(99, 102, 241, 0.14);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 12px;
+            color: #6366F1;
+            flex-shrink: 0;
+        }
     </style>
 </head>
 
 <body>
     <!-- Premium glowing top loading bar -->
-    <div id="spa-loading-bar" style="position: fixed; top: 0; left: 0; height: 3px; width: 0%; background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary), var(--accent-vibrant)); box-shadow: 0 0 10px var(--accent-primary), 0 0 5px var(--accent-secondary); z-index: 99999; transition: width 0.3s cubic-bezier(0.1, 0.8, 0.3, 1), opacity 0.3s ease; opacity: 0; pointer-events: none;"></div>
+    <div id="spa-loading-bar"
+        style="position: fixed; top: 0; left: 0; height: 3px; width: 0%; background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary), var(--accent-vibrant)); box-shadow: 0 0 10px var(--accent-primary), 0 0 5px var(--accent-secondary); z-index: 99999; transition: width 0.3s cubic-bezier(0.1, 0.8, 0.3, 1), opacity 0.3s ease; opacity: 0; pointer-events: none;">
+    </div>
 
     <div class="sidebar">
         <!-- Sidebar edge toggle button -->
-        <button id="sidebarEdgeToggle" onclick="toggleSidebar()" style="position: absolute; top: 40px; right: -15px; width: 30px; height: 30px; background: #ffffff; border: 1px solid rgba(2, 132, 199, 0.5); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--accent-primary); box-shadow: 0 0 12px rgba(2, 132, 199, 0.5), 0 0 4px rgba(2, 132, 199, 0.8); z-index: 1001; transition: all 0.3s ease;">
-            <i class="fas fa-angle-double-left" id="sidebarCollapseIcon" style="font-size: 12px; transition: transform 0.3s ease; text-shadow: 0 0 5px rgba(2, 132, 199, 0.5);"></i>
+        <button id="sidebarEdgeToggle" onclick="toggleSidebar()"
+            style="position: absolute; top: 40px; right: -15px; width: 30px; height: 30px; background: #ffffff; border: 1px solid rgba(2, 132, 199, 0.5); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--accent-primary); box-shadow: 0 0 12px rgba(2, 132, 199, 0.5), 0 0 4px rgba(2, 132, 199, 0.8); z-index: 1001; transition: all 0.3s ease;">
+            <i class="fas fa-angle-double-left" id="sidebarCollapseIcon"
+                style="font-size: 12px; transition: transform 0.3s ease; text-shadow: 0 0 5px rgba(2, 132, 199, 0.5);"></i>
         </button>
 
         <a href="/" style="text-decoration: none;">
-            <div class="logo-container" style="margin: 0 25px 40px; padding: 15px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; background: rgba(255, 255, 255, 0.05); display: flex; align-items: center; gap: 15px; transition: all 0.3s ease;">
-                <div class="logo-icon">
-                    <div class="logo-box yellow"></div>
-                    <div class="logo-box orange"></div>
-                    <div class="logo-box pink"></div>
-                    <div class="logo-box purple"></div>
+            <div class="logo-container"
+                style="margin: 0 15px 40px; padding: 4px 8px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; background: rgba(255, 255, 255, 0.05); display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;">
+                <div class="logo-wrapper">
+                    <img src="/img/bavya-logo.png" class="logo-image" alt="Bavya Logo">
                 </div>
-                <div class="logo-text">BAVY<span>A</span></div>
             </div>
         </a>
         <nav class="nav-menu">
@@ -1233,15 +1522,18 @@
             <a href="/attendance" th:classappend="${activeLink == 'attendance' ? 'active' : ''}" class="nav-item"><i
                     class="fas fa-user-clock"></i> <span>Attendance Management</span></a>
             <!-- Reports Menu -->
-            <a href="#" onclick="toggleNavMenu('reports-submenu', event)" th:classappend="${activeLink == 'reports' ? 'active open' : ''}" class="nav-item">
+            <a href="#" onclick="toggleNavMenu('reports-submenu', event)"
+                th:classappend="${activeLink == 'reports' ? 'active open' : ''}" class="nav-item">
                 <i class="fas fa-chart-bar"></i> <span>Attendance Reports</span>
                 <i class="fas fa-chevron-down dropdown-icon"></i>
             </a>
-            <div class="sub-menu" id="reports-submenu" th:style="${activeLink == 'reports' ? 'display:block;' : 'display:none;'}">
+            <div class="sub-menu" id="reports-submenu"
+                th:style="${activeLink == 'reports' ? 'display:block;' : 'display:none;'}">
                 <a href="/reports/daily" class="sub-item"><i class="fas fa-calendar-day"></i> Daily Attendance</a>
                 <a href="/reports/monthly" class="sub-item"><i class="fas fa-calendar-alt"></i> Monthly Summary</a>
                 <a href="/reports/leave" class="sub-item"><i class="fas fa-file-invoice"></i> Leave Report</a>
-                <a href="/reports/exceptions" class="sub-item"><i class="fas fa-exclamation-triangle"></i> Exceptions Report</a>
+                <a href="/reports/exceptions" class="sub-item"><i class="fas fa-exclamation-triangle"></i> Exceptions
+                    Report</a>
             </div>
             <a href="/raw-logs" th:classappend="${activeLink == 'raw-logs' ? 'active' : ''}" class="nav-item"><i
                     class="fas fa-history"></i> <span>Activity Logs</span></a>
@@ -1249,11 +1541,13 @@
                     class="fas fa-microchip"></i> <span>Device Management</span></a>
 
             <!-- Leave Menu -->
-            <a href="#" onclick="toggleNavMenu('leave-submenu', event)" th:classappend="${activeLink == 'leave' ? 'active open' : ''}" class="nav-item">
+            <a href="#" onclick="toggleNavMenu('leave-submenu', event)"
+                th:classappend="${activeLink == 'leave' ? 'active open' : ''}" class="nav-item">
                 <i class="fas fa-calendar-alt"></i> <span>Leave Management</span>
                 <i class="fas fa-chevron-down dropdown-icon"></i>
             </a>
-            <div class="sub-menu" id="leave-submenu" th:style="${activeLink == 'leave' ? 'display:block;' : 'display:none;'}">
+            <div class="sub-menu" id="leave-submenu"
+                th:style="${activeLink == 'leave' ? 'display:block;' : 'display:none;'}">
                 <a href="/leave/manager" class="sub-item"><i class="fas fa-tasks"></i> Leave Manager</a>
                 <a href="/leave/requests" class="sub-item"><i class="fas fa-check-circle"></i> Leave Requests</a>
                 <a href="/leave/od" class="sub-item"><i class="fas fa-briefcase"></i> OD Requests</a>
@@ -1263,11 +1557,13 @@
             </div>
 
             <!-- Masters Menu -->
-            <a href="#" onclick="toggleNavMenu('masters-submenu', event)" th:classappend="${activeLink == 'masters' ? 'active open' : ''}" class="nav-item">
+            <a href="#" onclick="toggleNavMenu('masters-submenu', event)"
+                th:classappend="${activeLink == 'masters' ? 'active open' : ''}" class="nav-item">
                 <i class="fas fa-database"></i> <span>Administration</span>
                 <i class="fas fa-chevron-down dropdown-icon"></i>
             </a>
-            <div class="sub-menu" id="masters-submenu" th:style="${activeLink == 'masters' ? 'display:block;' : 'display:none;'}">
+            <div class="sub-menu" id="masters-submenu"
+                th:style="${activeLink == 'masters' ? 'display:block;' : 'display:none;'}">
                 <a href="/masters/departments" class="sub-item"><i class="fas fa-building"></i> Departments</a>
                 <a href="/masters/designations" class="sub-item"><i class="fas fa-id-badge"></i> Designations</a>
                 <a href="/masters/shifts" class="sub-item"><i class="fas fa-clock"></i> Shifts</a>
@@ -1275,11 +1571,13 @@
             </div>
 
             <!-- System Menu -->
-            <a href="#" onclick="toggleNavMenu('system-submenu', event)" th:classappend="${activeLink == 'system' ? 'active open' : ''}" class="nav-item">
+            <a href="#" onclick="toggleNavMenu('system-submenu', event)"
+                th:classappend="${activeLink == 'system' ? 'active open' : ''}" class="nav-item">
                 <i class="fas fa-cog"></i> <span>Settings</span>
                 <i class="fas fa-chevron-down dropdown-icon"></i>
             </a>
-            <div class="sub-menu" id="system-submenu" th:style="${activeLink == 'system' ? 'display:block;' : 'display:none;'}">
+            <div class="sub-menu" id="system-submenu"
+                th:style="${activeLink == 'system' ? 'display:block;' : 'display:none;'}">
                 <a href="/system/users" class="sub-item"><i class="fas fa-users-cog"></i> User Management</a>
                 <a href="/system/settings" class="sub-item"><i class="fas fa-sliders-h"></i> Settings</a>
                 <a href="/system/backup" class="sub-item"><i class="fas fa-download"></i> DB Backup</a>
@@ -1291,25 +1589,34 @@
     <div class="main-content" style="display: flex; flex-direction: column; min-height: 100vh;">
         <div class="top-bar">
             <div style="display: flex; align-items: center; gap: 20px;">
-                <button th:if="${activeLink != 'dashboard'}" onclick="history.length > 1 ? history.back() : window.location.href='/dashboard'" title="Go Back" style="background: var(--glass-bg); border: 1px solid var(--glass-border); font-size: 14px; color: var(--text-muted); cursor: pointer; padding: 6px 12px; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s;" onmouseover="this.style.color='var(--text-main)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)';" onmouseout="this.style.color='var(--text-muted)'; this.style.boxShadow='0 1px 2px rgba(0,0,0,0.05)';">
+                <button th:if="${activeLink != 'dashboard'}"
+                    onclick="history.length > 1 ? history.back() : window.location.href='/dashboard'" title="Go Back"
+                    style="background: var(--glass-bg); border: 1px solid var(--glass-border); font-size: 14px; color: var(--text-muted); cursor: pointer; padding: 6px 12px; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s;"
+                    onmouseover="this.style.color='var(--text-main)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.1)';"
+                    onmouseout="this.style.color='var(--text-muted)'; this.style.boxShadow='0 1px 2px rgba(0,0,0,0.05)';">
                     <i class="fas fa-arrow-left"></i> Back
                 </button>
                 <h2 th:text="${title}" style="margin: 0;">Page Title</h2>
             </div>
             <div style="display: flex; gap: 20px; align-items: center;">
                 <!-- Premium Live Update Pulse Badge -->
-                <div id="live-update-badge" style="display: none; align-items: center; gap: 8px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #10B981; user-select: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 8px rgba(16, 185, 129, 0.05);">
+                <div id="live-update-badge"
+                    style="display: none; align-items: center; gap: 8px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; color: #10B981; user-select: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 8px rgba(16, 185, 129, 0.05);">
                     <span style="position: relative; display: flex; height: 8px; width: 8px;">
-                        <span id="live-update-ping" style="animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; position: absolute; display: inline-flex; height: 100%; width: 100%; border-radius: 50%; background-color: #10B981; opacity: 0.75;"></span>
-                        <span id="live-update-dot" style="position: relative; display: inline-flex; border-radius: 50%; height: 8px; width: 8px; background-color: #10B981;"></span>
+                        <span id="live-update-ping"
+                            style="animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; position: absolute; display: inline-flex; height: 100%; width: 100%; border-radius: 50%; background-color: #10B981; opacity: 0.75;"></span>
+                        <span id="live-update-dot"
+                            style="position: relative; display: inline-flex; border-radius: 50%; height: 8px; width: 8px; background-color: #10B981;"></span>
                     </span>
-                    <span id="live-update-text">Live: <span id="live-update-countdown" style="font-family: monospace; font-weight: 700;">10s</span></span>
+                    <span id="live-update-text">Live: <span id="live-update-countdown"
+                            style="font-family: monospace; font-weight: 700;">10s</span></span>
                 </div>
-                <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #64748B; font-weight: 500;">
+                <span
+                    style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #64748B; font-weight: 500;">
                     <i class="far fa-clock" style="color: #94a3b8;"></i>
                     <span id="date-time">Tue, 05 May 17:58:00</span>
                 </span>
-                
+
                 <!-- Profile Dropdown -->
                 <div class="profile-dropdown" id="profileDropdown" th:if="${session.user != null}">
                     <div class="profile-trigger" onclick="toggleProfileDropdown(event)">
@@ -1338,16 +1645,21 @@
         <div id="spa-content-container">
             <div th:replace="${content}"></div>
         </div>
-        
+
         <!-- Global Footer -->
-        <footer style="padding: 20px 30px; color: var(--text-muted); font-size: 13px; font-weight: 500; border-top: 1px solid var(--glass-border); margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <footer
+            style="padding: 20px 30px; color: var(--text-muted); font-size: 13px; font-weight: 500; border-top: 1px solid var(--glass-border); margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 6px;">
             <span>© 2026</span>
             <div style="display: flex; align-items: center; gap: 3px;">
                 <div class="logo-icon" style="width: 14px; height: 14px; gap: 1px; display: inline-grid;">
-                    <div class="logo-box yellow" style="border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.15);"></div>
-                    <div class="logo-box orange" style="border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.15);"></div>
-                    <div class="logo-box pink" style="border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.15);"></div>
-                    <div class="logo-box purple" style="border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.15);"></div>
+                    <div class="logo-box yellow" style="border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.15);">
+                    </div>
+                    <div class="logo-box orange" style="border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.15);">
+                    </div>
+                    <div class="logo-box pink" style="border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.15);">
+                    </div>
+                    <div class="logo-box purple" style="border-radius: 2px; box-shadow: 0 1px 2px rgba(0,0,0,0.15);">
+                    </div>
                 </div>
                 <span>BHSPL. All Rights Reserved.</span>
             </div>
@@ -1358,16 +1670,25 @@
 
     <!-- Global Confirm Modal -->
     <!-- Global Confirm Modal -->
-    <div id="confirmModal" style="display:none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); align-items: center; justify-content: center;">
-        <div class="card" style="width: 400px; padding: 35px; background: #ffffff; border: 1px solid var(--glass-border); border-radius: 28px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15);">
-            <div id="confirmIcon" style="width: 64px; height: 64px; background: rgba(239, 68, 68, 0.1); border-radius: 20%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; color: #ef4444; font-size: 24px;">
+    <div id="confirmModal"
+        style="display:none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); align-items: center; justify-content: center;">
+        <div class="card"
+            style="width: 400px; padding: 35px; background: #ffffff; border: 1px solid var(--glass-border); border-radius: 28px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15);">
+            <div id="confirmIcon"
+                style="width: 64px; height: 64px; background: rgba(239, 68, 68, 0.1); border-radius: 20%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; color: #ef4444; font-size: 24px;">
                 <i class="fas fa-exclamation-triangle"></i>
             </div>
-            <h3 id="confirmTitle" style="color: var(--text-main); margin: 0 0 10px; font-size: 22px; font-weight: 700;">Confirm Action</h3>
-            <p id="confirmMessage" style="color: var(--text-muted); font-size: 15px; line-height: 1.6; margin-bottom: 30px;">Are you sure you want to proceed with this action?</p>
+            <h3 id="confirmTitle" style="color: var(--text-main); margin: 0 0 10px; font-size: 22px; font-weight: 700;">
+                Confirm Action</h3>
+            <p id="confirmMessage"
+                style="color: var(--text-muted); font-size: 15px; line-height: 1.6; margin-bottom: 30px;">Are you sure
+                you want to proceed with this action?</p>
             <div style="display: flex; gap: 15px;">
-                <button id="confirmCancelBtn" onclick="closeConfirm()" style="flex: 1; padding: 14px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 14px; color: #64748b; cursor: pointer; font-weight: 600; transition: all 0.2s;">Cancel</button>
-                <button id="confirmYesBtn" style="flex: 1; padding: 14px; background: #ef4444; border: none; border-radius: 14px; color: white; cursor: pointer; font-weight: 700; box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3); transition: all 0.2s;">Yes, Proceed</button>
+                <button id="confirmCancelBtn" onclick="closeConfirm()"
+                    style="flex: 1; padding: 14px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 14px; color: #64748b; cursor: pointer; font-weight: 600; transition: all 0.2s;">Cancel</button>
+                <button id="confirmYesBtn"
+                    style="flex: 1; padding: 14px; background: #ef4444; border: none; border-radius: 14px; color: white; cursor: pointer; font-weight: 700; box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3); transition: all 0.2s;">Yes,
+                    Proceed</button>
             </div>
         </div>
     </div>
@@ -1375,7 +1696,7 @@
     <!-- Export Selection Modal - REMOVED for direct buttons -->
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Force 4-digit year format globally for all date inputs
             const dateInputs = document.querySelectorAll('input[type="date"]');
             dateInputs.forEach(input => {
@@ -1409,7 +1730,7 @@
             }
         }
 
-        window.onclick = function(event) {
+        window.onclick = function (event) {
             if (!event.target.closest('.profile-dropdown')) {
                 const dropdown = document.getElementById('profileDropdown');
                 if (dropdown && dropdown.classList.contains('active')) {
@@ -1422,20 +1743,20 @@
             const now = new Date();
             const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-            
+
             const wday = weekdays[now.getDay()];
             const day = String(now.getDate()).padStart(2, '0');
             const month = months[now.getMonth()];
-            
+
             let hours = now.getHours();
             const minutes = String(now.getMinutes()).padStart(2, '0');
             const seconds = String(now.getSeconds()).padStart(2, '0');
             const ampm = hours >= 12 ? 'PM' : 'AM';
-            
+
             hours = hours % 12;
             hours = hours ? hours : 12; // the hour '0' should be '12'
             const strHours = String(hours).padStart(2, '0');
-            
+
             const dateTimeEl = document.getElementById('date-time');
             if (dateTimeEl) {
                 dateTimeEl.innerText = `${wday} ${day} ${month} ${strHours}:${minutes}:${seconds} ${ampm}`;
@@ -1457,16 +1778,16 @@
             modal.style.display = 'flex';
             document.getElementById('confirmYesBtn').onclick = () => {
                 modal.style.display = 'none';
-                if(confirmCallback) confirmCallback();
+                if (confirmCallback) confirmCallback();
             };
         }
 
         function showAlert(title, message, callback) {
             const modal = document.getElementById('confirmModal');
-            if (!modal) { 
-                alert(title + ": " + message); 
+            if (!modal) {
+                alert(title + ": " + message);
                 if (callback) callback();
-                return; 
+                return;
             }
             document.getElementById('confirmTitle').innerText = title;
             document.getElementById('confirmMessage').innerText = message;
@@ -1489,7 +1810,7 @@
             try {
                 // Clone the table so we can clean it up before export
                 const exportTable = originalTable.cloneNode(true);
-                
+
                 // Identify the "Action" column index to remove it
                 let actionColIdx = -1;
                 const firstRowCells = Array.from(exportTable.querySelectorAll("tr")[0].querySelectorAll("th, td"));
@@ -1506,7 +1827,7 @@
                         tr.remove();
                         return;
                     }
-                    
+
                     // Remove the action column if it exists
                     if (actionColIdx !== -1 && tr.children.length > actionColIdx) {
                         tr.removeChild(tr.children[actionColIdx]);
@@ -1522,15 +1843,15 @@
                 });
 
                 // Generate real .xlsx file using SheetJS
-                const wb = XLSX.utils.table_to_book(exportTable, {sheet: "Data", raw: true});
-                
+                const wb = XLSX.utils.table_to_book(exportTable, { sheet: "Data", raw: true });
+
                 // Auto-fit column widths (Approximate)
                 const ws = wb.Sheets["Data"];
                 if (ws && ws['!ref']) {
                     const range = XLSX.utils.decode_range(ws['!ref']);
                     let wscols = [];
-                    for(let i=0; i<=range.e.c; i++) {
-                        wscols.push({wch: (i === 1 ? 30 : (i === 2 ? 20 : 15))});
+                    for (let i = 0; i <= range.e.c; i++) {
+                        wscols.push({ wch: (i === 1 ? 30 : (i === 2 ? 20 : 15)) });
                     }
                     ws['!cols'] = wscols;
                 }
@@ -1554,8 +1875,8 @@
                 let row = [], cols = rows[i].querySelectorAll("td, th");
                 let skipLast = false;
                 if (cols.length > 0) {
-                    const lastText = cols[cols.length-1].innerText.toLowerCase();
-                    if (lastText.includes('action') || cols[cols.length-1].querySelector('.action-btn')) skipLast = true;
+                    const lastText = cols[cols.length - 1].innerText.toLowerCase();
+                    if (lastText.includes('action') || cols[cols.length - 1].querySelector('.action-btn')) skipLast = true;
                 }
                 for (let j = 0; j < (skipLast ? cols.length - 1 : cols.length); j++) {
                     let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, "").trim();
@@ -1564,7 +1885,7 @@
                 }
                 if (row.length > 0) csv.push(row.join(","));
             }
-            let blob = new Blob([csv.join("\n")], {type: "text/csv;charset=utf-8"});
+            let blob = new Blob([csv.join("\n")], { type: "text/csv;charset=utf-8" });
             let url = URL.createObjectURL(blob);
             let a = document.createElement("a");
             a.href = url;
@@ -1598,20 +1919,20 @@
                 const baseUrl = window.location.origin + window.location.pathname;
                 const searchParams = new URLSearchParams(window.location.search);
                 searchParams.delete('page');
-                searchParams.set('size', '500'); 
+                searchParams.set('size', '500');
                 searchParams.set('export', 'true'); // Try optimized path first
 
                 do {
                     if (btn) btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Fetching Data...`;
-                    
+
                     const params = new URLSearchParams(searchParams);
                     params.set('page', currentPage);
                     params.set('_cache', Date.now());
-                    
+
                     const response = await fetch(baseUrl + "?" + params.toString(), { credentials: 'same-origin' });
                     const html = await response.text();
                     const doc = new DOMParser().parseFromString(html, 'text/html');
-                    
+
                     const table = doc.getElementById('mainDataTable') || doc.querySelector('.matrix-table') || doc.querySelector('table');
                     if (!table) break;
 
@@ -1637,13 +1958,13 @@
                             }
                         }
                     }
-                    
+
                     currentPage++;
                 } while (currentPage <= totalPages);
 
                 if (allRows.length > 0) {
                     if (btn) btn.innerHTML = `<i class="fas fa-file-excel"></i> Exporting ${allRows.length} Rows...`;
-                    
+
                     // Create a virtual table for generateExcel/CSV
                     const virtualTable = document.createElement('table');
                     if (tableHeader) virtualTable.appendChild(tableHeader.cloneNode(true));
@@ -1693,13 +2014,13 @@
         // --- Session Timeout (Idle Timer) ---
         let idleTime = 0;
         const idleLimit = 30 * 60; // 30 Minutes of inactivity
-        
+
         function resetIdleTimer() {
             idleTime = 0;
         }
 
         // Increment the idle time counter every second
-        setInterval(function() {
+        setInterval(function () {
             idleTime++;
             if (idleTime >= idleLimit) {
                 window.location.href = "/login?timeout=true";
@@ -1714,20 +2035,20 @@
         // --- Real-time Auto-Update Engine ---
         let autoUpdateInterval = null;
         let countdown = 10;
-        
+
         function initLiveAutoUpdate() {
             const badge = document.getElementById('live-update-badge');
             if (!badge) return;
-            
+
             // Show badge on all pages
             badge.style.display = 'flex';
-            
+
             startLiveUpdateTimer();
         }
-        
+
         function startLiveUpdateTimer() {
             updateBadgeUI();
-            
+
             if (autoUpdateInterval) clearInterval(autoUpdateInterval);
             autoUpdateInterval = setInterval(() => {
                 countdown--;
@@ -1742,15 +2063,15 @@
                 if (cdEl) cdEl.textContent = countdown + 's';
             }, 1000);
         }
-        
+
         function updateBadgeUI() {
             const badge = document.getElementById('live-update-badge');
             const ping = document.getElementById('live-update-ping');
             const dot = document.getElementById('live-update-dot');
             const textEl = document.getElementById('live-update-text');
-            
+
             if (!badge) return;
-            
+
             // Always beautiful green styling
             badge.style.background = 'rgba(16, 185, 129, 0.08)';
             badge.style.borderColor = 'rgba(16, 185, 129, 0.2)';
@@ -1762,7 +2083,7 @@
             if (dot) dot.style.backgroundColor = '#10B981';
             if (textEl) textEl.innerHTML = 'Live Sync: <span id="live-update-countdown" style="font-family: monospace; font-weight: 700;">' + countdown + 's</span>';
         }
-        
+
         async function performLiveUpdate() {
             try {
                 // Skip live updates if user is interacting with inputs or typing search queries
@@ -1782,23 +2103,23 @@
                 const res = await fetch(window.location.href);
                 if (!res.ok) throw new Error('Network response was not OK');
                 const htmlText = await res.text();
-                
+
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(htmlText, 'text/html');
-                
+
                 const activeContainers = document.querySelectorAll('.live-update-container');
                 const newContainers = doc.querySelectorAll('.live-update-container');
-                
+
                 activeContainers.forEach((el, index) => {
                     const newEl = newContainers[index];
                     if (newEl && el) {
                         el.style.opacity = '0.7';
                         el.style.transition = 'opacity 0.2s ease-in-out';
-                        
+
                         setTimeout(() => {
                             el.innerHTML = newEl.innerHTML;
                             el.style.opacity = '1';
-                            
+
                             // Re-bind pagination if present
                             el.querySelectorAll('.pagination-container').forEach(container => {
                                 if (window.initPagination) {
@@ -1808,7 +2129,7 @@
                         }, 200);
                     }
                 });
-                
+
                 // Trigger any page-specific callbacks
                 if (typeof window.onLiveUpdateComplete === 'function') {
                     window.onLiveUpdateComplete(doc);
@@ -1817,7 +2138,7 @@
                 console.warn('Auto-update failed temporarily:', err);
             }
         }
-        
+
         document.addEventListener('DOMContentLoaded', initLiveAutoUpdate);
 
         // --- Single Page Application (SPA) AJAX Router & Glowing Loader ---
@@ -1829,7 +2150,7 @@
             // Force reflow
             bar.offsetWidth;
             bar.style.width = '35%';
-            
+
             if (window.spaLoadingInterval) clearInterval(window.spaLoadingInterval);
             window.spaLoadingInterval = setInterval(() => {
                 let currentWidth = parseFloat(bar.style.width);
@@ -1878,9 +2199,9 @@
             } catch (e) {
                 console.warn('Error destroying weeklyTrendChart on transition:', e);
             }
-            
+
             startLoadingBar();
-            
+
             try {
                 const response = await fetch(url);
                 if (response.redirected) {
@@ -1888,52 +2209,52 @@
                     window.location.href = response.url;
                     return;
                 }
-                
+
                 if (!response.ok) {
                     throw new Error('Response status: ' + response.status);
                 }
-                
+
                 const htmlText = await response.text();
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(htmlText, 'text/html');
-                
+
                 // Update title
                 document.title = doc.title;
-                
+
                 // Swap main content
                 const newContent = doc.getElementById('spa-content-container');
                 const container = document.getElementById('spa-content-container');
                 if (newContent && container) {
                     container.innerHTML = newContent.innerHTML;
                 }
-                
+
                 // Swap top bar
                 const newTopBar = doc.querySelector('.top-bar');
                 const activeTopBar = document.querySelector('.top-bar');
                 if (newTopBar && activeTopBar) {
                     activeTopBar.innerHTML = newTopBar.innerHTML;
                 }
-                
+
                 // Swap sidebar (to update active states and sub-menus)
                 const newSidebar = doc.querySelector('.sidebar');
                 const activeSidebar = document.querySelector('.sidebar');
                 if (newSidebar && activeSidebar) {
                     activeSidebar.innerHTML = newSidebar.innerHTML;
                 }
-                
+
                 // Update history
                 if (pushState) {
                     history.pushState({ url: url }, '', url);
                 }
-                
+
                 // Evaluate scripts in new container
                 if (container) {
                     await loadSpaScripts(container);
                 }
-                
+
                 // Re-initialize live auto update on the new page if present
                 initLiveAutoUpdate();
-                
+
             } catch (error) {
                 console.error('SPA Navigation failed, falling back to full reload:', error);
                 window.location.href = url;
@@ -1963,19 +2284,19 @@
             for (const item of srcScripts) {
                 const oldScript = item.script;
                 const parent = item.parent;
-                
+
                 // Optimized check: If Chart.js is requested but window.Chart is already available, skip reloading
                 if (oldScript.src && oldScript.src.includes('chart.js') && typeof window.Chart !== 'undefined') {
                     continue;
                 }
-                
+
                 await new Promise((resolve) => {
                     const newScript = document.createElement('script');
                     Array.from(oldScript.attributes).forEach(attr => {
                         newScript.setAttribute(attr.name, attr.value);
                     });
                     newScript.onload = () => resolve();
-                    newScript.onerror = () => resolve(); 
+                    newScript.onerror = () => resolve();
                     if (parent && parent.isConnected) {
                         parent.appendChild(newScript);
                     } else {
@@ -1986,7 +2307,7 @@
 
             // 2. Intercept addEventListener for inline scripts
             const originalAddEventListener = document.addEventListener;
-            document.addEventListener = function(type, listener, options) {
+            document.addEventListener = function (type, listener, options) {
                 if (type === 'DOMContentLoaded') {
                     try {
                         listener();
@@ -2019,52 +2340,52 @@
         }
 
         // Global Click Interceptor for SPA Links
-        document.addEventListener('click', function(e) {
+        document.addEventListener('click', function (e) {
             const anchor = e.target.closest('a');
             if (!anchor) return;
-            
+
             const href = anchor.getAttribute('href');
             if (!href) return;
-            
+
             // Bypass external, anchor, and blank target links
             if (href.startsWith('http') && !href.startsWith(window.location.origin)) return;
             if (href.startsWith('#') || href.startsWith('javascript:')) return;
             if (anchor.getAttribute('target') === '_blank') return;
             if (anchor.hasAttribute('download')) return;
-            
+
             // Bypass logins, logouts, exports, api
             if (href.includes('/logout') || href.includes('/login') || href.includes('/export') || href.includes('export=true')) return;
             if (href.includes('/api/')) return;
-            
+
             e.preventDefault();
             navigateToSpa(href);
         });
 
         // GET Form Interceptor for SPA Filters and Searches
-        document.addEventListener('submit', function(e) {
+        document.addEventListener('submit', function (e) {
             const form = e.target;
             if (form.method.toLowerCase() === 'get') {
                 const action = form.getAttribute('action') || window.location.pathname;
-                
+
                 // Exclude exported filter pages
                 if (action.includes('/export') || action.includes('export=true')) return;
-                
+
                 const formData = new FormData(form);
                 const params = new URLSearchParams();
                 for (const [key, val] of formData.entries()) {
                     if (val !== '') params.append(key, val);
                 }
-                
+
                 const queryString = params.toString();
                 const targetUrl = action + (queryString ? '?' + queryString : '');
-                
+
                 e.preventDefault();
                 navigateToSpa(targetUrl);
             }
         });
 
         // Global search input clearing helper for Attendance Directory
-        window.handleSearchInput = function(inputEl) {
+        window.handleSearchInput = function (inputEl) {
             if (inputEl.value === '') {
                 const form = inputEl.closest('form');
                 if (form) {
@@ -2079,20 +2400,20 @@
         };
 
         // Delegated listeners for maximum browser compatibility
-        document.addEventListener('input', function(e) {
+        document.addEventListener('input', function (e) {
             if (e.target && e.target.id === 'attendanceSearchInput') {
                 window.handleSearchInput(e.target);
             }
         });
 
-        document.addEventListener('keyup', function(e) {
+        document.addEventListener('keyup', function (e) {
             if (e.target && e.target.id === 'attendanceSearchInput' && e.key === 'Backspace') {
                 window.handleSearchInput(e.target);
             }
         });
 
         // popstate listener for back/forward buttons
-        window.addEventListener('popstate', function(e) {
+        window.addEventListener('popstate', function (e) {
             navigateToSpa(window.location.href, false);
         });
     </script>

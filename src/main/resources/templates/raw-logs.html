@@ -59,6 +59,11 @@
                             <option th:each="d : ${devices}" th:value="${d.device_name}" th:text="${d.display_name}" th:selected="${d.device_name == selDevice}"></option>
                         </select>
                     </div>
+                    <div class="form-group" style="margin: 0; display: flex; align-items: flex-end;">
+                        <button type="submit" class="btn-primary" style="background: var(--accent-primary); width: 100%; height: 42px; border-radius: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; border: none; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.2);">
+                            <i class="fas fa-search"></i> Enter
+                        </button>
+                    </div>
                 </div>
 
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding: 10px 15px; background: rgba(2, 132, 199, 0.05); border-radius: 12px; border: 1px solid rgba(2, 132, 199, 0.15);">
