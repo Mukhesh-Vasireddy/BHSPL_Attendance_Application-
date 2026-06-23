@@ -541,45 +541,7 @@
             </div>
         </div>
 
-        <!-- ═══════════════════════════════════════════════════════
-             SYSTEM MONITORING ROW (Admin Only)
-        ═══════════════════════════════════════════════════════ -->
-        <div class="secondary-stats-strip" th:if="${session.role == 'Admin'}" style="margin-top:20px; grid-template-columns: repeat(3, 1fr);">
-            
-            <!-- Currently Logged-In -->
-            <div class="ds-compact" onclick="window.location.href='/system/activity-logs'" style="cursor:pointer;" title="Currently Logged-In Users">
-                <div class="ds-compact-icon" style="background: rgba(16, 185, 129, 0.1); color: #10B981;">
-                    <i class="fas fa-user-check"></i>
-                </div>
-                <div>
-                    <div class="ds-compact-count" style="color: #10B981;" th:text="${activeUsersList != null ? activeUsersList.size() : 0}">0</div>
-                    <div class="ds-compact-label">Currently Logged-In</div>
-                </div>
-            </div>
 
-            <!-- Failed Logins (24h) -->
-            <div class="ds-compact" onclick="window.location.href='/system/activity-logs?search=Failed'" style="cursor:pointer;" title="Failed Logins (Last 24 Hours)">
-                <div class="ds-compact-icon" style="background: rgba(239,68,68,0.1); color: #EF4444;">
-                    <i class="fas fa-shield-alt"></i>
-                </div>
-                <div>
-                    <div class="ds-compact-count" style="color: #EF4444;" th:text="${failedLogins24h != null ? failedLogins24h : 0}">0</div>
-                    <div class="ds-compact-label">Failed Logins (24h)</div>
-                </div>
-            </div>
-
-            <!-- Recent Activities -->
-            <div class="ds-compact" onclick="window.location.href='/system/activity-logs'" style="cursor:pointer;" title="Recent Activities">
-                <div class="ds-compact-icon" style="background: rgba(139,92,246,0.1); color: #8B5CF6;">
-                    <i class="fas fa-history"></i>
-                </div>
-                <div>
-                    <div class="ds-compact-count" style="color: #8B5CF6;" th:text="${recentActivities != null ? recentActivities.size() : 0}">0</div>
-                    <div class="ds-compact-label">Recent Activities</div>
-                </div>
-            </div>
-
-        </div>
 
         <!-- ═══════════════════════════════════════════════════════
              CHARTS ROW
