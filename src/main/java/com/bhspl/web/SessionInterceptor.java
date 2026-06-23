@@ -3,8 +3,10 @@ package com.bhspl.web;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import com.bhspl.db.DatabaseManager;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
+import java.util.Map;
 
 @Component
 public class SessionInterceptor implements HandlerInterceptor {
@@ -20,12 +22,30 @@ public class SessionInterceptor implements HandlerInterceptor {
 
         HttpSession session = request.getSession(false);
         if (session == null || session.getAttribute("user") == null) {
-            // For AJAX requests, return 401 instead of redirecting to login page HTML
-            if ("XMLHttpRequest".equals(request.getHeader("X-Requested-With"))) {
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
-            } else {
-                response.sendRedirect("/login?timeout=true");
+            handleUnauthorized(request, response, "timeout=true");
+            return false;
+        }
+
+        // Validate that the session's password hash matches the latest DB hash
+        // This ensures old sessions are invalidated immediately if the password is changed
+        String username = (String) session.getAttribute("user");
+        String sessionHash = (String) session.getAttribute("passwordHash");
+        if (username != null && sessionHash != null) {
+            try {
+                DatabaseManager db = DatabaseManager.getInstance();
+                Map<String, Object> user = db.queryOne("SELECT password_hash FROM users WHERE username=?", username);
+                if (user == null || !sessionHash.equals(user.get("password_hash"))) {
+                    session.invalidate();
+                    handleUnauthorized(request, response, "reason=password_changed");
+                    return false;
+                }
+            } catch (Exception e) {
+                // Ignore DB error, allow request to proceed or fail gracefully later
             }
+        } else {
+            // Missing password hash in session (legacy session), force re-login
+            session.invalidate();
+            handleUnauthorized(request, response, "timeout=true");
             return false;
         }
 
@@ -89,5 +109,13 @@ public class SessionInterceptor implements HandlerInterceptor {
             out.flush();
         }
         return false;
+    }
+
+    private void handleUnauthorized(HttpServletRequest request, HttpServletResponse response, String query) throws Exception {
+        if ("XMLHttpRequest".equals(request.getHeader("X-Requested-With"))) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+        } else {
+            response.sendRedirect("/login?" + query);
+        }
     }
 }

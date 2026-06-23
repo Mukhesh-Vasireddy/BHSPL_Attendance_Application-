@@ -207,7 +207,9 @@ public class DatabaseManager {
                         "  role          VARCHAR(20) DEFAULT 'Operator'," +
                         "  emp_id        VARCHAR(20)," +
                         "  last_login    DATETIME," +
-                        "  status        VARCHAR(10) DEFAULT 'Active'" +
+                        "  status        VARCHAR(10) DEFAULT 'Active'," +
+                        "  allowed_devices VARCHAR(255)," +
+                        "  allowed_modules VARCHAR(500)" +
                         ")",
 
                 // raw_logs
@@ -221,6 +223,19 @@ public class DatabaseManager {
                         "  cloud_synced  TINYINT DEFAULT 0," +
                         "  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
                         "  UNIQUE KEY uq_emp_time (emp_id, punch_time)" +
+                        ")",
+
+                // activity_logs
+                "CREATE TABLE IF NOT EXISTS activity_logs (" +
+                        "  id            INT AUTO_INCREMENT PRIMARY KEY," +
+                        "  username      VARCHAR(50)," +
+                        "  role          VARCHAR(20)," +
+                        "  action        VARCHAR(100)," +
+                        "  module_name   VARCHAR(50)," +
+                        "  description   TEXT," +
+                        "  ip_address    VARCHAR(45)," +
+                        "  user_agent    VARCHAR(255)," +
+                        "  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                         ")",
 
                 // departments
@@ -449,6 +464,8 @@ public class DatabaseManager {
                 { "attendance", "exceptions", "VARCHAR(255) DEFAULT ''" },
                 { "attendance", "device_id", "INT DEFAULT 0 AFTER emp_id" },
                 { "raw_logs", "cloud_synced", "TINYINT DEFAULT 0" },
+                { "users", "allowed_devices", "VARCHAR(255) DEFAULT NULL" },
+                { "users", "allowed_modules", "VARCHAR(500) DEFAULT NULL" },
         };
 
         // Custom migration to drop old attendance unique key if present
@@ -762,6 +779,29 @@ public class DatabaseManager {
             conn.commit();
         } catch (Exception e) {
             System.err.println("Database Migration Warning for padding attendance emp_ids: " + e.getMessage());
+            try {
+                conn.rollback();
+            } catch (Exception ignored) {
+            }
+        }
+
+        // Self-healing migration for activity_logs table
+        try {
+            execute("CREATE TABLE IF NOT EXISTS activity_logs (" +
+                    "  id            INT AUTO_INCREMENT PRIMARY KEY," +
+                    "  username      VARCHAR(50)," +
+                    "  role          VARCHAR(20)," +
+                    "  action        VARCHAR(100)," +
+                    "  module_name   VARCHAR(50)," +
+                    "  description   TEXT," +
+                    "  ip_address    VARCHAR(45)," +
+                    "  user_agent    VARCHAR(255)," +
+                    "  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                    ")");
+            conn.commit();
+            System.out.println("Database: Successfully verified/created activity_logs table (Self-healing).");
+        } catch (Exception e) {
+            System.err.println("Database Migration Warning for activity_logs table: " + e.getMessage());
             try {
                 conn.rollback();
             } catch (Exception ignored) {

@@ -1,9 +1,9 @@
-still
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:fragment="main-layout(content, title, activeLink)">
 
 <head>
     <title th:text="${title}">BHSPL Attendance</title>
+    <link rel="icon" href="/img/favicon.png" type="image/png">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script th:inline="javascript">
         (function () {
@@ -860,6 +860,26 @@ still
             filter: brightness(1.1);
         }
 
+        .btn-secondary {
+            background: #f1f5f9;
+            color: var(--text-main);
+            border: 1px solid var(--glass-border);
+            padding: 12px 24px;
+            border-radius: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary:hover {
+            background: #e2e8f0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        }
+
         /* Status Pills */
         .status-pill {
             padding: 6px 14px;
@@ -1510,18 +1530,19 @@ still
             <div class="logo-container"
                 style="margin: 0 15px 40px; padding: 4px 8px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; background: rgba(255, 255, 255, 0.05); display: flex; align-items: center; justify-content: center; transition: all 0.3s ease;">
                 <div class="logo-wrapper">
-                    <img src="/img/bavya-logo.png" class="logo-image" alt="Bavya Logo">
+                    <img src="/img/bavya-logo-orig.png" class="logo-image" alt="Bavya Logo">
                 </div>
             </div>
         </a>
         <nav class="nav-menu">
-            <a href="/" th:classappend="${activeLink == 'dashboard' ? 'active' : ''}" class="nav-item"><i
+            <a href="/" th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Dashboard'))}" th:classappend="${activeLink == 'dashboard' ? 'active' : ''}" class="nav-item"><i
                     class="fas fa-th-large"></i> <span>Dashboard</span></a>
-            <a href="/employees" th:classappend="${activeLink == 'employees' ? 'active' : ''}" class="nav-item"><i
+            <a href="/employees" th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Employee Directory'))}" th:classappend="${activeLink == 'employees' ? 'active' : ''}" class="nav-item"><i
                     class="fas fa-users"></i> <span>Employee Directory</span></a>
-            <a href="/attendance" th:classappend="${activeLink == 'attendance' ? 'active' : ''}" class="nav-item"><i
+            <a href="/attendance" th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Attendance Management'))}" th:classappend="${activeLink == 'attendance' ? 'active' : ''}" class="nav-item"><i
                     class="fas fa-user-clock"></i> <span>Attendance Management</span></a>
             <!-- Reports Menu -->
+            <th:block th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Attendance Reports'))}">
             <a href="#" onclick="toggleNavMenu('reports-submenu', event)"
                 th:classappend="${activeLink == 'reports' ? 'active open' : ''}" class="nav-item">
                 <i class="fas fa-chart-bar"></i> <span>Attendance Reports</span>
@@ -1535,12 +1556,14 @@ still
                 <a href="/reports/exceptions" class="sub-item"><i class="fas fa-exclamation-triangle"></i> Exceptions
                     Report</a>
             </div>
-            <a href="/raw-logs" th:classappend="${activeLink == 'raw-logs' ? 'active' : ''}" class="nav-item"><i
+            </th:block>
+            <a href="/raw-logs" th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Activity Logs'))}" th:classappend="${activeLink == 'raw-logs' ? 'active' : ''}" class="nav-item"><i
                     class="fas fa-history"></i> <span>Activity Logs</span></a>
-            <a href="/devices" th:classappend="${activeLink == 'devices' ? 'active' : ''}" class="nav-item"><i
+            <a href="/devices" th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Device Management'))}" th:classappend="${activeLink == 'devices' ? 'active' : ''}" class="nav-item"><i
                     class="fas fa-microchip"></i> <span>Device Management</span></a>
 
             <!-- Leave Menu -->
+            <th:block th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Leave Management'))}">
             <a href="#" onclick="toggleNavMenu('leave-submenu', event)"
                 th:classappend="${activeLink == 'leave' ? 'active open' : ''}" class="nav-item">
                 <i class="fas fa-calendar-alt"></i> <span>Leave Management</span>
@@ -1555,8 +1578,10 @@ still
                 <a href="/leave/balance" class="sub-item"><i class="fas fa-balance-scale"></i> Leave Balance</a>
                 <a href="/leave/holidays" class="sub-item"><i class="fas fa-umbrella-beach"></i> Holidays</a>
             </div>
+            </th:block>
 
             <!-- Masters Menu -->
+            <th:block th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Administration'))}">
             <a href="#" onclick="toggleNavMenu('masters-submenu', event)"
                 th:classappend="${activeLink == 'masters' ? 'active open' : ''}" class="nav-item">
                 <i class="fas fa-database"></i> <span>Administration</span>
@@ -1569,20 +1594,23 @@ still
                 <a href="/masters/shifts" class="sub-item"><i class="fas fa-clock"></i> Shifts</a>
                 <a href="/masters/weekly-off" class="sub-item"><i class="fas fa-calendar-minus"></i> Weekly Off</a>
             </div>
+            </th:block>
 
             <!-- System Menu -->
-            <a href="#" onclick="toggleNavMenu('system-submenu', event)"
-                th:classappend="${activeLink == 'system' ? 'active open' : ''}" class="nav-item">
+            <th:block th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Settings'))}">
+            <a href="#" onclick="toggleNavMenu('system-submenu', event)" class="nav-item" th:classappend="${activeLink == 'system' ? 'active open' : ''}">
                 <i class="fas fa-cog"></i> <span>Settings</span>
                 <i class="fas fa-chevron-down dropdown-icon"></i>
             </a>
             <div class="sub-menu" id="system-submenu"
                 th:style="${activeLink == 'system' ? 'display:block;' : 'display:none;'}">
                 <a href="/system/users" class="sub-item"><i class="fas fa-users-cog"></i> User Management</a>
-                <a href="/system/settings" class="sub-item"><i class="fas fa-sliders-h"></i> Settings</a>
-                <a href="/system/backup" class="sub-item"><i class="fas fa-download"></i> DB Backup</a>
-                <a href="/system/about" class="sub-item"><i class="fas fa-info-circle"></i> About</a>
+                <a href="/system/settings" class="sub-item" th:if="${session.role == 'Admin'}"><i class="fas fa-sliders-h"></i> Settings</a>
+                <a href="/system/backup" class="sub-item" th:if="${session.role == 'Admin'}"><i class="fas fa-download"></i> DB Backup</a>
+                <a href="/system/activity-logs" class="sub-item" th:if="${session.role == 'Admin'}"><i class="fas fa-history"></i> Activity Logs</a>
+                <a href="/system/about" class="sub-item" th:if="${session.role == 'Admin'}"><i class="fas fa-info-circle"></i> About</a>
             </div>
+            </th:block>
         </nav>
     </div>
 

@@ -10,7 +10,7 @@
                 <h1 class="module-title">Employee Directory</h1>
                 <div class="module-sub">Manage organization employees, profiles, and shifts</div>
             </div>
-            <div style="display: flex; gap: 10px; align-items: center;">
+            <div style="display: flex; gap: 10px; align-items: center;" th:unless="${noDevicesAssigned}">
                 <button type="button" class="btn-primary" style="background: #10b981; color: #fff; border-radius: 12px; font-size: 13px; padding: 8px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; border: none;" onclick="openDeviceImportModal()">
                     <i class="fas fa-sync"></i> Import from Device
                 </button>
@@ -27,6 +27,7 @@
             </div>
         </div>
 
+        <div th:unless="${noDevicesAssigned}">
         <!-- Filter / Search Bar -->
         <div class="filter-bar" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
             <form action="/employees" method="get" autocomplete="off" style="display: flex; gap: 10px; margin: 0; align-items: center;">
@@ -262,6 +263,18 @@
                     <button type="button" id="btnSubmitDeviceImport" onclick="submitDeviceImport()" class="btn-primary" style="background: #10B981; border: none; border-radius: 8px; padding: 10px 20px; font-weight: 700; display: none; cursor: pointer;">Import Selected (0)</button>
                 </div>
             </div>
+        </div>
+        </div>
+
+        <!-- If no devices assigned to the operator -->
+        <div th:if="${noDevicesAssigned}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; background: #fff; border: 1px solid var(--glass-border); border-radius: 20px; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03); padding: 40px; text-align: center; margin-top: 20px;">
+            <div style="width: 80px; height: 80px; background: rgba(239, 68, 68, 0.08); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; border: 1px solid rgba(239, 68, 68, 0.15);">
+                <i class="fas fa-exclamation-triangle" style="font-size: 32px; color: #ef4444;"></i>
+            </div>
+            <h2 style="font-size: 20px; color: var(--text-main); font-weight: 800; margin: 0 0 10px 0;">No Biometric Devices Assigned</h2>
+            <p style="font-size: 14px; color: #64748b; max-width: 480px; line-height: 1.6; margin: 0 0 20px 0;">
+                Your user account does not have access permissions for any biometric devices. Please contact your system administrator to assign devices to your profile.
+            </p>
         </div>
 
         <script th:inline="javascript">

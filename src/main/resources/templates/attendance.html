@@ -10,7 +10,7 @@
                 <h1 class="module-title">Daily Attendance View</h1>
                 <div class="module-sub">Monitor employee daily sign-ins, hours, and sync status</div>
             </div>
-            <div style="display: flex; gap: 10px; align-items: center;">
+            <div style="display: flex; gap: 10px; align-items: center;" th:unless="${noDevicesAssigned}">
                 <button onclick="refreshAndSync()" class="btn-primary" style="background: var(--glass-bg); color: var(--text-main); border: 1px solid var(--glass-border); padding: 8px 12px; border-radius: 10px; font-size: 12px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
                     <i class="fas fa-sync-alt"></i> Sync
                 </button>
@@ -29,6 +29,7 @@
             </div>
         </div>
 
+        <div th:unless="${noDevicesAssigned}">
         <!-- Filter Bar -->
         <div class="filter-bar">
             <form action="/attendance" method="get" autocomplete="off" style="display: flex; gap: 15px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; margin: 0; width: 100%;">
@@ -126,6 +127,18 @@
                 </table>
             </div>
             <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/attendance')}"></div>
+        </div>
+        </div>
+
+        <!-- If no devices assigned to the operator -->
+        <div th:if="${noDevicesAssigned}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; background: #fff; border: 1px solid var(--glass-border); border-radius: 20px; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03); padding: 40px; text-align: center; margin-top: 20px;">
+            <div style="width: 80px; height: 80px; background: rgba(239, 68, 68, 0.08); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; border: 1px solid rgba(239, 68, 68, 0.15);">
+                <i class="fas fa-exclamation-triangle" style="font-size: 32px; color: #ef4444;"></i>
+            </div>
+            <h2 style="font-size: 20px; color: var(--text-main); font-weight: 800; margin: 0 0 10px 0;">No Biometric Devices Assigned</h2>
+            <p style="font-size: 14px; color: #64748b; max-width: 480px; line-height: 1.6; margin: 0 0 20px 0;">
+                Your user account does not have access permissions for any biometric devices. Please contact your system administrator to assign devices to your profile.
+            </p>
         </div>
 
         <script>

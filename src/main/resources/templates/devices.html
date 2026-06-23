@@ -10,7 +10,7 @@
                 <h1 class="module-title">Device Management</h1>
                 <div class="module-sub">Configure and monitor biometric devices and synchronization status</div>
             </div>
-            <button class="btn-primary" onclick="openDeviceModal()"><i class="fas fa-plus"></i> Add Device</button>
+            <button class="btn-primary" onclick="openDeviceModal()" th:unless="${noDevicesAssigned}"><i class="fas fa-plus"></i> Add Device</button>
         </div>
         
         <div th:if="${error}" class="error-msg" style="margin-bottom: 20px; padding: 15px 20px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 12px; color: #ef4444; font-weight: 500; display: flex; align-items: center; gap: 10px;">
@@ -18,6 +18,7 @@
             <span th:text="${error}"></span>
         </div>
 
+        <div th:unless="${noDevicesAssigned}">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 25px; margin-bottom: 25px;">
             <div th:each="dev : ${devices}" class="card"
                 style="background: #ffffff; border: 1px solid var(--glass-border); margin: 0; padding: 25px; border-radius: 20px; box-shadow: var(--card-shadow); transition: transform 0.3s ease, box-shadow 0.3s ease;"
@@ -66,6 +67,18 @@
             <p>No devices configured in the system.</p>
         </div>
         <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/devices')}"></div>
+        </div>
+
+        <!-- If no devices assigned to the operator -->
+        <div th:if="${noDevicesAssigned}" style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; background: #fff; border: 1px solid var(--glass-border); border-radius: 20px; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03); padding: 40px; text-align: center; margin-top: 20px;">
+            <div style="width: 80px; height: 80px; background: rgba(239, 68, 68, 0.08); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; border: 1px solid rgba(239, 68, 68, 0.15);">
+                <i class="fas fa-exclamation-triangle" style="font-size: 32px; color: #ef4444;"></i>
+            </div>
+            <h2 style="font-size: 20px; color: var(--text-main); font-weight: 800; margin: 0 0 10px 0;">No Biometric Devices Assigned</h2>
+            <p style="font-size: 14px; color: #64748b; max-width: 480px; line-height: 1.6; margin: 0 0 20px 0;">
+                Your user account does not have access permissions for any biometric devices. Please contact your system administrator to assign devices to your profile.
+            </p>
+        </div>
 
         <!-- Device Modal -->
         <div id="deviceModal" class="modal">
@@ -99,8 +112,8 @@
                                 </div>
                             </div>
                             <div>
-                                <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Serial Number (Optional)</label>
-                                <input type="text" name="serial_number" id="form_serial_number" class="form-control">
+                                <label style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Serial Number <span style="color: #ef4444;">*</span></label>
+                                <input type="text" name="serial_number" id="form_serial_number" class="form-control" required>
                             </div>
 
                             <div>

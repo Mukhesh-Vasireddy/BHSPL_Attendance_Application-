@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      th:replace="~{layout :: main-layout(~{::section}, 'Activity Logs', 'system')}">
+<body>
+    <section>
+        <div class="module-header">
+            <div>
+                <h2 class="module-title">Activity Logs</h2>
+                <div class="module-sub">System-wide audit trail of user actions</div>
+            </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <form action="/system/activity-logs" method="get" style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; width: 100%;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label style="font-size: 13px; font-weight: 500; color: var(--text-main);">From:</label>
+                    <input type="date" name="from" th:value="${from}" class="form-control" style="width: auto;">
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label style="font-size: 13px; font-weight: 500; color: var(--text-main);">To:</label>
+                    <input type="date" name="to" th:value="${to}" class="form-control" style="width: auto;">
+                </div>
+                <div class="search-box" style="flex: 1; min-width: 250px; position: relative;">
+                    <i class="fas fa-search" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                    <input type="text" name="search" th:value="${search}" class="form-control" placeholder="Search username, action, module..." autocomplete="off" style="width: 100%; padding-left: 40px; box-sizing: border-box;">
+                </div>
+                <button type="submit" class="btn-primary" style="background: #3B82F6;">Filter</button>
+                <a href="/system/activity-logs" class="btn-primary" style="background: #64748B; text-decoration: none; text-align: center;">Reset</a>
+            </form>
+        </div>
+
+        <!-- Data Table -->
+        <div class="card" style="padding: 0; overflow-x: auto;">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Date & Time</th>
+                        <th>User</th>
+                        <th>Role</th>
+                        <th>Action</th>
+                        <th>Module</th>
+                        <th>Description</th>
+                        <th>IP Address</th>
+                        <th>Browser/OS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="l : ${logs}">
+                        <td th:text="${l.created_at}">2026-06-23 10:00:00</td>
+                        <td th:text="${l.username}" style="font-weight: 600; color: var(--text-main);">admin</td>
+                        <td>
+                            <span th:text="${l.role}" class="badge" style="background: rgba(99,102,241,0.1); color: #6366f1;">Admin</span>
+                        </td>
+                        <td>
+                            <span th:text="${l.action}" class="badge" style="background: rgba(16,185,129,0.1); color: #10b981;">Action</span>
+                        </td>
+                        <td th:text="${l.module_name}">Module</td>
+                        <td th:text="${l.description}">Description</td>
+                        <td th:text="${l.ip_address}">192.168.1.1</td>
+                        <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" th:title="${l.user_agent}" th:text="${l.user_agent}">Browser</td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(logs)}">
+                        <td colspan="8" style="text-align: center; padding: 30px; color: #94a3b8;">No activity logs found.</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div style="padding: 15px;" th:if="${totalPages > 0}">
+                <div th:replace="~{fragments :: pagination(${currentPage}, ${totalPages}, '/system/activity-logs')}"></div>
+            </div>
+        </div>
+    </section>
+</body>
+</html>
