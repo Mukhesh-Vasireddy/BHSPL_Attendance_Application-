@@ -50,3 +50,11 @@ cleanup_script.ps1
 # Docker
 Dockerfile
 
+
+# Additional ignores
+attendance.db
+cookies.txt
+methods.txt
+output.html
+*.ps1
+*.py
