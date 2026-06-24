@@ -297,7 +297,7 @@ public class ZkProtocol {
                         sb.append((char) b);
                     }
                     String uid = sb.toString().trim();
-                    if (uid.isEmpty() || "0".equals(uid) || !uid.matches("\\d+")) continue;
+                    if (uid.isEmpty() || "0".equals(uid) || !uid.matches("[a-zA-Z0-9_.-]+")) continue;
 
                     int punch = data[i + 31] & 0xFF;
 

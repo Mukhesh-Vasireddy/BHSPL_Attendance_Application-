@@ -649,23 +649,7 @@ public class DatabaseManager {
             }
         }
 
-        // Self-healing migration to clean up historical non-numeric failed fingerprint
-        // attempts in raw_logs
-        try {
-            int deleted = execute("DELETE FROM raw_logs WHERE emp_id REGEXP '[^0-9]'");
-            if (deleted > 0) {
-                System.out.println(
-                        "Database: Cleaned up " + deleted + " historical invalid raw logs (non-numeric emp_id).");
-            }
-            conn.commit();
-        } catch (Exception e) {
-            System.err.println("Database Migration Warning for cleaning up raw_logs: " + e.getMessage());
-            try {
-                conn.rollback();
-            } catch (Exception ignored) {
-            }
-        }
-
+        // REMOVED: Self-healing migration that deleted non-numeric emp_ids in raw_logs to support alphanumeric IDs.
         // Self-healing migration to clean up historical duplicate raw logs within 5
         // minutes (respecting punch_type)
         try {

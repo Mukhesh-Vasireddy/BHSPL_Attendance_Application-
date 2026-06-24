@@ -1553,10 +1553,10 @@ public class WebController {
                 String empId = emp.get("emp_id");
                 String name = emp.get("emp_name");
 
-                if (empId == null || empId.trim().isEmpty() || !empId.matches("\\d+")) {
+                if (empId == null || empId.trim().isEmpty() || !empId.matches("[a-zA-Z0-9_.-]+")) {
                     response.put("status", "error");
                     response.put("message",
-                            "Invalid or missing Employee ID: " + empId + ". Employee Code must contain only numbers.");
+                            "Invalid or missing Employee ID: " + empId + ". Employee Code must contain only alphanumeric characters.");
                     return ResponseEntity.badRequest().body(response);
                 }
                 if (name == null || name.trim().isEmpty()) {
