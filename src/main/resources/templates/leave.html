@@ -46,7 +46,7 @@
                     </thead>
                     <tbody id="leaveTableBody">
                         <tr th:each="l : ${leaves}" th:data-status="${l['status']}" th:data-id="${l['id']}" 
-                            th:data-empid="${l['emp_id']}" th:data-type="${l['leave_type']}" th:data-from="${l['from_date']}" 
+                            th:data-empname="${l['emp_name']}" th:data-empid="${l['emp_id']}" th:data-type="${l['leave_type']}" th:data-from="${l['from_date']}" 
                             th:data-to="${l['to_date']}" th:data-days="${l['days']}" th:data-reason="${l['reason']}"
                             style="border-bottom: 1px solid var(--glass-border); transition: background 0.2s;">
                             <td>
@@ -101,10 +101,14 @@
                     <input type="hidden" name="status" id="fieldStatus" value="Pending">
                     
                     <div style="padding: 25px;">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
                             <div class="form-group">
-                                <label>Employee ID <span style="color: #ef4444;">*</span></label>
-                                <input type="text" name="empId" id="fieldEmpId" class="form-control" required>
+                                <label>Employee Name <span style="color: #ef4444;">*</span></label>
+                                <input type="text" name="empName" id="fieldEmpName" class="form-control" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Employee ID</label>
+                                <input type="text" name="empId" id="fieldEmpId" class="form-control">
                             </div>
                             <div class="form-group">
                                 <label>Leave Type</label>
@@ -237,6 +241,7 @@
             function editLeave(btn) {
                 const tr = btn.closest('tr');
                 document.getElementById('fieldId').value = tr.dataset.id;
+                document.getElementById('fieldEmpName').value = tr.dataset.empname || '';
                 document.getElementById('fieldEmpId').value = tr.dataset.empid;
                 document.getElementById('fieldType').value = tr.dataset.type;
                 document.getElementById('fieldFrom').value = tr.dataset.from;

@@ -17,7 +17,7 @@
             <form action="/raw-logs" method="get" autocomplete="off" id="rawLogsForm" style="margin: 0;">
                 <input type="hidden" name="size" th:value="${pageSize != null ? pageSize : 10}">
                 
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1.2fr 1.5fr 1.5fr auto; gap: 12px; margin-bottom: 20px; align-items: flex-end;">
                     <div class="form-group" style="margin: 0;">
                         <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">From Date</label>
                         <input type="date" name="from" th:value="${selFrom}" autocomplete="off" class="form-control" style="color-scheme: light; width: 100%;">
@@ -60,9 +60,9 @@
                             <option th:each="d : ${devices}" th:value="${d.device_name}" th:text="${d.display_name}" th:selected="${d.device_name == selDevice}"></option>
                         </select>
                     </div>
-                    <div class="form-group" style="margin: 0; display: flex; align-items: flex-end;">
-                        <button type="submit" class="btn-primary" style="background: var(--accent-primary); width: 100%; height: 42px; border-radius: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; border: none; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.2);">
-                            <i class="fas fa-search"></i> Enter
+                    <div class="form-group" style="margin: 0; display: flex; align-items: flex-end; justify-content: center;">
+                        <button type="submit" class="btn-primary" title="Search" style="background: var(--accent-primary); width: 42px; height: 42px; border-radius: 50%; padding: 0; display: inline-flex; align-items: center; justify-content: center; border: none; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.2); transition: all 0.2s;">
+                            <i class="fas fa-arrow-right" style="font-size: 16px; margin: 0;"></i>
                         </button>
                     </div>
                 </div>
