@@ -1565,20 +1565,20 @@ public class WebController {
                     return ResponseEntity.badRequest().body(response);
                 }
 
-                // Check if employee already exists in DB
-                long count = db.queryLong("SELECT COUNT(*) FROM employees WHERE emp_id=?", empId.trim());
-                if (count > 0) {
-                    response.put("status", "error");
-                    response.put("message", "Employee Code '" + empId + "' already exists in the database.");
-                    return ResponseEntity.badRequest().body(response);
-                }
+                // Removed strict duplicate pre-validation to allow skipping existing employees instead of failing the batch
             }
 
             // Execute transactional insertions
+            int importedCount = 0;
             db.setAutoCommit(false);
             try {
                 for (Map<String, String> emp : employeesToImport) {
                     String empId = emp.get("emp_id").trim();
+
+                    // Skip if employee already exists in DB
+                    long count = db.queryLong("SELECT COUNT(*) FROM employees WHERE emp_id=?", empId);
+                    if (count > 0) continue;
+
                     String name = emp.get("emp_name").trim();
                     String dept = emp.get("department");
                     if (dept != null)
@@ -1601,10 +1601,11 @@ public class WebController {
                                     +
                                     "VALUES (?, ?, ?, ?, ?, ?, ?)",
                             empId, name, dept, desig, shift, status, enrollId);
+                    importedCount++;
                 }
                 db.commit();
                 CacheManager.getInstance().clear(); // Invalidate all cached stats and dashboard caches
-                logActivity(session, request, "Import Employees", "Employee Directory", "Imported " + employeesToImport.size() + " employees from device");
+                logActivity(session, request, "Import Employees", "Employee Directory", "Imported " + importedCount + " employees from device");
             } catch (Exception e) {
                 db.rollback();
                 throw e;
@@ -1613,7 +1614,7 @@ public class WebController {
             }
 
             response.put("status", "success");
-            response.put("message", "Successfully imported " + employeesToImport.size() + " employee(s).");
+            response.put("message", "Successfully imported " + importedCount + " new employee(s).");
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
