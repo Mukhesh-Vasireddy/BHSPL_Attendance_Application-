@@ -2404,7 +2404,7 @@ public class WebController {
                     r.put("break_time", com.bhspl.util.AttendanceCalculator.formatDuration(met.breakHours));
                     r.put("net_working_hours", com.bhspl.util.AttendanceCalculator.formatDuration(met.workHours));
 
-                    java.time.format.DateTimeFormatter dtFmt = java.time.format.DateTimeFormatter.ofPattern("hh:mm a");
+                    java.time.format.DateTimeFormatter dtFmt = java.time.format.DateTimeFormatter.ofPattern("hh:mm:ss a");
 
                     // Format Break Details
                     StringBuilder breakDetails = new StringBuilder();
@@ -2413,8 +2413,8 @@ public class WebController {
                         for (Map<String, Object> interval : met.breakIntervals) {
                             java.time.LocalDateTime start = (java.time.LocalDateTime) interval.get("start");
                             java.time.LocalDateTime end = (java.time.LocalDateTime) interval.get("end");
-                            long durMins = (long) interval.get("duration");
-                            String durStr = String.format("%02d:%02d", durMins / 60, durMins % 60);
+                            long durSecs = (long) interval.get("duration");
+                            String durStr = String.format("%02d:%02d:%02d", durSecs / 3600, (durSecs % 3600) / 60, durSecs % 60);
                             breakDetails.append("Break ").append(index++).append(": ")
                                     .append(start.format(dtFmt)).append(" → ")
                                     .append(end.format(dtFmt)).append(" = ").append(durStr).append("|");

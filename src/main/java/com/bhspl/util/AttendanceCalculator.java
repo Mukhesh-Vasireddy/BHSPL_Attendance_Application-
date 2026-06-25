@@ -64,39 +64,39 @@ public class AttendanceCalculator {
         // 2. Strict Alternating Sequence Break Calculation (OUT -> IN)
         // Even index (0, 2, 4) = IN. Odd index (1, 3, 5) = OUT.
         // Break time is the gap from an OUT (odd index) to the next IN (even index)
-        long breakMins = 0;
+        long breakSeconds = 0;
         
         for (int i = 1; i < filtered.size() - 1; i += 2) {
             LocalDateTime outTime = (LocalDateTime) filtered.get(i).get("time");
             LocalDateTime inTime = (LocalDateTime) filtered.get(i + 1).get("time");
             
-            long gap = Duration.between(outTime, inTime).toMinutes();
-            if (gap > 0) {
-                breakMins += gap;
+            long gapSecs = Duration.between(outTime, inTime).getSeconds();
+            if (gapSecs > 0) {
+                breakSeconds += gapSecs;
                 Map<String, Object> interval = new java.util.HashMap<>();
                 interval.put("start", outTime);
                 interval.put("end", inTime);
-                interval.put("duration", gap);
+                interval.put("duration", gapSecs);
                 m.breakIntervals.add(interval);
             }
         }
         
-        m.breakHours = breakMins / 60.0;
+        m.breakHours = breakSeconds / 3600.0;
 
         // 3. Net Working Hours Calculation
-        long totalMins = Duration.between(m.firstIn, m.lastOut).toMinutes();
-        if (totalMins <= 0) {
+        long totalSeconds = Duration.between(m.firstIn, m.lastOut).getSeconds();
+        if (totalSeconds <= 0) {
             m.workHours = 0;
             m.duration = 0;
             calculateShiftMetrics(m, shift);
             return;
         }
 
-        long netMins = totalMins - breakMins;
-        if (netMins < 0) netMins = 0;
+        long netSeconds = totalSeconds - breakSeconds;
+        if (netSeconds < 0) netSeconds = 0;
 
-        m.workHours = netMins / 60.0;
-        m.duration = totalMins / 60.0;
+        m.workHours = netSeconds / 3600.0;
+        m.duration = totalSeconds / 3600.0;
 
         if (filtered.size() % 2 != 0 && filtered.size() > 1) {
             exceptionsList.add("Unpaired Punches");
