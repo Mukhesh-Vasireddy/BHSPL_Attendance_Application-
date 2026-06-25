@@ -84,9 +84,9 @@
                         <th>Date</th>
                         <th>In Time</th>
                         <th>Out Time</th>
-                        <th>Work Hrs</th>
-                        <th>Break Time</th>
-                        <th>Net Working Hours</th>
+                        <th>Work Hrs<br><span style="font-size: 10px; font-weight: 500; color: #94a3b8; text-transform: none; letter-spacing: normal;">(HH:MM:SS)</span></th>
+                        <th>Break Time<br><span style="font-size: 10px; font-weight: 500; color: #94a3b8; text-transform: none; letter-spacing: normal;">(HH:MM:SS)</span></th>
+                        <th>Net Working Hours<br><span style="font-size: 10px; font-weight: 500; color: #94a3b8; text-transform: none; letter-spacing: normal;">(HH:MM:SS)</span></th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -104,10 +104,10 @@
                             <span th:text="${r['work_hours'] ?: '0.0'}" th:data-details="${r['work_details']}" onclick="showDetailsModal('Work Hrs Details', this.getAttribute('data-details'))" style="font-weight: 600; color: var(--text-main); cursor: pointer; text-decoration: underline dotted;" title="Click for details">8.5</span>
                         </td>
                         <td>
-                            <span th:text="${r['break_time'] ?: '00:00'}" th:data-details="${r['break_details']}" onclick="showDetailsModal('Break Time Details', this.getAttribute('data-details'))" style="font-weight: 600; color: #f59e0b; cursor: pointer; text-decoration: underline dotted;" title="Click for details">00:30</span>
+                            <span th:text="${r['break_time'] ?: '00:00:00'}" th:data-details="${r['break_details']}" onclick="showDetailsModal('Break Time Details', this.getAttribute('data-details'))" style="font-weight: 600; color: #f59e0b; cursor: pointer; text-decoration: underline dotted;" title="Click for details">00:30:00</span>
                         </td>
                         <td>
-                            <span th:text="${r['net_working_hours'] ?: '00:00'}" th:data-details="${r['net_details']}" onclick="showDetailsModal('Net Working Hours Details', this.getAttribute('data-details'))" style="font-weight: 600; color: #10b981; cursor: pointer; text-decoration: underline dotted;" title="Click for details">08:30</span>
+                            <span th:text="${r['net_working_hours'] ?: '00:00:00'}" th:data-details="${r['net_details']}" onclick="showDetailsModal('Net Working Hours Details', this.getAttribute('data-details'))" style="font-weight: 600; color: #10b981; cursor: pointer; text-decoration: underline dotted;" title="Click for details">08:30:00</span>
                         </td>
                         <td>
                             <span class="badge" th:classappend="${r['status'] == 'Present' || r['status'] == 'OD' ? 'badge-success' : 'badge-danger'}">

@@ -218,10 +218,11 @@ public class AttendanceCalculator {
      * Formats decimal hours into HH:mm format.
      */
     public static String formatDuration(double decimalHours) {
-        if (decimalHours <= 0) return "00:00";
-        int totalMins = (int) Math.round(decimalHours * 60);
-        int hrs = totalMins / 60;
-        int mins = totalMins % 60;
-        return String.format("%02d:%02d", hrs, mins);
+        if (decimalHours <= 0) return "00:00:00";
+        int totalSeconds = (int) Math.round(decimalHours * 3600);
+        int hrs = totalSeconds / 3600;
+        int mins = (totalSeconds % 3600) / 60;
+        int secs = totalSeconds % 60;
+        return String.format("%02d:%02d:%02d", hrs, mins, secs);
     }
 }

@@ -1608,7 +1608,7 @@
                 <a href="/system/users" class="sub-item"><i class="fas fa-users-cog"></i> User Management</a>
                 <a href="/system/settings" class="sub-item" th:if="${session.role == 'Admin'}"><i class="fas fa-sliders-h"></i> Settings</a>
                 <a href="/system/backup" class="sub-item" th:if="${session.role == 'Admin'}"><i class="fas fa-download"></i> DB Backup</a>
-                <a href="/system/activity-logs" class="sub-item" th:if="${session.role == 'Admin'}"><i class="fas fa-history"></i> Activity Logs</a>
+                <a href="/system/activity-logs" class="sub-item" th:if="${session.role == 'Admin'}"><i class="fas fa-history"></i> Audit Logs</a>
                 <a href="/system/about" class="sub-item" th:if="${session.role == 'Admin'}"><i class="fas fa-info-circle"></i> About</a>
             </div>
             </th:block>
