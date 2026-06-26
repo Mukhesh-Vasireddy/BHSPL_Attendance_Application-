@@ -33,7 +33,7 @@ public class AttendanceCalculator {
         List<Map<String, Object>> sortedPunches = new java.util.ArrayList<>(punches);
         sortedPunches.sort((p1, p2) -> ((LocalDateTime) p1.get("time")).compareTo((LocalDateTime) p2.get("time")));
 
-        // 1. Filter duplicates (within 60 seconds)
+        // 1. Filter duplicates (within 10 seconds)
         List<Map<String, Object>> filtered = new java.util.ArrayList<>();
         LocalDateTime lastTime = null;
         int lastType = -1;
@@ -44,8 +44,8 @@ public class AttendanceCalculator {
             
             if (lastTime != null) {
                 long diff = Math.abs(Duration.between(lastTime, t).getSeconds());
-                if (diff < 60 && type == lastType) {
-                    continue; // skip duplicate within 60s
+                if (diff < 10 && type == lastType) {
+                    continue; // skip duplicate within 10s
                 }
             }
             filtered.add(p);
@@ -61,30 +61,57 @@ public class AttendanceCalculator {
         m.firstIn = (LocalDateTime) filtered.get(0).get("time");
         m.lastOut = (LocalDateTime) filtered.get(filtered.size() - 1).get("time");
 
-        // 2. State-Based Break Calculation
-        // Only calculate breaks if an explicit OUT/BREAK punch (type != 0) is followed by an IN punch (type == 0).
-        // This prevents back-to-back IN punches from being treated as breaks.
+        // 2. Break Calculation
         long breakSeconds = 0;
         LocalDateTime breakStartTime = null;
 
-        for (int i = 0; i < filtered.size() - 1; i++) {
-            Map<String, Object> p = filtered.get(i);
-            LocalDateTime t = (LocalDateTime) p.get("time");
+        boolean hasExplicitTypes = false;
+        for (Map<String, Object> p : filtered) {
             int type = (int) p.get("type");
+            if (type != 0) {
+                hasExplicitTypes = true;
+                break;
+            }
+        }
 
-            if (type != 0 && breakStartTime == null) {
-                breakStartTime = t; // Start of break
-            } else if (type == 0 && breakStartTime != null) {
-                long gapSecs = Duration.between(breakStartTime, t).getSeconds();
+        if (hasExplicitTypes) {
+            // State-Based Break Calculation (when explicit types exist)
+            for (int i = 0; i < filtered.size() - 1; i++) {
+                Map<String, Object> p = filtered.get(i);
+                LocalDateTime t = (LocalDateTime) p.get("time");
+                int type = (int) p.get("type");
+
+                if (type != 0 && breakStartTime == null) {
+                    breakStartTime = t; // Start of break
+                } else if (type == 0 && breakStartTime != null) {
+                    long gapSecs = Duration.between(breakStartTime, t).getSeconds();
+                    if (gapSecs > 0) {
+                        breakSeconds += gapSecs;
+                        Map<String, Object> interval = new java.util.HashMap<>();
+                        interval.put("start", breakStartTime);
+                        interval.put("end", t);
+                        interval.put("duration", gapSecs);
+                        m.breakIntervals.add(interval);
+                    }
+                    breakStartTime = null; // End of break
+                }
+            }
+        } else {
+            // Alternating Punch Sequence (when all punches are type = 0)
+            // Punch 1 to Punch 2 = Work, Punch 2 to Punch 3 = Break, Punch 3 to Punch 4 = Work, etc.
+            // Under this pattern: Break intervals are between odd indices and their subsequent even indices.
+            for (int i = 1; i < filtered.size() - 1; i += 2) {
+                LocalDateTime startBreak = (LocalDateTime) filtered.get(i).get("time");
+                LocalDateTime endBreak = (LocalDateTime) filtered.get(i + 1).get("time");
+                long gapSecs = Duration.between(startBreak, endBreak).getSeconds();
                 if (gapSecs > 0) {
                     breakSeconds += gapSecs;
                     Map<String, Object> interval = new java.util.HashMap<>();
-                    interval.put("start", breakStartTime);
-                    interval.put("end", t);
+                    interval.put("start", startBreak);
+                    interval.put("end", endBreak);
                     interval.put("duration", gapSecs);
                     m.breakIntervals.add(interval);
                 }
-                breakStartTime = null; // End of break
             }
         }
         
@@ -105,8 +132,14 @@ public class AttendanceCalculator {
         m.workHours = netSeconds / 3600.0;
         m.duration = totalSeconds / 3600.0;
 
-        if (breakStartTime != null) {
-            exceptionsList.add("Missing Return Punch");
+        if (hasExplicitTypes) {
+            if (breakStartTime != null) {
+                exceptionsList.add("Missing Return Punch");
+            }
+        } else {
+            if (filtered.size() % 2 != 0) {
+                exceptionsList.add("Unpaired Punches");
+            }
         }
         
         if (m.lastOut.toLocalDate().equals(m.firstIn.toLocalDate()) && m.workHours > 14.0) {
