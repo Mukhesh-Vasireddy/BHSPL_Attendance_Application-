@@ -313,7 +313,11 @@
             function deleteEmp(btn) {
                 const id = btn.getAttribute('data-id');
                 showConfirm('Delete Employee', 'Are you sure you want to delete employee ID ' + id + '?', () => {
-                    window.location.href = '/employees/delete/' + id;
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '/employees/delete/' + id;
+                    document.body.appendChild(form);
+                    form.submit();
                 });
             }
 

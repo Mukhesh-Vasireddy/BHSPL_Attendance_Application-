@@ -158,7 +158,7 @@
                     <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
                 `;
                 document.body.appendChild(overlay);
-                fetch('/api/devices/' + deviceId + '/sync')
+                fetch('/api/devices/' + deviceId + '/sync', {method: 'POST'})
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {

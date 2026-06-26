@@ -48,8 +48,8 @@ public class LeaveCreditScheduler {
                 }
 
                 for (Map<String, Object> policy : policies) {
-                    String leaveType = policy.get("leave_type").toString();
-                    String creditMethod = policy.get("credit_method").toString();
+                    String leaveType = DatabaseManager.str(policy, "leave_type");
+                    String creditMethod = DatabaseManager.str(policy, "credit_method");
                     double daysPerYear = DatabaseManager.dbl(policy, "days_per_year");
                     String applicableGender = DatabaseManager.str(policy, "applicable_gender");
                     int minServiceDays = DatabaseManager.num(policy, "min_service_days");
@@ -104,8 +104,8 @@ public class LeaveCreditScheduler {
                 }
             }
             System.out.println("LeaveCreditScheduler: Completed automated credit check.");
-        } catch (SQLException e) {
-            System.err.println("LeaveCreditScheduler SQL Error: " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("LeaveCreditScheduler Error: " + e.getMessage());
             e.printStackTrace();
         }
     }

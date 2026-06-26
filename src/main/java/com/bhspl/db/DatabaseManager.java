@@ -3,6 +3,9 @@ package com.bhspl.db;
 import com.bhspl.util.HashUtil;
 import com.mysql.cj.jdbc.exceptions.CommunicationsException;
 import java.sql.*;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+import com.bhspl.util.HashUtil;
 import java.util.*;
 
 /**
@@ -23,8 +26,28 @@ public class DatabaseManager {
         return com.bhspl.util.HashUtil.sha256(pw);
     }
 
-    private Connection conn;
+    private HikariDataSource dataSource;
+    private final ThreadLocal<Connection> threadConn = new ThreadLocal<>();
     private Map<String, String> cfg;
+
+    private Connection getConnection() throws SQLException {
+        Connection c = threadConn.get();
+        if (c != null) return c;
+        if (dataSource == null) throw new SQLException("Database not initialized");
+        return dataSource.getConnection();
+    }
+
+    private void releaseConnection(Connection c) {
+        if (c != null && c != threadConn.get()) {
+            try { c.close(); } catch(Exception ignored) {}
+        }
+    }
+
+    private Connection conn() {
+        Connection c = threadConn.get();
+        if (c == null) throw new RuntimeException("No active transaction connection for migrations");
+        return c;
+    }
 
     private DatabaseManager() {
     }
@@ -40,14 +63,29 @@ public class DatabaseManager {
             cfg.put("password", password);
             cfg.put("database", database);
 
-            String url = String.format(
-                    "jdbc:mysql://%s:%s/%s?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Kolkata&autoReconnect=true&characterEncoding=UTF-8&useUnicode=true&connectTimeout=5000",
-                    host, port, database);
-            conn = DriverManager.getConnection(url, user, password);
-            conn.setAutoCommit(false);
-            createTables();
-            migrateWeeklyOffs();
-            conn.commit();
+            HikariConfig config = new HikariConfig();
+            config.setJdbcUrl(String.format(
+                    "jdbc:mysql://%s:%s/%s?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Kolkata&characterEncoding=UTF-8&useUnicode=true",
+                    host, port, database));
+            config.setUsername(user);
+            config.setPassword(password);
+            config.setMaximumPoolSize(20);
+            config.setMinimumIdle(5);
+            config.setConnectionTimeout(10000);
+            config.setIdleTimeout(600000);
+            config.setMaxLifetime(1800000);
+            dataSource = new HikariDataSource(config);
+
+            // Startup migrations run in a single connection
+            try (Connection c = dataSource.getConnection()) {
+                c.setAutoCommit(false);
+                threadConn.set(c);
+                createTables();
+                migrateWeeklyOffs();
+                c.commit();
+            } finally {
+                threadConn.remove();
+            }
             return true;
         } catch (SQLException e) {
             throw e;
@@ -58,26 +96,28 @@ public class DatabaseManager {
 
     private void migrateWeeklyOffs() {
         try {
-            DatabaseMetaData md = conn.getMetaData();
-            ResultSet rs = md.getColumns(null, null, "weekly_offs", "off_day1");
-            if (!rs.next()) {
-                // Check if the table exists at all
-                ResultSet rs2 = md.getTables(null, null, "weekly_offs", null);
-                if (rs2.next()) {
-                    System.out.println("Legacy weekly_offs table detected. Migrating...");
-                    execute("DROP TABLE weekly_offs");
-                    // Re-run createTables specifically for this table
-                    execute("CREATE TABLE weekly_offs (" +
-                            "  id            INT AUTO_INCREMENT PRIMARY KEY," +
-                            "  emp_id        VARCHAR(20)," +
-                            "  off_day1      VARCHAR(10) DEFAULT 'Sunday'," +
-                            "  off_day2      VARCHAR(10) DEFAULT 'None'," +
-                            "  effective_from DATE," +
-                            "  effective_to  DATE," +
-                            "  remarks       VARCHAR(200)," +
-                            "  created_at    TIMESTAMP  DEFAULT CURRENT_TIMESTAMP," +
-                            "  FOREIGN KEY (emp_id) REFERENCES employees(emp_id) ON DELETE CASCADE" +
-                            ")");
+            DatabaseMetaData md = conn().getMetaData();
+            try (ResultSet rs = md.getColumns(null, null, "weekly_offs", "off_day1")) {
+                if (!rs.next()) {
+                    // Check if the table exists at all
+                    try (ResultSet rs2 = md.getTables(null, null, "weekly_offs", null)) {
+                        if (rs2.next()) {
+                            System.out.println("Legacy weekly_offs table detected. Migrating...");
+                            execute("DROP TABLE weekly_offs");
+                            // Re-run createTables specifically for this table
+                            execute("CREATE TABLE weekly_offs (" +
+                                    "  id            INT AUTO_INCREMENT PRIMARY KEY," +
+                                    "  emp_id        VARCHAR(20)," +
+                                    "  off_day1      VARCHAR(10) DEFAULT 'Sunday'," +
+                                    "  off_day2      VARCHAR(10) DEFAULT 'None'," +
+                                    "  effective_from DATE," +
+                                    "  effective_to  DATE," +
+                                    "  remarks       VARCHAR(200)," +
+                                    "  created_at    TIMESTAMP  DEFAULT CURRENT_TIMESTAMP," +
+                                    "  FOREIGN KEY (emp_id) REFERENCES employees(emp_id) ON DELETE CASCADE" +
+                                    ")");
+                        }
+                    }
                 }
             }
         } catch (Exception e) {
@@ -86,30 +126,15 @@ public class DatabaseManager {
     }
 
     private void reconnect() throws Exception {
-        Class.forName("com.mysql.cj.jdbc.Driver");
-        String url = String.format(
-                "jdbc:mysql://%s:%s/%s?useSSL=false&allowPublicKeyRetrieval=true" +
-                        "&serverTimezone=Asia/Kolkata&autoReconnect=true" +
-                        "&characterEncoding=UTF-8&useUnicode=true",
-                cfg.get("host"), cfg.get("port"), cfg.get("database"));
-        conn = DriverManager.getConnection(url, cfg.get("user"), cfg.get("password"));
-        conn.setAutoCommit(false);
+        // Handled by HikariCP
     }
 
     public boolean isConnected() {
-        try {
-            return conn != null && !conn.isClosed();
-        } catch (SQLException e) {
-            return false;
-        }
+        return dataSource != null && !dataSource.isClosed();
     }
 
     public void close() {
-        try {
-            if (conn != null)
-                conn.close();
-        } catch (Exception ignored) {
-        }
+        if (dataSource != null) dataSource.close();
     }
 
     // ── Table creation ────────────────────────────────────────────────────────
@@ -359,7 +384,7 @@ public class DatabaseManager {
                         ")"
         };
 
-        try (Statement st = conn.createStatement()) {
+        try (Statement st = conn().createStatement()) {
             for (String sql : tables) {
                 st.execute(sql);
             }
@@ -443,7 +468,7 @@ public class DatabaseManager {
                 execute(sql, p);
         }
 
-        conn.commit();
+        conn().commit();
     }
 
     private void runMigrations() {
@@ -484,18 +509,18 @@ public class DatabaseManager {
         for (Object[] m : migrations) {
             try {
                 execute("ALTER TABLE `" + m[0] + "` ADD COLUMN `" + m[1] + "` " + m[2]);
-                conn.commit();
+                conn().commit();
             } catch (Exception ignored) {
                 // Column may exist, try to MODIFY if it's a type change
                 if ("od_requests".equals(m[0]) && "od_days".equals(m[1])) {
                     try {
                         execute("ALTER TABLE od_requests MODIFY COLUMN od_days DECIMAL(5,2) DEFAULT 1.0");
-                        conn.commit();
+                        conn().commit();
                     } catch (Exception e2) {
                     }
                 }
                 try {
-                    conn.rollback();
+                    conn().rollback();
                 } catch (Exception e2) {
                 }
             }
@@ -532,11 +557,11 @@ public class DatabaseManager {
                 execute("RENAME TABLE raw_logs_temp TO raw_logs");
                 System.out.println("Database: Log table deduplicated and optimized successfully.");
             }
-            conn.commit();
+            conn().commit();
         } catch (Exception e) {
             System.err.println("Database Migration Warning: " + e.getMessage());
             try {
-                conn.rollback();
+                conn().rollback();
             } catch (Exception ignored) {
             }
         }
@@ -544,25 +569,25 @@ public class DatabaseManager {
         // Performance Indexes on raw_logs to speed up sync and query scans
         try {
             execute("CREATE INDEX idx_raw_logs_synced ON raw_logs (synced)");
-            conn.commit();
+            conn().commit();
             System.out.println("Database: Created index idx_raw_logs_synced successfully.");
         } catch (Exception ignored) {
         }
         try {
             execute("CREATE INDEX idx_raw_logs_punch_time ON raw_logs (punch_time)");
-            conn.commit();
+            conn().commit();
             System.out.println("Database: Created index idx_raw_logs_punch_time successfully.");
         } catch (Exception ignored) {
         }
         try {
             execute("CREATE INDEX idx_attendance_punch_date ON attendance (punch_date)");
-            conn.commit();
+            conn().commit();
             System.out.println("Database: Created index idx_attendance_punch_date successfully.");
         } catch (Exception ignored) {
         }
         try {
             execute("CREATE INDEX idx_leaves_dates ON leaves (from_date, to_date, status)");
-            conn.commit();
+            conn().commit();
             System.out.println("Database: Created index idx_leaves_dates successfully.");
         } catch (Exception ignored) {
         }
@@ -574,7 +599,7 @@ public class DatabaseManager {
         try {
             boolean hasDeviceUniqueIndex   = false;  // uq_emp_device_punch_date  (old Option A key)
             boolean hasEmpDateUniqueIndex  = false;  // uq_emp_punch_date          (new Option B key)
-            try (java.sql.ResultSet rs = conn.getMetaData().getIndexInfo(null, null, "attendance", false, false)) {
+            try (java.sql.ResultSet rs = conn().getMetaData().getIndexInfo(null, null, "attendance", false, false)) {
                 while (rs.next()) {
                     String indexName = rs.getString("INDEX_NAME");
                     boolean nonUnique = rs.getBoolean("NON_UNIQUE");
@@ -591,7 +616,7 @@ public class DatabaseManager {
             if (hasDeviceUniqueIndex) {
                 System.out.println("Database: Dropping legacy uq_emp_device_punch_date index (Option A → Option B migration)...");
                 execute("ALTER TABLE attendance DROP INDEX uq_emp_device_punch_date");
-                conn.commit();
+                conn().commit();
             }
 
             // Step 2: Ensure the new emp+date unique key exists
@@ -599,7 +624,7 @@ public class DatabaseManager {
                 System.out.println("Database: Running Option B migration — consolidating attendance to one row per employee per day...");
                 try {
                     execute("ALTER TABLE attendance DROP INDEX uq_emp_punch_date");
-                    conn.commit();
+                    conn().commit();
                 } catch (Exception ignored) {
                 }
                 
@@ -613,13 +638,13 @@ public class DatabaseManager {
                         "AND t1.id > t2.id");
                 // 2c. Add the new unique key (emp_id, punch_date)
                 execute("ALTER TABLE attendance ADD UNIQUE KEY uq_emp_punch_date (emp_id, punch_date)");
-                conn.commit();
+                conn().commit();
                 System.out.println("Database: Successfully created UNIQUE KEY uq_emp_punch_date (Option B).");
             }
         } catch (Exception e) {
             System.err.println("Database Migration Warning for attendance table: " + e.getMessage());
             try {
-                conn.rollback();
+                conn().rollback();
             } catch (Exception ignored) {
             }
         }
@@ -639,12 +664,12 @@ public class DatabaseManager {
                     "  transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
                     "  FOREIGN KEY (emp_id) REFERENCES employees(emp_id) ON DELETE CASCADE" +
                     ")");
-            conn.commit();
+            conn().commit();
             System.out.println("Database: Successfully verified/created leave_transactions table (Self-healing).");
         } catch (Exception e) {
             System.err.println("Database Migration Warning for leave_transactions table: " + e.getMessage());
             try {
-                conn.rollback();
+                conn().rollback();
             } catch (Exception ignored) {
             }
         }
@@ -732,14 +757,14 @@ public class DatabaseManager {
                 }
                 System.out.println("Database: Set " + resetCount
                         + " affected employee-date combos as unsynced for recalculation.");
-                conn.commit();
+                conn().commit();
             }
 
             // Force dynamic recalculation on startup by resetting synced flag for the last
             // 30 days to prevent OutOfMemory errors from loading all raw logs
             try {
                 execute("UPDATE raw_logs SET synced = 0 WHERE punch_time >= DATE_SUB(NOW(), INTERVAL 30 DAY)");
-                conn.commit();
+                conn().commit();
                 System.out.println("Database: Triggered historical raw logs recalculation for the last 30 days.");
             } catch (Exception e) {
                 System.err.println("Database Migration Warning for triggering recalculation: " + e.getMessage());
@@ -747,7 +772,7 @@ public class DatabaseManager {
         } catch (Exception e) {
             System.err.println("Database Migration Warning for cleaning up raw_logs duplicates: " + e.getMessage());
             try {
-                conn.rollback();
+                conn().rollback();
             } catch (Exception ignored) {
             }
         }
@@ -760,11 +785,11 @@ public class DatabaseManager {
                 System.out.println(
                         "Database: Fixed " + updated + " historical attendance records with unpadded employee IDs.");
             }
-            conn.commit();
+            conn().commit();
         } catch (Exception e) {
             System.err.println("Database Migration Warning for padding attendance emp_ids: " + e.getMessage());
             try {
-                conn.rollback();
+                conn().rollback();
             } catch (Exception ignored) {
             }
         }
@@ -782,12 +807,12 @@ public class DatabaseManager {
                     "  user_agent    VARCHAR(255)," +
                     "  created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                     ")");
-            conn.commit();
+            conn().commit();
             System.out.println("Database: Successfully verified/created activity_logs table (Self-healing).");
         } catch (Exception e) {
             System.err.println("Database Migration Warning for activity_logs table: " + e.getMessage());
             try {
-                conn.rollback();
+                conn().rollback();
             } catch (Exception ignored) {
             }
         }
@@ -796,150 +821,98 @@ public class DatabaseManager {
     // ── Query helpers ─────────────────────────────────────────────────────────
 
     /** Execute a DML statement (INSERT/UPDATE/DELETE) and return affected rows. */
-    public synchronized int execute(String sql, Object... params) throws SQLException {
-        for (int attempt = 0; attempt < 2; attempt++) {
-            try {
-                if (!isConnected())
-                    reconnect();
-                try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                    setParams(ps, params);
-                    int affected = ps.executeUpdate();
-                    if (!conn.getAutoCommit())
-                        conn.commit();
-                    return affected;
-                }
-            } catch (SQLException e) {
-                if (attempt == 0 && (e instanceof SQLRecoverableException || e instanceof CommunicationsException)) {
-                    try {
-                        reconnect();
-                    } catch (Exception ignored) {
-                    }
-                    continue;
-                }
-                throw e;
-            } catch (Exception e) {
-                throw new SQLException(e);
+    
+    public int execute(String sql, Object... params) throws SQLException {
+        Connection c = getConnection();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            setParams(ps, params);
+            return ps.executeUpdate();
+        } finally {
+            releaseConnection(c);
+        }
+    }
+
+    public int executeBatch(String sql, List<Object[]> paramsList) throws SQLException {
+        if (paramsList == null || paramsList.isEmpty()) return 0;
+        Connection c = getConnection();
+        boolean prevAutoCommit = c.getAutoCommit();
+        if (c != threadConn.get()) c.setAutoCommit(false);
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            for (Object[] params : paramsList) {
+                setParams(ps, params);
+                ps.addBatch();
+            }
+            int[] results = ps.executeBatch();
+            if (c != threadConn.get()) c.commit();
+            int affected = 0;
+            for (int res : results) {
+                if (res > 0 || res == Statement.SUCCESS_NO_INFO) affected++;
+            }
+            return affected;
+        } catch (SQLException e) {
+            if (c != threadConn.get()) {
+                try { c.rollback(); } catch(Exception ignored) {}
+            }
+            throw e;
+        } finally {
+            if (c != threadConn.get()) c.setAutoCommit(prevAutoCommit);
+            releaseConnection(c);
+        }
+    }
+
+    public void setAutoCommit(boolean val) throws SQLException {
+        if (!val) {
+            if (threadConn.get() == null) {
+                Connection c = dataSource.getConnection();
+                c.setAutoCommit(false);
+                threadConn.set(c);
+            }
+        } else {
+            Connection c = threadConn.get();
+            if (c != null) {
+                c.setAutoCommit(true);
+                c.close();
+                threadConn.remove();
             }
         }
-        return 0;
     }
 
-    /**
-     * Execute a batch of statements inside a single transaction roundtrip for
-     * extreme performance.
-     */
-    public synchronized int executeBatch(String sql, List<Object[]> paramsList) throws SQLException {
-        if (paramsList == null || paramsList.isEmpty())
-            return 0;
-        for (int attempt = 0; attempt < 2; attempt++) {
-            try {
-                if (!isConnected())
-                    reconnect();
-                boolean prevAutoCommit = conn.getAutoCommit();
-                conn.setAutoCommit(false);
-                try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                    for (Object[] params : paramsList) {
-                        setParams(ps, params);
-                        ps.addBatch();
+    public void commit() throws SQLException {
+        Connection c = threadConn.get();
+        if (c != null) c.commit();
+    }
+
+    public void rollback() {
+        Connection c = threadConn.get();
+        if (c != null) {
+            try { c.rollback(); } catch(Exception ignored) {}
+            try { c.close(); } catch(Exception ignored) {}
+            threadConn.remove();
+        }
+    }
+
+    public List<Map<String, Object>> query(String sql, Object... params) throws SQLException {
+        Connection c = getConnection();
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            setParams(ps, params);
+            try (ResultSet rs = ps.executeQuery()) {
+                ResultSetMetaData meta = rs.getMetaData();
+                int cols = meta.getColumnCount();
+                List<Map<String, Object>> rows = new ArrayList<>();
+                while (rs.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    for (int i = 1; i <= cols; i++) {
+                        row.put(meta.getColumnLabel(i), rs.getObject(i));
                     }
-                    int[] results = ps.executeBatch();
-                    conn.commit();
-                    int affected = 0;
-                    for (int res : results) {
-                        if (res > 0 || res == Statement.SUCCESS_NO_INFO) {
-                            affected++;
-                        }
-                    }
-                    return affected;
-                } finally {
-                    conn.setAutoCommit(prevAutoCommit);
+                    rows.add(row);
                 }
-            } catch (SQLException e) {
-                try {
-                    conn.rollback();
-                } catch (Exception ignored) {
-                }
-                if (attempt == 0 && (e instanceof SQLRecoverableException || e instanceof CommunicationsException)) {
-                    try {
-                        reconnect();
-                    } catch (Exception ignored) {
-                    }
-                    continue;
-                }
-                throw e;
-            } catch (Exception e) {
-                throw new SQLException(e);
+                return rows;
             }
-        }
-        return 0;
-    }
-
-    public synchronized void setAutoCommit(boolean val) throws SQLException {
-        if (!isConnected())
-            try {
-                reconnect();
-            } catch (Exception e) {
-                throw new SQLException(e);
-            }
-        if (conn.getAutoCommit() == val)
-            return;
-        conn.setAutoCommit(val);
-    }
-
-    public synchronized void commit() throws SQLException {
-        if (isConnected() && !conn.getAutoCommit()) {
-            conn.commit();
+        } finally {
+            releaseConnection(c);
         }
     }
-
-    public synchronized void rollback() {
-        try {
-            if (isConnected())
-                conn.rollback();
-        } catch (Exception ignored) {
-        }
-    }
-
-    /** Execute and return list of rows as List<Map<col,value>>. */
-    public synchronized List<Map<String, Object>> query(String sql, Object... params) throws SQLException {
-        for (int attempt = 0; attempt < 2; attempt++) {
-            try {
-                if (!isConnected())
-                    reconnect();
-                try (PreparedStatement ps = conn.prepareStatement(sql)) {
-                    setParams(ps, params);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        ResultSetMetaData meta = rs.getMetaData();
-                        int cols = meta.getColumnCount();
-                        List<Map<String, Object>> rows = new ArrayList<>();
-                        while (rs.next()) {
-                            Map<String, Object> row = new LinkedHashMap<>();
-                            for (int i = 1; i <= cols; i++) {
-                                row.put(meta.getColumnLabel(i), rs.getObject(i));
-                            }
-                            rows.add(row);
-                        }
-                        return rows;
-                    }
-                }
-            } catch (SQLException e) {
-                if (attempt == 0 && (e instanceof SQLRecoverableException || e instanceof CommunicationsException)) {
-                    try {
-                        reconnect();
-                    } catch (Exception ignored) {
-                    }
-                    continue;
-                }
-                throw e;
-            } catch (Exception e) {
-                throw new SQLException(e);
-            }
-        }
-        return Collections.emptyList();
-    }
-
-    /** Alias for query() to support migration from core package. */
-    public List<Map<String, Object>> fetchAll(String sql, Object... params) throws SQLException {
+public List<Map<String, Object>> fetchAll(String sql, Object... params) throws SQLException {
         return query(sql, params);
     }
 
@@ -1010,6 +983,7 @@ public class DatabaseManager {
 
     /** Convenience: safe get int from row map */
     public static int num(Map<String, Object> row, String key) {
+        if (row == null) return 0;
         Object v = row.get(key);
         if (v == null)
             return 0;

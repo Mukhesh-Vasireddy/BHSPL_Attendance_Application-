@@ -40,13 +40,52 @@ public class SessionInterceptor implements HandlerInterceptor {
                     return false;
                 }
             } catch (Exception e) {
-                // Ignore DB error, allow request to proceed or fail gracefully later
+                // If DB fails, we cannot verify session safely. Deny access.
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Database unavailable");
+                return false;
             }
         } else {
             // Missing password hash in session (legacy session), force re-login
             session.invalidate();
             handleUnauthorized(request, response, "timeout=true");
             return false;
+        }
+
+        // Extract logical path relative to context path
+        String checkPath = path;
+        String contextPath = request.getContextPath();
+        if (contextPath != null && !contextPath.isEmpty() && checkPath.startsWith(contextPath)) {
+            checkPath = checkPath.substring(contextPath.length());
+        }
+
+        // Role authorization check
+        String sessionRole = (String) session.getAttribute("role");
+        if (sessionRole == null || !"Admin".equalsIgnoreCase(sessionRole)) {
+            // 1. Block restricted URLs (both GET and POST, and any other HTTP method)
+            if (isRestrictedPath(checkPath)) {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied");
+                return false;
+            }
+
+            // 2. Check permitted modules
+            String requiredModule = getRequiredModule(checkPath);
+            if (requiredModule != null) {
+                String allowedModulesStr = (String) session.getAttribute("allowed_modules");
+                boolean hasAccess = false;
+                if (allowedModulesStr != null) {
+                    String[] modules = allowedModulesStr.split(",");
+                    for (String m : modules) {
+                        if (m.trim().equalsIgnoreCase(requiredModule)) {
+                            hasAccess = true;
+                            break;
+                        }
+                    }
+                }
+                if (!hasAccess) {
+                    response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied");
+                    return false;
+                }
+            }
         }
 
         // Add Cache-Control headers to prevent browser back-button access after logout
@@ -109,6 +148,90 @@ public class SessionInterceptor implements HandlerInterceptor {
             out.flush();
         }
         return false;
+    }
+
+    private boolean isRestrictedPath(String path) {
+        String p = path;
+        if (p.endsWith("/")) {
+            p = p.substring(0, p.length() - 1);
+        }
+        
+        // Restricted URLs like /devices, /system/users, /leave/policy, /masters/*, /system/settings must return 403 for Operator.
+        if (p.equals("/devices") || p.startsWith("/devices/") || p.startsWith("/api/devices/")) {
+            return true;
+        }
+        if (p.equals("/system/users") || p.startsWith("/system/users/")) {
+            return true;
+        }
+        if (p.equals("/leave/policy") || p.startsWith("/leave/policy/")) {
+            return true;
+        }
+        if (p.equals("/masters") || p.startsWith("/masters/")) {
+            return true;
+        }
+        if (p.equals("/system/settings") || p.startsWith("/system/settings/")) {
+            return true;
+        }
+        
+        // Additional settings submenus only for Admin
+        if (p.equals("/system/backup") || p.startsWith("/system/backup/")) {
+            return true;
+        }
+        if (p.equals("/system/activity-logs") || p.startsWith("/system/activity-logs/")) {
+            return true;
+        }
+        if (p.equals("/system/about") || p.startsWith("/system/about/")) {
+            return true;
+        }
+        if (p.equals("/system/debug") || p.startsWith("/system/debug/")) {
+            return true;
+        }
+        if (p.equals("/system/process-logs") || p.startsWith("/system/process-logs/")) {
+            return true;
+        }
+        if (p.equals("/system/sync") || p.startsWith("/system/sync/")) {
+            return true;
+        }
+        if (p.equals("/system")) {
+            return true;
+        }
+        
+        return false;
+    }
+
+    private String getRequiredModule(String path) {
+        String p = path;
+        if (p.endsWith("/")) {
+            p = p.substring(0, p.length() - 1);
+        }
+        if (p.equals("/dashboard") || p.isEmpty()) {
+            return "Dashboard";
+        }
+        if (p.equals("/employees") || p.startsWith("/employees/") || p.startsWith("/api/employees/")) {
+            return "Employee Directory";
+        }
+        if (p.equals("/attendance") || p.startsWith("/attendance/")) {
+            return "Attendance Management";
+        }
+        if (p.equals("/reports") || p.startsWith("/reports/") || p.startsWith("/api/reports/")) {
+            return "Attendance Reports";
+        }
+        if (p.equals("/raw-logs") || p.startsWith("/raw-logs/") || p.startsWith("/api/raw-logs/")) {
+            return "Activity Logs";
+        }
+        if (p.equals("/devices") || p.startsWith("/devices/") || p.startsWith("/api/devices/")) {
+            return "Device Management";
+        }
+        if (p.equals("/leave") || p.startsWith("/leave/") || p.startsWith("/api/leave/")) {
+            return "Leave Management";
+        }
+        if (p.equals("/masters") || p.startsWith("/masters/")) {
+            return "Administration";
+        }
+        if (p.equals("/system") || p.startsWith("/system/")) {
+            return "Settings";
+        }
+        return null;
     }
 
     private void handleUnauthorized(HttpServletRequest request, HttpServletResponse response, String query) throws Exception {

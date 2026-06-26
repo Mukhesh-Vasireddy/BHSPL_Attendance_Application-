@@ -88,7 +88,8 @@ public class WebController {
                     userAgent = userAgent.substring(0, 255);
                 }
             }
-            java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter
+                    .ofPattern("yyyy-MM-dd HH:mm:ss");
             String currentTime = java.time.LocalDateTime.now().format(dtf);
             DatabaseManager.getInstance().execute(
                     "INSERT INTO activity_logs (username, role, action, module_name, description, ip_address, user_agent, created_at) VALUES (?,?,?,?,?,?,?,?)",
@@ -163,8 +164,20 @@ public class WebController {
                 return "login";
             }
 
-            String hash = db.hashPw(password);
-            if (!hash.equals(DatabaseManager.str(user, "password_hash"))) {
+            String dbHash = DatabaseManager.str(user, "password_hash");
+            boolean valid = false;
+            if (dbHash.startsWith("$2a$")) {
+                valid = org.mindrot.jbcrypt.BCrypt.checkpw(password, dbHash);
+            } else {
+                String shaHash = db.hashPw(password);
+                if (shaHash.equals(dbHash)) {
+                    valid = true;
+                    dbHash = org.mindrot.jbcrypt.BCrypt.hashpw(password, org.mindrot.jbcrypt.BCrypt.gensalt());
+                    db.execute("UPDATE users SET password_hash=? WHERE id=?", dbHash, user.get("id"));
+                }
+            }
+
+            if (!valid) {
                 logActivity(username, DatabaseManager.str(user, "role"), request, "Failed Login", "Authentication",
                         "Failed login attempt: Incorrect password");
                 model.addAttribute("error", "Invalid username or password");
@@ -174,7 +187,7 @@ public class WebController {
             // Success
             session.setAttribute("user", user.get("username"));
             session.setAttribute("role", user.get("role"));
-            session.setAttribute("passwordHash", user.get("password_hash")); // Track for invalidation
+            session.setAttribute("passwordHash", dbHash); // Track for invalidation
             session.setAttribute("allowed_modules", DatabaseManager.str(user, "allowed_modules"));
             db.execute("UPDATE users SET last_login=NOW() WHERE id=?", user.get("id"));
 
@@ -446,7 +459,7 @@ public class WebController {
                 stats.put("weekDates", weekDatesList);
                 stats.put("weekDays", weekDaysList);
 
-                CacheManager.getInstance().put(cacheKey, stats, 30000); // 5 minutes cache
+                CacheManager.getInstance().put(cacheKey, stats, 300000); // 5 minutes cache
             }
 
             long totalEmps = ((Number) stats.get("totalEmps")).longValue();
@@ -803,10 +816,10 @@ public class WebController {
             try {
                 DatabaseManager db = DatabaseManager.getInstance();
                 List<Map<String, Object>> recentActivities = db
-                        .query("SELECT * FROM activity_logs ORDER BY timestamp DESC LIMIT 5");
+                        .query("SELECT * FROM activity_logs ORDER BY created_at DESC LIMIT 5");
                 model.addAttribute("recentActivities", recentActivities);
                 long failedLogins = db.queryLong(
-                        "SELECT COUNT(*) FROM activity_logs WHERE action='Failed Login' AND timestamp >= DATE_SUB(NOW(), INTERVAL 24 HOUR)");
+                        "SELECT COUNT(*) FROM activity_logs WHERE action='Failed Login' AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)");
                 model.addAttribute("failedLogins24h", failedLogins);
             } catch (Exception ex) {
                 // ignore
@@ -816,7 +829,7 @@ public class WebController {
         return "dashboard";
     }
 
-    @GetMapping("/api/sync")
+    @PostMapping("/api/sync")
     @ResponseBody
     public Map<String, Object> sync(HttpSession session) {
         Map<String, Object> res = new HashMap<>();
@@ -836,7 +849,7 @@ public class WebController {
         return res;
     }
 
-    @GetMapping("/api/devices/{deviceId}/sync")
+    @PostMapping("/api/devices/{deviceId}/sync")
     @ResponseBody
     public Map<String, Object> syncDeviceApi(@PathVariable("deviceId") int deviceId, HttpSession session) {
         Map<String, Object> res = new HashMap<>();
@@ -1059,9 +1072,16 @@ public class WebController {
                 Files.createDirectories(uploadDir);
             }
 
-            String fileExt = file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf("."));
+            String origName = file.getOriginalFilename();
+            if (origName == null || !origName.contains(".")) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Invalid file"));
+            }
+            String fileExt = origName.substring(origName.lastIndexOf(".")).toLowerCase();
+            if (!fileExt.equals(".jpg") && !fileExt.equals(".jpeg") && !fileExt.equals(".png")) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Only JPG and PNG files are allowed"));
+            }
             String fileName = empId + "_" + UUID.randomUUID().toString().substring(0, 8) + fileExt;
-            Path targetLocation = uploadDir.resolve(fileName);
+            Path targetLocation = uploadDir.resolve(fileName).normalize();
 
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
 
@@ -1094,7 +1114,10 @@ public class WebController {
             List<Map<String, Object>> emps = db.query("SELECT photo_path FROM employees WHERE emp_id=?", empId);
             if (!emps.isEmpty() && emps.get(0).get("photo_path") != null) {
                 String photoPathStr = (String) emps.get(0).get("photo_path");
-                Path photoPath = Paths.get(photoPathStr);
+                Path photoPath = Paths.get(photoPathStr).normalize();
+                if (!photoPath.toAbsolutePath().startsWith(Paths.get("uploads/photos").toAbsolutePath())) {
+                    return ResponseEntity.notFound().build();
+                }
                 if (Files.exists(photoPath)) {
                     Resource resource = new UrlResource(photoPath.toUri());
                     String contentType = Files.probeContentType(photoPath);
@@ -1113,7 +1136,7 @@ public class WebController {
         }
     }
 
-    @GetMapping("/employees/delete/{id}")
+    @PostMapping("/employees/delete/{id}")
     public String deleteEmployee(@PathVariable("id") String id, HttpSession session,
             jakarta.servlet.http.HttpServletRequest request) {
         try {
@@ -2052,6 +2075,7 @@ public class WebController {
                     "SELECT COUNT(*) FROM attendance a JOIN employees e ON a.emp_id = e.emp_id " + where,
                     params.toArray());
             int totalPages = (int) Math.ceil((double) totalRecords / pageSize);
+            if (totalPages == 0) totalPages = 1;
 
             List<Map<String, Object>> depts = db.query("SELECT dept_name FROM departments WHERE status='Active'");
             model.addAttribute("depts", depts);
@@ -2404,7 +2428,8 @@ public class WebController {
                     r.put("break_time", com.bhspl.util.AttendanceCalculator.formatDuration(met.breakHours));
                     r.put("net_working_hours", com.bhspl.util.AttendanceCalculator.formatDuration(met.workHours));
 
-                    java.time.format.DateTimeFormatter dtFmt = java.time.format.DateTimeFormatter.ofPattern("hh:mm:ss a");
+                    java.time.format.DateTimeFormatter dtFmt = java.time.format.DateTimeFormatter
+                            .ofPattern("hh:mm:ss a");
 
                     // Format Break Details
                     StringBuilder breakDetails = new StringBuilder();
@@ -2414,7 +2439,8 @@ public class WebController {
                             java.time.LocalDateTime start = (java.time.LocalDateTime) interval.get("start");
                             java.time.LocalDateTime end = (java.time.LocalDateTime) interval.get("end");
                             long durSecs = (long) interval.get("duration");
-                            String durStr = String.format("%02d:%02d:%02d", durSecs / 3600, (durSecs % 3600) / 60, durSecs % 60);
+                            String durStr = String.format("%02d:%02d:%02d", durSecs / 3600, (durSecs % 3600) / 60,
+                                    durSecs % 60);
                             breakDetails.append("Break ").append(index++).append(": ")
                                     .append(start.format(dtFmt)).append(" → ")
                                     .append(end.format(dtFmt)).append(" = ").append(durStr).append("|");
@@ -2562,8 +2588,9 @@ public class WebController {
         List<Integer> allowedIds = getAllowedDeviceIds(session);
         if (isUserRestricted(session)) {
             model.addAttribute("noDevicesAssigned", true);
-            model.addAttribute("selMonth", month != null ? String.format("%02d", Integer.parseInt(month))
-                    : String.format("%02d", java.time.LocalDate.now().getMonthValue()));
+            String selM = String.format("%02d", java.time.LocalDate.now().getMonthValue());
+            try { if (month != null) selM = String.format("%02d", Integer.parseInt(month)); } catch(Exception ignored) {}
+            model.addAttribute("selMonth", selM);
             model.addAttribute("selYear", year != null ? year : String.valueOf(java.time.LocalDate.now().getYear()));
             model.addAttribute("selDept", dept != null ? dept : "All");
             model.addAttribute("selType", type != null ? type : "PA");
@@ -2603,8 +2630,12 @@ public class WebController {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             java.time.LocalDate today = java.time.LocalDate.now();
-            int curM = (month != null) ? Integer.parseInt(month) : today.getMonthValue();
-            int curY = (year != null) ? Integer.parseInt(year) : today.getYear();
+            int curM = today.getMonthValue();
+            int curY = today.getYear();
+            try {
+                if (month != null) curM = Integer.parseInt(month);
+                if (year != null) curY = Integer.parseInt(year);
+            } catch (Exception ignored) {}
             String reportType = (type != null) ? type : "PA";
 
             java.time.YearMonth yearMonth = java.time.YearMonth.of(curY, curM);
@@ -2874,6 +2905,22 @@ public class WebController {
             return ResponseEntity.status(401).body(response);
         }
 
+        List<Integer> allowedIds = getAllowedDeviceIds(session);
+        if (isUserRestricted(session) && allowedIds.isEmpty()) {
+            response.put("status", "error");
+            response.put("message", "No devices assigned");
+            return ResponseEntity.status(403).body(response);
+        }
+
+        if (deviceId != null && !allowedIds.isEmpty() && !allowedIds.contains(deviceId)) {
+            deviceId = null; // Ignore unauthorized device filter
+        }
+
+        String allowedIdsStr = "";
+        if (!allowedIds.isEmpty()) {
+            allowedIdsStr = allowedIds.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
+        }
+
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             // Get employee shift
@@ -2905,21 +2952,26 @@ public class WebController {
                                                                                                     // shifts
 
             List<Map<String, Object>> rawLogs;
+            String deviceFilter = "";
+            List<Object> params = new ArrayList<>();
+            params.add(empId);
+            
             if (deviceId != null) {
-                rawLogs = db.query(
-                        "SELECT r.punch_time, r.punch_type, d.device_name " +
-                                "FROM raw_logs r LEFT JOIN devices d ON r.device_id = d.device_id " +
-                                "WHERE r.emp_id=? AND r.device_id=? AND r.punch_time >= ? AND r.punch_time < ? " +
-                                "ORDER BY r.punch_time ASC",
-                        empId, deviceId, startRange, endRange);
-            } else {
-                rawLogs = db.query(
-                        "SELECT r.punch_time, r.punch_type, d.device_name " +
-                                "FROM raw_logs r LEFT JOIN devices d ON r.device_id = d.device_id " +
-                                "WHERE r.emp_id=? AND r.punch_time >= ? AND r.punch_time < ? " +
-                                "ORDER BY r.punch_time ASC",
-                        empId, startRange, endRange);
+                deviceFilter = " AND r.device_id=? ";
+                params.add(deviceId);
+            } else if (!allowedIds.isEmpty()) {
+                deviceFilter = " AND r.device_id IN (" + allowedIdsStr + ") ";
             }
+            
+            params.add(startRange);
+            params.add(endRange);
+
+            rawLogs = db.query(
+                    "SELECT r.punch_time, r.punch_type, d.device_name " +
+                            "FROM raw_logs r LEFT JOIN devices d ON r.device_id = d.device_id " +
+                            "WHERE r.emp_id=?" + deviceFilter + " AND r.punch_time >= ? AND r.punch_time < ? " +
+                            "ORDER BY r.punch_time ASC",
+                    params.toArray());
 
             List<Map<String, Object>> calcInput = new ArrayList<>();
 
@@ -4003,7 +4055,8 @@ public class WebController {
             String reason = params.get("reason");
             String status = params.get("status");
 
-            double daysVal = Double.parseDouble(days);
+            double daysVal = 0;
+            try { if (days != null && !days.isEmpty()) daysVal = Double.parseDouble(days); } catch (Exception ignored) {}
             int yr = java.time.LocalDate.parse(from).getYear();
 
             if (id == null || id.isEmpty()) {
@@ -4955,21 +5008,21 @@ public class WebController {
         try {
             DatabaseManager db = DatabaseManager.getInstance();
             int offset = (page - 1) * pageSize;
-
             String where = " WHERE 1=1";
+            List<Object> params = new ArrayList<>();
             if (!"Admin".equalsIgnoreCase(sessionRole)) {
-                where += " AND username = '" + sessionUser + "'";
+                where += " AND username = ?";
+                params.add(sessionUser);
             }
 
-            long total = db.queryLong("SELECT COUNT(*) FROM users" + where);
+            long total = db.queryLong("SELECT COUNT(*) FROM users" + where, params.toArray());
             int totalPages = (int) Math.ceil((double) total / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
 
             users = db.query(
                     "SELECT id, username, role, emp_id, status, last_login, allowed_devices, allowed_modules FROM users"
-                            + where + " ORDER BY username LIMIT "
-                            + pageSize + " OFFSET " + offset);
+                            + where + " ORDER BY username LIMIT " + pageSize + " OFFSET " + offset, params.toArray());
 
             List<Map<String, Object>> activeDevices;
             if (!allowedIds.isEmpty()) {
@@ -5194,7 +5247,6 @@ public class WebController {
     }
 
     @PostMapping("/system/settings/start-adms")
-    @GetMapping("/system/settings/start-adms")
     public String startAdms(Model model, HttpSession session) {
         try {
             com.bhspl.service.PushService.start();
@@ -5206,7 +5258,6 @@ public class WebController {
     }
 
     @PostMapping("/system/settings/stop-adms")
-    @GetMapping("/system/settings/stop-adms")
     public String stopAdms(HttpSession session) {
         try {
             com.bhspl.service.PushService.stop();
@@ -5247,23 +5298,31 @@ public class WebController {
             int offset = (page - 1) * pageSize;
 
             String where = " WHERE 1=1";
-            if (from != null && !from.isEmpty())
-                where += " AND DATE(created_at) >= '" + from + "'";
-            if (to != null && !to.isEmpty())
-                where += " AND DATE(created_at) <= '" + to + "'";
+            List<Object> params = new ArrayList<>();
+            if (from != null && !from.isEmpty()) {
+                where += " AND DATE(created_at) >= ?";
+                params.add(from);
+            }
+            if (to != null && !to.isEmpty()) {
+                where += " AND DATE(created_at) <= ?";
+                params.add(to);
+            }
             if (search != null && !search.isEmpty()) {
-                String esc = search.replace("'", "''");
-                where += " AND (username LIKE '%" + esc + "%' OR action LIKE '%" + esc + "%' OR module_name LIKE '%"
-                        + esc + "%' OR description LIKE '%" + esc + "%')";
+                where += " AND (username LIKE ? OR action LIKE ? OR module_name LIKE ? OR description LIKE ?)";
+                String likeSearch = "%" + search + "%";
+                params.add(likeSearch);
+                params.add(likeSearch);
+                params.add(likeSearch);
+                params.add(likeSearch);
             }
 
-            long total = db.queryLong("SELECT COUNT(*) FROM activity_logs" + where);
+            long total = db.queryLong("SELECT COUNT(*) FROM activity_logs" + where, params.toArray());
             int totalPages = (int) Math.ceil((double) total / pageSize);
             if (totalPages == 0)
                 totalPages = 1;
 
             List<Map<String, Object>> logs = db.query("SELECT * FROM activity_logs" + where
-                    + " ORDER BY created_at DESC LIMIT " + pageSize + " OFFSET " + offset);
+                    + " ORDER BY created_at DESC LIMIT " + pageSize + " OFFSET " + offset, params.toArray());
 
             model.addAttribute("logs", logs);
             model.addAttribute("currentPage", page);
@@ -5462,13 +5521,16 @@ public class WebController {
         writer.println();
 
         // Data
+        List<Object> params = new ArrayList<>();
         String sql = "SELECT emp_id, emp_name, designation FROM employees WHERE status='Active'";
         if (!allowedIds.isEmpty()) {
             sql += " AND (emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN (" + allowedIdsStr
                     + ")) OR device_id IN (" + allowedIdsStr + "))";
         }
-        if (dept != null && !"All".equals(dept))
-            sql += " AND department = '" + dept + "'";
+        if (dept != null && !"All".equals(dept)) {
+            sql += " AND department = ?";
+            params.add(dept);
+        }
         sql += " ORDER BY emp_name";
 
         List<Map<String, Object>> allDevices;
@@ -5487,7 +5549,7 @@ public class WebController {
             deviceLocationsMap.put(devId, loc != null && !loc.trim().isEmpty() ? loc : "Not Assigned");
         }
 
-        List<Map<String, Object>> emps = db.query(sql);
+        List<Map<String, Object>> emps = db.query(sql, params.toArray());
         for (Map<String, Object> e : emps) {
             String eid = DatabaseManager.str(e, "emp_id");
 
@@ -5546,7 +5608,7 @@ public class WebController {
         writer.close();
     }
 
-    @GetMapping("/system/sync")
+    @PostMapping("/system/sync")
     public String systemSync(@RequestParam(name = "redirect", required = false) String redirect) {
         try {
             SyncService.performSync(true);

@@ -21,7 +21,7 @@ public class SyncService {
     private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private static final java.util.concurrent.atomic.AtomicBoolean isSyncing = new java.util.concurrent.atomic.AtomicBoolean(
             false);
-    private static boolean IsRunning = false;
+    private static volatile boolean IsRunning = false;
 
     private static void logToFile(String msg) {
         try (java.io.PrintWriter pw = new java.io.PrintWriter(new java.io.FileWriter("sync_debug.txt", true))) {
@@ -309,9 +309,8 @@ public class SyncService {
 
     public static void processRawLogs(java.util.function.Consumer<String> logConsumer) {
         DatabaseManager db = DatabaseManager.getInstance();
-        synchronized (db) {
-            try {
-                db.setAutoCommit(false);
+        try {
+            db.setAutoCommit(false);
                 List<Map<String, Object>> raw = db
                         .query("SELECT * FROM raw_logs WHERE synced=0 ORDER BY emp_id, punch_time");
                 if (raw.isEmpty()) {
@@ -597,16 +596,15 @@ public class SyncService {
                 db.commit(); // CRITICAL: Save everything to DB
                 if (logConsumer != null)
                     logConsumer.accept("Sync complete. " + affectedDays.size() + " days processed.");
-            } catch (Exception e) {
-                e.printStackTrace();
-                if (logConsumer != null)
-                    logConsumer.accept("Fatal Error: " + e.getMessage());
-                db.rollback();
-            } finally {
-                try {
-                    db.setAutoCommit(true);
-                } catch (Exception ignored) {
-                }
+        } catch (Exception e) {
+            e.printStackTrace();
+            if (logConsumer != null)
+                logConsumer.accept("Fatal Error: " + e.getMessage());
+            db.rollback();
+        } finally {
+            try {
+                db.setAutoCommit(true);
+            } catch (Exception ignored) {
             }
         }
     }

@@ -1308,46 +1308,152 @@
         }
 
         @media (max-width: 1024px) {
+            /* Universal Grid Flattener for Mobile */
+            /* Prevents full clumps by overriding hardcoded inline grids (like 1fr 1fr) */
+            div[style*="display: grid"][style*="grid-template-columns"],
+            div[style*="display:grid"][style*="grid-template-columns"] {
+                grid-template-columns: 1fr !important;
+                gap: 15px !important;
+            }
+            .filter-bar {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 10px !important;
+            }
+            .filter-bar .form-group {
+                margin-bottom: 0 !important;
+                width: 100% !important;
+            }
+            body {
+                flex-direction: column;
+                height: auto !important;
+                min-height: 100vh;
+                overflow-y: auto !important;
+                overflow-x: hidden;
+                overscroll-behavior-y: auto;
+            }
             .sidebar {
-                width: 80px;
-                padding: 20px 0;
+                position: fixed;
+                left: -280px;
+                top: 0;
+                bottom: 0;
+                width: 280px !important;
+                z-index: 1050;
+                transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             }
-
-            .logo-text,
-            .nav-item span {
-                display: none;
+            .sidebar.mobile-open {
+                left: 0 !important;
             }
-
-            .logo-container {
-                margin: 0 10px 30px;
-                padding: 10px;
+            .sidebar .logo-text, .sidebar .nav-item span {
+                display: inline-block !important;
             }
-
-            .logo-wrapper {
-                width: 36px !important;
-                height: 36px !important;
-                border-radius: 8px !important;
+            .sidebar .logo-container {
+                margin: 0 25px 40px !important;
+                padding: 15px !important;
+                background: rgba(255, 255, 255, 0.05) !important;
+                border: 1px solid rgba(255, 255, 255, 0.1) !important;
+                justify-content: flex-start !important;
+                display: flex !important;
             }
-
-            .logo-image {
-                object-fit: cover !important;
-                object-position: left center !important;
-                transform: scale(1.0) !important;
+            .sidebar .logo-wrapper {
+                width: 100% !important;
+                height: 95px !important;
             }
-
-            .nav-item {
-                justify-content: center;
+            .sidebar .logo-image {
+                object-fit: contain !important;
+                object-position: center !important;
+                transform: scale(1.4) !important;
+            }
+            .sidebar .nav-item {
+                justify-content: flex-start !important;
+                padding: 14px 20px !important;
+                margin: 0 0 5px 0 !important;
+                width: 100% !important;
+            }
+            .sidebar .nav-item i {
+                margin: 0 15px 0 0 !important;
+            }
+            .main-content {
+                width: 100%;
+                overflow-x: hidden;
+                overflow-y: visible !important;
+                height: auto !important;
+            }
+            #spa-content-container {
                 padding: 15px;
-                margin: 0 10px 10px;
             }
-
-            .nav-item i {
-                margin-right: 0;
+            .top-bar {
+                padding: 15px;
+                flex-wrap: wrap;
+                gap: 10px;
             }
-
-            .sub-menu {
+            .top-bar > div:nth-child(2) {
+                width: 100%;
+                justify-content: space-between;
+                margin-top: 10px;
+            }
+            .top-bar h2 {
+                font-size: 20px;
+            }
+            #date-time {
+                display: none !important;
+            }
+            #sidebarEdgeToggle {
+                display: none !important;
+            }
+            #mobileMenuBtn {
+                display: block !important;
+            }
+            .card, .table-container {
+                padding: 15px;
+                margin-bottom: 15px;
+            }
+            .table-container {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            th, td {
+                white-space: nowrap;
+            }
+            .form-control {
+                width: 100% !important;
+            }
+            .action-col {
+                flex-wrap: wrap;
+            }
+            .modal-content {
+                width: 95% !important;
+                margin: 10px auto;
+                max-height: calc(100vh - 20px);
+            }
+            .modal-header, .modal-body, .modal-footer {
+                padding: 15px !important;
+            }
+            .module-header {
+                flex-direction: column;
+                gap: 10px;
+                align-items: flex-start;
+            }
+            .profile-trigger {
+                padding: 5px 15px 5px 5px !important;
+            }
+            .profile-trigger .user-role {
                 display: none;
             }
+            #live-update-badge {
+                padding: 4px 10px !important;
+                font-size: 11px !important;
+            }
+        }
+
+        /* Mobile Overlay */
+        #mobileOverlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(15, 23, 42, 0.5);
+            z-index: 1040;
+            backdrop-filter: blur(4px);
         }
 
         .pagination {
@@ -1536,88 +1642,114 @@
             </div>
         </a>
         <nav class="nav-menu">
-            <a href="/" th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Dashboard'))}" th:classappend="${activeLink == 'dashboard' ? 'active' : ''}" class="nav-item"><i
+            <a href="/"
+                th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Dashboard'))}"
+                th:classappend="${activeLink == 'dashboard' ? 'active' : ''}" class="nav-item"><i
                     class="fas fa-th-large"></i> <span>Dashboard</span></a>
-            <a href="/employees" th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Employee Directory'))}" th:classappend="${activeLink == 'employees' ? 'active' : ''}" class="nav-item"><i
+            <a href="/employees"
+                th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Employee Directory'))}"
+                th:classappend="${activeLink == 'employees' ? 'active' : ''}" class="nav-item"><i
                     class="fas fa-users"></i> <span>Employee Directory</span></a>
-            <a href="/attendance" th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Attendance Management'))}" th:classappend="${activeLink == 'attendance' ? 'active' : ''}" class="nav-item"><i
+            <a href="/attendance"
+                th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Attendance Management'))}"
+                th:classappend="${activeLink == 'attendance' ? 'active' : ''}" class="nav-item"><i
                     class="fas fa-user-clock"></i> <span>Attendance Management</span></a>
             <!-- Reports Menu -->
-            <th:block th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Attendance Reports'))}">
-            <a href="#" onclick="toggleNavMenu('reports-submenu', event)"
-                th:classappend="${activeLink == 'reports' ? 'active open' : ''}" class="nav-item">
-                <i class="fas fa-chart-bar"></i> <span>Attendance Reports</span>
-                <i class="fas fa-chevron-down dropdown-icon"></i>
-            </a>
-            <div class="sub-menu" id="reports-submenu"
-                th:style="${activeLink == 'reports' ? 'display:block;' : 'display:none;'}">
-                <a href="/reports/daily" class="sub-item"><i class="fas fa-calendar-day"></i> Daily Attendance</a>
-                <a href="/reports/monthly" class="sub-item"><i class="fas fa-calendar-alt"></i> Monthly Summary</a>
-                <a href="/reports/leave" class="sub-item"><i class="fas fa-file-invoice"></i> Leave Report</a>
-                <a href="/reports/exceptions" class="sub-item"><i class="fas fa-exclamation-triangle"></i> Exceptions
-                    Report</a>
-            </div>
+            <th:block
+                th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Attendance Reports'))}">
+                <a href="#" onclick="toggleNavMenu('reports-submenu', event)"
+                    th:classappend="${activeLink == 'reports' ? 'active open' : ''}" class="nav-item">
+                    <i class="fas fa-chart-bar"></i> <span>Attendance Reports</span>
+                    <i class="fas fa-chevron-down dropdown-icon"></i>
+                </a>
+                <div class="sub-menu" id="reports-submenu"
+                    th:style="${activeLink == 'reports' ? 'display:block;' : 'display:none;'}">
+                    <a href="/reports/daily" class="sub-item"><i class="fas fa-calendar-day"></i> Daily Attendance</a>
+                    <a href="/reports/monthly" class="sub-item"><i class="fas fa-calendar-alt"></i> Monthly Summary</a>
+                    <a href="/reports/leave" class="sub-item"><i class="fas fa-file-invoice"></i> Leave Report</a>
+                    <a href="/reports/exceptions" class="sub-item"><i class="fas fa-exclamation-triangle"></i>
+                        Exceptions
+                        Report</a>
+                </div>
             </th:block>
-            <a href="/raw-logs" th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Activity Logs'))}" th:classappend="${activeLink == 'raw-logs' ? 'active' : ''}" class="nav-item"><i
+            <a href="/raw-logs"
+                th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Activity Logs'))}"
+                th:classappend="${activeLink == 'raw-logs' ? 'active' : ''}" class="nav-item"><i
                     class="fas fa-history"></i> <span>Activity Logs</span></a>
-            <a href="/devices" th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Device Management'))}" th:classappend="${activeLink == 'devices' ? 'active' : ''}" class="nav-item"><i
+            <a href="/devices"
+                th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Device Management'))}"
+                th:classappend="${activeLink == 'devices' ? 'active' : ''}" class="nav-item"><i
                     class="fas fa-microchip"></i> <span>Device Management</span></a>
 
             <!-- Leave Menu -->
-            <th:block th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Leave Management'))}">
-            <a href="#" onclick="toggleNavMenu('leave-submenu', event)"
-                th:classappend="${activeLink == 'leave' ? 'active open' : ''}" class="nav-item">
-                <i class="fas fa-calendar-alt"></i> <span>Leave Management</span>
-                <i class="fas fa-chevron-down dropdown-icon"></i>
-            </a>
-            <div class="sub-menu" id="leave-submenu"
-                th:style="${activeLink == 'leave' ? 'display:block;' : 'display:none;'}">
-                <a href="/leave/manager" class="sub-item"><i class="fas fa-tasks"></i> Leave Manager</a>
-                <a href="/leave/requests" class="sub-item"><i class="fas fa-check-circle"></i> Leave Requests</a>
-                <a href="/leave/od" class="sub-item"><i class="fas fa-briefcase"></i> OD Requests</a>
-                <a href="/leave/policy" class="sub-item"><i class="fas fa-book"></i> Leave Policy</a>
-                <a href="/leave/balance" class="sub-item"><i class="fas fa-balance-scale"></i> Leave Balance</a>
-                <a href="/leave/holidays" class="sub-item"><i class="fas fa-umbrella-beach"></i> Holidays</a>
-            </div>
+            <th:block
+                th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Leave Management'))}">
+                <a href="#" onclick="toggleNavMenu('leave-submenu', event)"
+                    th:classappend="${activeLink == 'leave' ? 'active open' : ''}" class="nav-item">
+                    <i class="fas fa-calendar-alt"></i> <span>Leave Management</span>
+                    <i class="fas fa-chevron-down dropdown-icon"></i>
+                </a>
+                <div class="sub-menu" id="leave-submenu"
+                    th:style="${activeLink == 'leave' ? 'display:block;' : 'display:none;'}">
+                    <a href="/leave/manager" class="sub-item"><i class="fas fa-tasks"></i> Leave Manager</a>
+                    <a href="/leave/requests" class="sub-item"><i class="fas fa-check-circle"></i> Leave Requests</a>
+                    <a href="/leave/od" class="sub-item"><i class="fas fa-briefcase"></i> OD Requests</a>
+                    <a href="/leave/policy" class="sub-item"><i class="fas fa-book"></i> Leave Policy</a>
+                    <a href="/leave/balance" class="sub-item"><i class="fas fa-balance-scale"></i> Leave Balance</a>
+                    <a href="/leave/holidays" class="sub-item"><i class="fas fa-umbrella-beach"></i> Holidays</a>
+                </div>
             </th:block>
 
             <!-- Masters Menu -->
-            <th:block th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Administration'))}">
-            <a href="#" onclick="toggleNavMenu('masters-submenu', event)"
-                th:classappend="${activeLink == 'masters' ? 'active open' : ''}" class="nav-item">
-                <i class="fas fa-database"></i> <span>Administration</span>
-                <i class="fas fa-chevron-down dropdown-icon"></i>
-            </a>
-            <div class="sub-menu" id="masters-submenu"
-                th:style="${activeLink == 'masters' ? 'display:block;' : 'display:none;'}">
-                <a href="/masters/departments" class="sub-item"><i class="fas fa-building"></i> Departments</a>
-                <a href="/masters/designations" class="sub-item"><i class="fas fa-id-badge"></i> Designations</a>
-                <a href="/masters/shifts" class="sub-item"><i class="fas fa-clock"></i> Shifts</a>
-                <a href="/masters/weekly-off" class="sub-item"><i class="fas fa-calendar-minus"></i> Weekly Off</a>
-            </div>
+            <th:block
+                th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Administration'))}">
+                <a href="#" onclick="toggleNavMenu('masters-submenu', event)"
+                    th:classappend="${activeLink == 'masters' ? 'active open' : ''}" class="nav-item">
+                    <i class="fas fa-database"></i> <span>Administration</span>
+                    <i class="fas fa-chevron-down dropdown-icon"></i>
+                </a>
+                <div class="sub-menu" id="masters-submenu"
+                    th:style="${activeLink == 'masters' ? 'display:block;' : 'display:none;'}">
+                    <a href="/masters/departments" class="sub-item"><i class="fas fa-building"></i> Departments</a>
+                    <a href="/masters/designations" class="sub-item"><i class="fas fa-id-badge"></i> Designations</a>
+                    <a href="/masters/shifts" class="sub-item"><i class="fas fa-clock"></i> Shifts</a>
+                    <a href="/masters/weekly-off" class="sub-item"><i class="fas fa-calendar-minus"></i> Weekly Off</a>
+                </div>
             </th:block>
 
             <!-- System Menu -->
-            <th:block th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Settings'))}">
-            <a href="#" onclick="toggleNavMenu('system-submenu', event)" class="nav-item" th:classappend="${activeLink == 'system' ? 'active open' : ''}">
-                <i class="fas fa-cog"></i> <span>Settings</span>
-                <i class="fas fa-chevron-down dropdown-icon"></i>
-            </a>
-            <div class="sub-menu" id="system-submenu"
-                th:style="${activeLink == 'system' ? 'display:block;' : 'display:none;'}">
-                <a href="/system/users" class="sub-item"><i class="fas fa-users-cog"></i> User Management</a>
-                <a href="/system/settings" class="sub-item" th:if="${session.role == 'Admin'}"><i class="fas fa-sliders-h"></i> Settings</a>
-                <a href="/system/backup" class="sub-item" th:if="${session.role == 'Admin'}"><i class="fas fa-download"></i> DB Backup</a>
-                <a href="/system/activity-logs" class="sub-item" th:if="${session.role == 'Admin'}"><i class="fas fa-history"></i> Audit Logs</a>
-                <a href="/system/about" class="sub-item" th:if="${session.role == 'Admin'}"><i class="fas fa-info-circle"></i> About</a>
-            </div>
+            <th:block
+                th:if="${session.role == 'Admin' || (session.allowed_modules != null && session.allowed_modules.contains('Settings'))}">
+                <a href="#" onclick="toggleNavMenu('system-submenu', event)" class="nav-item"
+                    th:classappend="${activeLink == 'system' ? 'active open' : ''}">
+                    <i class="fas fa-cog"></i> <span>Settings</span>
+                    <i class="fas fa-chevron-down dropdown-icon"></i>
+                </a>
+                <div class="sub-menu" id="system-submenu"
+                    th:style="${activeLink == 'system' ? 'display:block;' : 'display:none;'}">
+                    <a href="/system/users" class="sub-item"><i class="fas fa-users-cog"></i> User Management</a>
+                    <a href="/system/settings" class="sub-item" th:if="${session.role == 'Admin'}"><i
+                            class="fas fa-sliders-h"></i> Settings</a>
+                    <a href="/system/backup" class="sub-item" th:if="${session.role == 'Admin'}"><i
+                            class="fas fa-download"></i> DB Backup</a>
+                    <a href="/system/activity-logs" class="sub-item" th:if="${session.role == 'Admin'}"><i
+                            class="fas fa-history"></i> Audit Logs</a>
+                    <a href="/system/about" class="sub-item" th:if="${session.role == 'Admin'}"><i
+                            class="fas fa-info-circle"></i> About</a>
+                </div>
             </th:block>
         </nav>
     </div>
 
     <div class="main-content" style="display: flex; flex-direction: column; min-height: 100vh;">
+        <!-- Mobile Overlay -->
+        <div id="mobileOverlay" onclick="toggleMobileMenu()"></div>
+
         <div class="top-bar">
             <div style="display: flex; align-items: center; gap: 20px;">
+                <button id="mobileMenuBtn" onclick="toggleMobileMenu()" style="display: none; background: transparent; border: none; font-size: 20px; color: var(--text-main); cursor: pointer; padding: 5px; margin-right: 5px;">
+                    <i class="fas fa-bars"></i>
+                </button>
                 <button th:if="${activeLink != 'dashboard'}"
                     onclick="history.length > 1 ? history.back() : window.location.href='/dashboard'" title="Go Back"
                     style="background: var(--glass-bg); border: 1px solid var(--glass-border); font-size: 14px; color: var(--text-muted); cursor: pointer; padding: 6px 12px; border-radius: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); transition: all 0.2s;"
@@ -1737,6 +1869,30 @@
 
         function toggleSidebar() {
             document.querySelector('.sidebar').classList.toggle('collapsed');
+        }
+
+        function toggleMobileMenu() {
+            document.querySelector('.sidebar').classList.toggle('mobile-open');
+            const overlay = document.getElementById('mobileOverlay');
+            if (document.querySelector('.sidebar').classList.contains('mobile-open')) {
+                overlay.style.display = 'block';
+                document.body.style.overflow = 'hidden';
+            } else {
+                overlay.style.display = 'none';
+                document.body.style.overflow = '';
+            }
+        }
+
+        function closeMobileMenu() {
+            const sidebar = document.querySelector('.sidebar');
+            if (sidebar) {
+                sidebar.classList.remove('mobile-open');
+            }
+            const overlay = document.getElementById('mobileOverlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+            }
+            document.body.style.overflow = '';
         }
         // --- Navigation & UI ---
         function toggleProfileDropdown(event) {
@@ -2037,7 +2193,7 @@
                 <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
             `;
             document.body.appendChild(overlay);
-            fetch('/api/sync').then(() => location.reload()).catch(() => location.reload());
+            fetch('/api/sync', {method: 'POST'}).then(() => location.reload()).catch(() => location.reload());
         }
 
         // --- Session Timeout (Idle Timer) ---
@@ -2271,6 +2427,9 @@
                     activeSidebar.innerHTML = newSidebar.innerHTML;
                 }
 
+                // Close mobile sidebar if open
+                closeMobileMenu();
+
                 // Update history
                 if (pushState) {
                     history.pushState({ url: url }, '', url);
@@ -2390,6 +2549,17 @@
             navigateToSpa(href);
         });
 
+        // Close Mobile Sidebar on clicking outside of it
+        document.addEventListener('click', function (e) {
+            const sidebar = document.querySelector('.sidebar');
+            if (sidebar && sidebar.classList.contains('mobile-open')) {
+                const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+                if (!e.target.closest('.sidebar') && (!mobileMenuBtn || !mobileMenuBtn.contains(e.target))) {
+                    closeMobileMenu();
+                }
+            }
+        });
+
         // GET Form Interceptor for SPA Filters and Searches
         document.addEventListener('submit', function (e) {
             const form = e.target;
@@ -2465,17 +2635,17 @@
             toast.style.display = 'flex';
             toast.style.alignItems = 'center';
             toast.style.gap = '10px';
-            
+
             toast.innerHTML = '<i class="fas fa-check-circle" style="font-size: 18px;"></i><span>' + message + '</span>';
-            
+
             document.body.appendChild(toast);
-            
+
             // Trigger animation
             setTimeout(() => {
                 toast.style.transform = 'translate(-50%, 0)';
                 toast.style.opacity = '1';
             }, 100);
-            
+
             // Remove after 3 seconds
             setTimeout(() => {
                 toast.style.transform = 'translate(-50%, -100px)';
@@ -2486,7 +2656,7 @@
             }, 3000);
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             if (sessionStorage.getItem('showLoginSuccess') === 'true') {
                 sessionStorage.removeItem('showLoginSuccess');
                 showToast('Login Successfully!');

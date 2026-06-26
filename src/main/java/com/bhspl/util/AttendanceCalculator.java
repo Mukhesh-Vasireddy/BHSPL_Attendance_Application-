@@ -61,23 +61,30 @@ public class AttendanceCalculator {
         m.firstIn = (LocalDateTime) filtered.get(0).get("time");
         m.lastOut = (LocalDateTime) filtered.get(filtered.size() - 1).get("time");
 
-        // 2. Strict Alternating Sequence Break Calculation (OUT -> IN)
-        // Even index (0, 2, 4) = IN. Odd index (1, 3, 5) = OUT.
-        // Break time is the gap from an OUT (odd index) to the next IN (even index)
+        // 2. State-Based Break Calculation
+        // Only calculate breaks if an explicit OUT/BREAK punch (type != 0) is followed by an IN punch (type == 0).
+        // This prevents back-to-back IN punches from being treated as breaks.
         long breakSeconds = 0;
-        
-        for (int i = 1; i < filtered.size() - 1; i += 2) {
-            LocalDateTime outTime = (LocalDateTime) filtered.get(i).get("time");
-            LocalDateTime inTime = (LocalDateTime) filtered.get(i + 1).get("time");
-            
-            long gapSecs = Duration.between(outTime, inTime).getSeconds();
-            if (gapSecs > 0) {
-                breakSeconds += gapSecs;
-                Map<String, Object> interval = new java.util.HashMap<>();
-                interval.put("start", outTime);
-                interval.put("end", inTime);
-                interval.put("duration", gapSecs);
-                m.breakIntervals.add(interval);
+        LocalDateTime breakStartTime = null;
+
+        for (int i = 0; i < filtered.size() - 1; i++) {
+            Map<String, Object> p = filtered.get(i);
+            LocalDateTime t = (LocalDateTime) p.get("time");
+            int type = (int) p.get("type");
+
+            if (type != 0 && breakStartTime == null) {
+                breakStartTime = t; // Start of break
+            } else if (type == 0 && breakStartTime != null) {
+                long gapSecs = Duration.between(breakStartTime, t).getSeconds();
+                if (gapSecs > 0) {
+                    breakSeconds += gapSecs;
+                    Map<String, Object> interval = new java.util.HashMap<>();
+                    interval.put("start", breakStartTime);
+                    interval.put("end", t);
+                    interval.put("duration", gapSecs);
+                    m.breakIntervals.add(interval);
+                }
+                breakStartTime = null; // End of break
             }
         }
         
@@ -98,8 +105,8 @@ public class AttendanceCalculator {
         m.workHours = netSeconds / 3600.0;
         m.duration = totalSeconds / 3600.0;
 
-        if (filtered.size() % 2 != 0 && filtered.size() > 1) {
-            exceptionsList.add("Unpaired Punches");
+        if (breakStartTime != null) {
+            exceptionsList.add("Missing Return Punch");
         }
         
         if (m.lastOut.toLocalDate().equals(m.firstIn.toLocalDate()) && m.workHours > 14.0) {
@@ -140,19 +147,40 @@ public class AttendanceCalculator {
         
         // Auto-deduction rule removed per user request
 
-        // 1. Lateness
-        if (m.firstIn.toLocalTime().isAfter(schedIn.plusMinutes(grace))) {
-            m.lateMins = (int) Duration.between(schedIn, m.firstIn.toLocalTime()).toMinutes();
+        // 1. Overnight Shift Handling
+        boolean isOvernight = schedOut.isBefore(schedIn);
+        LocalDateTime expectedStart;
+        LocalDateTime expectedEnd;
+
+        if (isOvernight) {
+            // If the punch in is after midnight but before shift end, they punched in the next day
+            if (m.firstIn.toLocalTime().isBefore(schedOut) || m.firstIn.toLocalTime().isBefore(LocalTime.of(12, 0))) {
+                expectedStart = m.firstIn.toLocalDate().minusDays(1).atTime(schedIn);
+                expectedEnd = m.firstIn.toLocalDate().atTime(schedOut);
+            } else {
+                // They punched in the same day evening
+                expectedStart = m.firstIn.toLocalDate().atTime(schedIn);
+                expectedEnd = m.firstIn.toLocalDate().plusDays(1).atTime(schedOut);
+            }
+        } else {
+            expectedStart = m.firstIn.toLocalDate().atTime(schedIn);
+            expectedEnd = m.firstIn.toLocalDate().atTime(schedOut);
+        }
+
+        // 2. Lateness
+        if (m.firstIn.isAfter(expectedStart.plusMinutes(grace))) {
+            m.lateMins = (int) Duration.between(expectedStart.plusMinutes(grace), m.firstIn).toMinutes();
             m.status = "Late";
         }
 
+        // 3. Early Leaving and Overtime
         if (m.lastOut != null && !m.lastOut.equals(m.firstIn)) {
             if (m.workHours > otThreshold) {
                 m.overtime = m.workHours - otThreshold;
             }
 
-            if (m.lastOut.toLocalTime().isBefore(schedOut) && m.lastOut.toLocalDate().equals(m.firstIn.toLocalDate())) {
-                m.earlyMins = (int) Duration.between(m.lastOut.toLocalTime(), schedOut).toMinutes();
+            if (m.lastOut.isBefore(expectedEnd)) {
+                m.earlyMins = (int) Duration.between(m.lastOut, expectedEnd).toMinutes();
             }
         }
     }

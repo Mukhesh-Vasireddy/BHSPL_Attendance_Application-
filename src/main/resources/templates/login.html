@@ -446,9 +446,42 @@
         }
 
         /* Responsive */
-        @media (max-width: 900px) {
-            .login-card { width: 100vw; height: 100vh; border-radius: 0; }
-            .form-side { padding: 25px; }
+        @media (max-width: 1024px) {
+            body { height: auto !important; min-height: 100vh !important; overflow-y: auto !important; overflow-x: hidden !important; display: block !important; }
+            .login-card { 
+                width: 100% !important; 
+                min-height: 100vh !important; 
+                height: auto !important;
+                border-radius: 0 !important; 
+                flex-direction: column !important;
+                display: flex !important;
+                overflow-x: hidden !important;
+            }
+            .branding-side { padding: 30px 15px !important; flex: none !important; height: auto !important; width: 100% !important; max-width: 100% !important; }
+            .branding-side h1 { font-size: 40px !important; line-height: 1.1 !important; }
+            .branding-side p { font-size: 16px !important; margin-bottom: 10px !important; }
+            .form-side { padding: 30px 15px !important; flex: none !important; height: auto !important; min-height: 50vh !important; width: 100% !important; max-width: 100% !important; }
+            .features-grid { grid-template-columns: 1fr 1fr !important; }
+            .stats-bar { flex-direction: column !important; gap: 15px !important; text-align: center !important; padding: 15px !important; }
+            .stat-item { flex-direction: column !important; text-align: center !important; }
+            .illustration-section { margin-top: 10px !important; text-align: center !important; }
+            .workforce-illustration { 
+                width: 100% !important;
+                max-width: 400px !important; 
+                margin-top: 0 !important; 
+                margin-bottom: 0 !important; 
+                position: static !important;
+            }
+            .floating-icon { font-size: 200px !important; top: -50px !important; left: -50px !important; }
+            .mission-box { flex-direction: column !important; text-align: center !important; }
+        }
+        @media (max-width: 480px) {
+            .branding-side h1 { font-size: 32px !important; }
+            .features-grid { grid-template-columns: 1fr !important; }
+            .logo-text { font-size: 32px !important; }
+            .logo-icon { width: 36px !important; height: 36px !important; }
+            .welcome-text h3 { font-size: 22px !important; }
+            .workforce-illustration { margin-top: 0px !important; }
         }
 
         .help-section {

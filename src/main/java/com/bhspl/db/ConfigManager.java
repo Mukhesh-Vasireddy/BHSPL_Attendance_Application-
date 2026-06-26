@@ -100,6 +100,8 @@ public class ConfigManager {
         p.setProperty(key, value);
         try (FileOutputStream fos = new FileOutputStream(f)) {
             p.store(fos, "BHSPL Attendance Config Update");
-        } catch (IOException ignored) {}
+        } catch (IOException e) {
+            System.err.println("ConfigManager: Failed to write config file - " + e.getMessage());
+        }
     }
 }

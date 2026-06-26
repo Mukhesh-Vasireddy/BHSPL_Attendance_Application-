@@ -19,9 +19,9 @@ public class PushService {
 
     private static HttpServer server;
     private static int PORT = 8081;
-    private static boolean running = false;
-    private static boolean userStopped = false;
-    private static String lastError = null;
+    private static volatile boolean running = false;
+    private static volatile boolean userStopped = false;
+    private static volatile String lastError = null;
 
     public static void start() {
         int port = PORT;
@@ -101,29 +101,29 @@ public class PushService {
     public static void forceStop() {
         try {
             long currentPid = ProcessHandle.current().pid();
-            // Find PID on port 8081 (Windows)
             Process p = Runtime.getRuntime().exec("cmd /c netstat -ano | findstr :" + PORT);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.contains("LISTENING")) {
-                    String[] parts = line.trim().split("\\s+");
-                    String pidStr = parts[parts.length - 1];
-                    long pid = Long.parseLong(pidStr);
-                    
-                    if (pid != currentPid) {
-                        // Kill the external process
-                        Runtime.getRuntime().exec("taskkill /F /PID " + pidStr);
-                        System.out.println("PushService: Forced stop of EXTERNAL process " + pidStr + " on port " + PORT);
-                    } else {
-                        System.out.println("PushService: Current process is holding the port, server.stop() should handle it.");
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.contains("LISTENING")) {
+                        String[] parts = line.trim().split("\\s+");
+                        String pidStr = parts[parts.length - 1];
+                        long pid = Long.parseLong(pidStr);
+                        
+                        if (pid != currentPid) {
+                            System.err.println("PushService WARNING: Port " + PORT + " is occupied by EXTERNAL process PID " + pidStr + ".");
+                            System.err.println("PushService: Automatic taskkill is disabled for safety. Please manually stop PID " + pidStr + " if ADMS cannot start.");
+                        } else {
+                            System.out.println("PushService: Current process is holding the port, server.stop() should handle it.");
+                        }
+                        running = false;
+                        lastError = "Port occupied by PID " + pidStr;
                     }
-                    running = false;
-                    lastError = null;
                 }
             }
+            try (InputStream err = p.getErrorStream()) { err.readAllBytes(); } catch (Exception ignored) {}
         } catch (Exception e) {
-            System.err.println("PushService: Failed to force stop: " + e.getMessage());
+            System.err.println("PushService: Failed to check port status: " + e.getMessage());
         }
     }
 
@@ -135,8 +135,11 @@ public class PushService {
         try {
             // Use OS command to check if port is listening
             Process p = Runtime.getRuntime().exec("cmd /c netstat -ano | findstr LISTENING | findstr :" + PORT);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-            boolean isFound = reader.readLine() != null;
+            boolean isFound;
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()))) {
+                isFound = reader.readLine() != null;
+            }
+            try (InputStream err = p.getErrorStream()) { err.readAllBytes(); } catch (Exception ignored) {}
             if (isFound) lastError = null;
             return isFound;
         } catch (Exception e) {
@@ -302,9 +305,9 @@ public class PushService {
                     System.out.println("PushService: Discarding invalid/failed attempt with UID: " + uid);
                     continue;
                 }
-                int type = parts.length > 2 ? Integer.parseInt(parts[2]) : 0;
-
                 try {
+                    int type = parts.length > 2 ? Integer.parseInt(parts[2]) : 0;
+                    
                     // Clean time string (sometimes they have extra info)
                     if (timeStr.length() > 19) timeStr = timeStr.substring(0, 19);
                     
