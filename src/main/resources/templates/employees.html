@@ -175,6 +175,13 @@
                                     <option value="Inactive">Inactive</option>
                                 </select>
                             </div>
+                            <div>
+                                <label class="form-group-label" style="display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px;">Device Assignment *</label>
+                                <select name="device_id" id="form_device" required class="form-control">
+                                    <option value="0">Unassigned / General</option>
+                                    <option th:each="dev : ${activeDevices}" th:value="${dev['device_id']}" th:text="${dev['device_name'] + ' (SN: ' + dev['serial_number'] + ')'}">Device</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                     
@@ -306,6 +313,7 @@
                     document.getElementById('form_desig').value = emp.designation || emp['designation'] || '';
                     document.getElementById('form_shift').value = emp.shift || emp['shift'] || 'General';
                     document.getElementById('form_status').value = emp.status || emp['status'] || 'Active';
+                    document.getElementById('form_device').value = emp.device_id || emp['device_id'] || '0';
                     document.getElementById('empModal').style.display = 'flex';
                 }
             }

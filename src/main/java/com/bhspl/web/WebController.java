@@ -292,12 +292,12 @@ public class WebController {
                 long totalEmpsVal;
                 if (deviceId != null) {
                     totalEmpsVal = db.queryLong(
-                            "SELECT COUNT(DISTINCT e.emp_id) FROM employees e JOIN raw_logs r ON e.emp_id = r.emp_id WHERE r.device_id = ? AND e.status = 'Active'",
-                            deviceId);
+                            "SELECT COUNT(DISTINCT e.emp_id) FROM employees e WHERE (e.device_id = ? OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id = ?)) AND e.status = 'Active'",
+                            deviceId, deviceId);
                 } else if (!allowedIds.isEmpty()) {
                     totalEmpsVal = db.queryLong(
-                            "SELECT COUNT(DISTINCT e.emp_id) FROM employees e JOIN raw_logs r ON e.emp_id = r.emp_id WHERE r.device_id IN ("
-                                    + allowedIdsStr + ") AND e.status = 'Active'");
+                            "SELECT COUNT(DISTINCT e.emp_id) FROM employees e WHERE (e.device_id IN (" + allowedIdsStr
+                                    + ") OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN (" + allowedIdsStr + "))) AND e.status = 'Active'");
                 } else {
                     totalEmpsVal = db.queryLong("SELECT COUNT(*) FROM employees WHERE status='Active'");
                 }
@@ -321,12 +321,12 @@ public class WebController {
                 long leaveCountVal;
                 if (deviceId != null) {
                     leaveCountVal = db.queryLong(
-                            "SELECT COUNT(DISTINCT l.emp_id) FROM leaves l JOIN employees e ON l.emp_id = e.emp_id JOIN raw_logs r ON e.emp_id = r.emp_id WHERE l.status='Approved' AND ? BETWEEN l.from_date AND l.to_date AND r.device_id = ? AND e.status='Active'",
-                            todayStr, deviceId);
+                            "SELECT COUNT(DISTINCT l.emp_id) FROM leaves l JOIN employees e ON l.emp_id = e.emp_id WHERE l.status='Approved' AND ? BETWEEN l.from_date AND l.to_date AND (e.device_id = ? OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id = ?)) AND e.status='Active'",
+                            todayStr, deviceId, deviceId);
                 } else if (!allowedIds.isEmpty()) {
                     leaveCountVal = db.queryLong(
-                            "SELECT COUNT(DISTINCT l.emp_id) FROM leaves l JOIN employees e ON l.emp_id = e.emp_id JOIN raw_logs r ON e.emp_id = r.emp_id WHERE l.status='Approved' AND ? BETWEEN l.from_date AND l.to_date AND r.device_id IN ("
-                                    + allowedIdsStr + ") AND e.status='Active'",
+                            "SELECT COUNT(DISTINCT l.emp_id) FROM leaves l JOIN employees e ON l.emp_id = e.emp_id WHERE l.status='Approved' AND ? BETWEEN l.from_date AND l.to_date AND (e.device_id IN (" + allowedIdsStr
+                                    + ") OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN (" + allowedIdsStr + "))) AND e.status='Active'",
                             todayStr);
                 } else {
                     leaveCountVal = db.queryLong(
@@ -368,24 +368,24 @@ public class WebController {
                 long pendingLeavesVal;
                 if (deviceId != null) {
                     pendingLeavesVal = db.queryLong(
-                            "SELECT COUNT(DISTINCT l.id) FROM leaves l JOIN employees e ON l.emp_id = e.emp_id JOIN raw_logs r ON e.emp_id = r.emp_id WHERE l.status='Pending' AND r.device_id = ? AND e.status='Active'",
-                            deviceId);
+                            "SELECT COUNT(DISTINCT l.id) FROM leaves l JOIN employees e ON l.emp_id = e.emp_id WHERE l.status='Pending' AND (e.device_id = ? OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id = ?)) AND e.status='Active'",
+                            deviceId, deviceId);
                 } else if (!allowedIds.isEmpty()) {
                     pendingLeavesVal = db.queryLong(
-                            "SELECT COUNT(DISTINCT l.id) FROM leaves l JOIN employees e ON l.emp_id = e.emp_id JOIN raw_logs r ON e.emp_id = r.emp_id WHERE l.status='Pending' AND r.device_id IN ("
-                                    + allowedIdsStr + ") AND e.status='Active'");
+                            "SELECT COUNT(DISTINCT l.id) FROM leaves l JOIN employees e ON l.emp_id = e.emp_id WHERE l.status='Pending' AND (e.device_id IN (" + allowedIdsStr
+                                    + ") OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN (" + allowedIdsStr + "))) AND e.status='Active'");
                 } else {
                     pendingLeavesVal = db.queryLong("SELECT COUNT(*) FROM leaves WHERE status='Pending'");
                 }
                 long weeklyOffCountVal;
                 if (deviceId != null) {
                     weeklyOffCountVal = db.queryLong(
-                            "SELECT COUNT(DISTINCT e.emp_id) FROM employees e LEFT JOIN shifts s ON e.shift = s.shift_name JOIN raw_logs r ON e.emp_id = r.emp_id WHERE (s.weekly_off1 = ? OR s.weekly_off2 = ?) AND r.device_id = ? AND e.status='Active'",
-                            dayName, dayName, deviceId);
+                            "SELECT COUNT(DISTINCT e.emp_id) FROM employees e LEFT JOIN shifts s ON e.shift = s.shift_name WHERE (s.weekly_off1 = ? OR s.weekly_off2 = ?) AND (e.device_id = ? OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id = ?)) AND e.status='Active'",
+                            dayName, dayName, deviceId, deviceId);
                 } else if (!allowedIds.isEmpty()) {
                     weeklyOffCountVal = db.queryLong(
-                            "SELECT COUNT(DISTINCT e.emp_id) FROM employees e LEFT JOIN shifts s ON e.shift = s.shift_name JOIN raw_logs r ON e.emp_id = r.emp_id WHERE (s.weekly_off1 = ? OR s.weekly_off2 = ?) AND r.device_id IN ("
-                                    + allowedIdsStr + ") AND e.status='Active'",
+                            "SELECT COUNT(DISTINCT e.emp_id) FROM employees e LEFT JOIN shifts s ON e.shift = s.shift_name WHERE (s.weekly_off1 = ? OR s.weekly_off2 = ?) AND (e.device_id IN (" + allowedIdsStr
+                                    + ") OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN (" + allowedIdsStr + "))) AND e.status='Active'",
                             dayName, dayName);
                 } else {
                     weeklyOffCountVal = db.queryLong(
@@ -933,7 +933,7 @@ public class WebController {
             String where = " WHERE 1=1";
             if (!allowedIds.isEmpty()) {
                 where += " AND (emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN (" + allowedIdsStr
-                        + ")) OR device_id IN (" + allowedIdsStr + "))";
+                        + ")) OR device_id IN (" + allowedIdsStr + ") OR device_id = 0 OR device_id IS NULL)";
             }
 
             String orderBy = "emp_name";
@@ -1030,6 +1030,13 @@ public class WebController {
             String desig = params.get("designation");
             String shift = params.get("shift");
             String status = params.get("status");
+            String deviceIdStr = params.get("device_id");
+            int deviceId = 0;
+            if (deviceIdStr != null && !deviceIdStr.isEmpty()) {
+                try {
+                    deviceId = Integer.parseInt(deviceIdStr);
+                } catch (NumberFormatException ignored) {}
+            }
 
             if (empId == null || !empId.matches("\\d+")) {
                 System.err.println("WebController: Invalid non-numeric Employee ID rejected: " + empId);
@@ -1038,17 +1045,18 @@ public class WebController {
 
             if ("false".equals(isEdit)) {
                 db.execute(
-                        "INSERT INTO employees (emp_id, emp_name, department, designation, shift, status) VALUES (?,?,?,?,?,?)",
-                        empId, name, dept, desig, shift, status);
+                        "INSERT INTO employees (emp_id, emp_name, department, designation, shift, status, device_id) VALUES (?,?,?,?,?,?,?)",
+                        empId, name, dept, desig, shift, status, deviceId);
                 logActivity(session, request, "Create Employee", "Employee Directory",
-                        "Created employee " + name + " (ID: " + empId + ")");
+                        "Created employee " + name + " (ID: " + empId + ", Device ID: " + deviceId + ")");
             } else {
                 db.execute(
-                        "UPDATE employees SET emp_name=?, department=?, designation=?, shift=?, status=? WHERE emp_id=?",
-                        name, dept, desig, shift, status, empId);
+                        "UPDATE employees SET emp_name=?, department=?, designation=?, shift=?, status=?, device_id=? WHERE emp_id=?",
+                        name, dept, desig, shift, status, deviceId, empId);
                 logActivity(session, request, "Edit Employee", "Employee Directory",
-                        "Updated employee " + name + " (ID: " + empId + ")");
+                        "Updated employee " + name + " (ID: " + empId + ", Device ID: " + deviceId + ")");
             }
+            CacheManager.getInstance().clear();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -1772,8 +1780,8 @@ public class WebController {
 
             String employeeDeviceFilter = "";
             if (reqDeviceId != null) {
-                employeeDeviceFilter = " AND e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id = "
-                        + reqDeviceId + ") ";
+                employeeDeviceFilter = " AND (e.device_id = " + reqDeviceId + " OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id = "
+                        + reqDeviceId + ")) ";
             } else if (!allowedIds.isEmpty()) {
                 employeeDeviceFilter = " AND (e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN ("
                         + allowedIdsStr + ")) OR e.device_id IN (" + allowedIdsStr + ")) ";
@@ -2180,7 +2188,8 @@ public class WebController {
             String empSql = "SELECT e.emp_id, e.emp_name, e.department FROM employees e WHERE 1=1";
             List<Object> empParams = new ArrayList<>();
             if (reqDeviceId != null) {
-                empSql += " AND e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id = ?)";
+                empSql += " AND (e.device_id = ? OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id = ?))";
+                empParams.add(reqDeviceId);
                 empParams.add(reqDeviceId);
             } else if (!allowedIds.isEmpty()) {
                 empSql += " AND (e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN (" + allowedIdsStr
@@ -2657,7 +2666,8 @@ public class WebController {
             String countSql = "SELECT COUNT(*) FROM employees WHERE 1=1";
             List<Object> params = new ArrayList<>();
             if (reqDeviceId != null) {
-                countSql += " AND emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id = ?)";
+                countSql += " AND (device_id = ? OR emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id = ?))";
+                params.add(reqDeviceId);
                 params.add(reqDeviceId);
             } else if (!allowedIds.isEmpty()) {
                 countSql += " AND (emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN (" + allowedIdsStr
@@ -2682,7 +2692,8 @@ public class WebController {
             String empSql = "SELECT emp_id, emp_name, designation, department FROM employees WHERE 1=1";
             List<Object> empParams = new ArrayList<>();
             if (reqDeviceId != null) {
-                empSql += " AND emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id = ?)";
+                empSql += " AND (device_id = ? OR emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id = ?))";
+                empParams.add(reqDeviceId);
                 empParams.add(reqDeviceId);
             } else if (!allowedIds.isEmpty()) {
                 empSql += " AND (emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN (" + allowedIdsStr
@@ -3153,7 +3164,8 @@ public class WebController {
             params.add(t);
 
             if (reqDeviceId != null) {
-                where += " AND e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id = ?)";
+                where += " AND (e.device_id = ? OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id = ?))";
+                params.add(reqDeviceId);
                 params.add(reqDeviceId);
             } else if (!allowedIds.isEmpty()) {
                 where += " AND (e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN (" + allowedIdsStr
