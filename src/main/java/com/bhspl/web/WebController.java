@@ -297,7 +297,8 @@ public class WebController {
                 } else if (!allowedIds.isEmpty()) {
                     totalEmpsVal = db.queryLong(
                             "SELECT COUNT(DISTINCT e.emp_id) FROM employees e WHERE (e.device_id IN (" + allowedIdsStr
-                                    + ") OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN (" + allowedIdsStr + "))) AND e.status = 'Active'");
+                                    + ") OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN ("
+                                    + allowedIdsStr + "))) AND e.status = 'Active'");
                 } else {
                     totalEmpsVal = db.queryLong("SELECT COUNT(*) FROM employees WHERE status='Active'");
                 }
@@ -325,8 +326,10 @@ public class WebController {
                             todayStr, deviceId, deviceId);
                 } else if (!allowedIds.isEmpty()) {
                     leaveCountVal = db.queryLong(
-                            "SELECT COUNT(DISTINCT l.emp_id) FROM leaves l JOIN employees e ON l.emp_id = e.emp_id WHERE l.status='Approved' AND ? BETWEEN l.from_date AND l.to_date AND (e.device_id IN (" + allowedIdsStr
-                                    + ") OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN (" + allowedIdsStr + "))) AND e.status='Active'",
+                            "SELECT COUNT(DISTINCT l.emp_id) FROM leaves l JOIN employees e ON l.emp_id = e.emp_id WHERE l.status='Approved' AND ? BETWEEN l.from_date AND l.to_date AND (e.device_id IN ("
+                                    + allowedIdsStr
+                                    + ") OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN ("
+                                    + allowedIdsStr + "))) AND e.status='Active'",
                             todayStr);
                 } else {
                     leaveCountVal = db.queryLong(
@@ -372,8 +375,10 @@ public class WebController {
                             deviceId, deviceId);
                 } else if (!allowedIds.isEmpty()) {
                     pendingLeavesVal = db.queryLong(
-                            "SELECT COUNT(DISTINCT l.id) FROM leaves l JOIN employees e ON l.emp_id = e.emp_id WHERE l.status='Pending' AND (e.device_id IN (" + allowedIdsStr
-                                    + ") OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN (" + allowedIdsStr + "))) AND e.status='Active'");
+                            "SELECT COUNT(DISTINCT l.id) FROM leaves l JOIN employees e ON l.emp_id = e.emp_id WHERE l.status='Pending' AND (e.device_id IN ("
+                                    + allowedIdsStr
+                                    + ") OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN ("
+                                    + allowedIdsStr + "))) AND e.status='Active'");
                 } else {
                     pendingLeavesVal = db.queryLong("SELECT COUNT(*) FROM leaves WHERE status='Pending'");
                 }
@@ -384,8 +389,10 @@ public class WebController {
                             dayName, dayName, deviceId, deviceId);
                 } else if (!allowedIds.isEmpty()) {
                     weeklyOffCountVal = db.queryLong(
-                            "SELECT COUNT(DISTINCT e.emp_id) FROM employees e LEFT JOIN shifts s ON e.shift = s.shift_name WHERE (s.weekly_off1 = ? OR s.weekly_off2 = ?) AND (e.device_id IN (" + allowedIdsStr
-                                    + ") OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN (" + allowedIdsStr + "))) AND e.status='Active'",
+                            "SELECT COUNT(DISTINCT e.emp_id) FROM employees e LEFT JOIN shifts s ON e.shift = s.shift_name WHERE (s.weekly_off1 = ? OR s.weekly_off2 = ?) AND (e.device_id IN ("
+                                    + allowedIdsStr
+                                    + ") OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN ("
+                                    + allowedIdsStr + "))) AND e.status='Active'",
                             dayName, dayName);
                 } else {
                     weeklyOffCountVal = db.queryLong(
@@ -1035,7 +1042,8 @@ public class WebController {
             if (deviceIdStr != null && !deviceIdStr.isEmpty()) {
                 try {
                     deviceId = Integer.parseInt(deviceIdStr);
-                } catch (NumberFormatException ignored) {}
+                } catch (NumberFormatException ignored) {
+                }
             }
 
             if (empId == null || !empId.matches("\\d+")) {
@@ -1086,7 +1094,8 @@ public class WebController {
             }
             String fileExt = origName.substring(origName.lastIndexOf(".")).toLowerCase();
             if (!fileExt.equals(".jpg") && !fileExt.equals(".jpeg") && !fileExt.equals(".png")) {
-                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Only JPG and PNG files are allowed"));
+                return ResponseEntity.badRequest()
+                        .body(Map.of("success", false, "message", "Only JPG and PNG files are allowed"));
             }
             String fileName = empId + "_" + UUID.randomUUID().toString().substring(0, 8) + fileExt;
             Path targetLocation = uploadDir.resolve(fileName).normalize();
@@ -1780,7 +1789,8 @@ public class WebController {
 
             String employeeDeviceFilter = "";
             if (reqDeviceId != null) {
-                employeeDeviceFilter = " AND (e.device_id = " + reqDeviceId + " OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id = "
+                employeeDeviceFilter = " AND (e.device_id = " + reqDeviceId
+                        + " OR e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id = "
                         + reqDeviceId + ")) ";
             } else if (!allowedIds.isEmpty()) {
                 employeeDeviceFilter = " AND (e.emp_id IN (SELECT DISTINCT emp_id FROM raw_logs WHERE device_id IN ("
@@ -2083,7 +2093,8 @@ public class WebController {
                     "SELECT COUNT(*) FROM attendance a JOIN employees e ON a.emp_id = e.emp_id " + where,
                     params.toArray());
             int totalPages = (int) Math.ceil((double) totalRecords / pageSize);
-            if (totalPages == 0) totalPages = 1;
+            if (totalPages == 0)
+                totalPages = 1;
 
             List<Map<String, Object>> depts = db.query("SELECT dept_name FROM departments WHERE status='Active'");
             model.addAttribute("depts", depts);
@@ -2598,7 +2609,11 @@ public class WebController {
         if (isUserRestricted(session)) {
             model.addAttribute("noDevicesAssigned", true);
             String selM = String.format("%02d", java.time.LocalDate.now().getMonthValue());
-            try { if (month != null) selM = String.format("%02d", Integer.parseInt(month)); } catch(Exception ignored) {}
+            try {
+                if (month != null)
+                    selM = String.format("%02d", Integer.parseInt(month));
+            } catch (Exception ignored) {
+            }
             model.addAttribute("selMonth", selM);
             model.addAttribute("selYear", year != null ? year : String.valueOf(java.time.LocalDate.now().getYear()));
             model.addAttribute("selDept", dept != null ? dept : "All");
@@ -2642,9 +2657,12 @@ public class WebController {
             int curM = today.getMonthValue();
             int curY = today.getYear();
             try {
-                if (month != null) curM = Integer.parseInt(month);
-                if (year != null) curY = Integer.parseInt(year);
-            } catch (Exception ignored) {}
+                if (month != null)
+                    curM = Integer.parseInt(month);
+                if (year != null)
+                    curY = Integer.parseInt(year);
+            } catch (Exception ignored) {
+            }
             String reportType = (type != null) ? type : "PA";
 
             java.time.YearMonth yearMonth = java.time.YearMonth.of(curY, curM);
@@ -2966,14 +2984,14 @@ public class WebController {
             String deviceFilter = "";
             List<Object> params = new ArrayList<>();
             params.add(empId);
-            
+
             if (deviceId != null) {
                 deviceFilter = " AND r.device_id=? ";
                 params.add(deviceId);
             } else if (!allowedIds.isEmpty()) {
                 deviceFilter = " AND r.device_id IN (" + allowedIdsStr + ") ";
             }
-            
+
             params.add(startRange);
             params.add(endRange);
 
@@ -4068,7 +4086,11 @@ public class WebController {
             String status = params.get("status");
 
             double daysVal = 0;
-            try { if (days != null && !days.isEmpty()) daysVal = Double.parseDouble(days); } catch (Exception ignored) {}
+            try {
+                if (days != null && !days.isEmpty())
+                    daysVal = Double.parseDouble(days);
+            } catch (Exception ignored) {
+            }
             int yr = java.time.LocalDate.parse(from).getYear();
 
             if (id == null || id.isEmpty()) {
@@ -5034,7 +5056,8 @@ public class WebController {
 
             users = db.query(
                     "SELECT id, username, role, emp_id, status, last_login, allowed_devices, allowed_modules FROM users"
-                            + where + " ORDER BY username LIMIT " + pageSize + " OFFSET " + offset, params.toArray());
+                            + where + " ORDER BY username LIMIT " + pageSize + " OFFSET " + offset,
+                    params.toArray());
 
             List<Map<String, Object>> activeDevices;
             if (!allowedIds.isEmpty()) {

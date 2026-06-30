@@ -63,55 +63,21 @@ public class AttendanceCalculator {
 
         // 2. Break Calculation
         long breakSeconds = 0;
-        LocalDateTime breakStartTime = null;
 
-        boolean hasExplicitTypes = false;
-        for (Map<String, Object> p : filtered) {
-            int type = (int) p.get("type");
-            if (type != 0) {
-                hasExplicitTypes = true;
-                break;
-            }
-        }
-
-        if (hasExplicitTypes) {
-            // State-Based Break Calculation (when explicit types exist)
-            for (int i = 0; i < filtered.size() - 1; i++) {
-                Map<String, Object> p = filtered.get(i);
-                LocalDateTime t = (LocalDateTime) p.get("time");
-                int type = (int) p.get("type");
-
-                if (type != 0 && breakStartTime == null) {
-                    breakStartTime = t; // Start of break
-                } else if (type == 0 && breakStartTime != null) {
-                    long gapSecs = Duration.between(breakStartTime, t).getSeconds();
-                    if (gapSecs > 0) {
-                        breakSeconds += gapSecs;
-                        Map<String, Object> interval = new java.util.HashMap<>();
-                        interval.put("start", breakStartTime);
-                        interval.put("end", t);
-                        interval.put("duration", gapSecs);
-                        m.breakIntervals.add(interval);
-                    }
-                    breakStartTime = null; // End of break
-                }
-            }
-        } else {
-            // Alternating Punch Sequence (when all punches are type = 0)
-            // Punch 1 to Punch 2 = Work, Punch 2 to Punch 3 = Break, Punch 3 to Punch 4 = Work, etc.
-            // Under this pattern: Break intervals are between odd indices and their subsequent even indices.
-            for (int i = 1; i < filtered.size() - 1; i += 2) {
-                LocalDateTime startBreak = (LocalDateTime) filtered.get(i).get("time");
-                LocalDateTime endBreak = (LocalDateTime) filtered.get(i + 1).get("time");
-                long gapSecs = Duration.between(startBreak, endBreak).getSeconds();
-                if (gapSecs > 0) {
-                    breakSeconds += gapSecs;
-                    Map<String, Object> interval = new java.util.HashMap<>();
-                    interval.put("start", startBreak);
-                    interval.put("end", endBreak);
-                    interval.put("duration", gapSecs);
-                    m.breakIntervals.add(interval);
-                }
+        // Alternating Punch Sequence (Strict)
+        // Punch 1 to Punch 2 = Work, Punch 2 to Punch 3 = Break, Punch 3 to Punch 4 = Work, etc.
+        // Under this pattern: Break intervals are between odd indices and their subsequent even indices.
+        for (int i = 1; i < filtered.size() - 1; i += 2) {
+            LocalDateTime startBreak = (LocalDateTime) filtered.get(i).get("time");
+            LocalDateTime endBreak = (LocalDateTime) filtered.get(i + 1).get("time");
+            long gapSecs = Duration.between(startBreak, endBreak).getSeconds();
+            if (gapSecs > 0) {
+                breakSeconds += gapSecs;
+                Map<String, Object> interval = new java.util.HashMap<>();
+                interval.put("start", startBreak);
+                interval.put("end", endBreak);
+                interval.put("duration", gapSecs);
+                m.breakIntervals.add(interval);
             }
         }
         
@@ -132,14 +98,8 @@ public class AttendanceCalculator {
         m.workHours = netSeconds / 3600.0;
         m.duration = totalSeconds / 3600.0;
 
-        if (hasExplicitTypes) {
-            if (breakStartTime != null) {
-                exceptionsList.add("Missing Return Punch");
-            }
-        } else {
-            if (filtered.size() % 2 != 0) {
-                exceptionsList.add("Unpaired Punches");
-            }
+        if (filtered.size() % 2 != 0) {
+            exceptionsList.add("Unpaired Punches");
         }
         
         if (m.lastOut.toLocalDate().equals(m.firstIn.toLocalDate()) && m.workHours > 14.0) {
